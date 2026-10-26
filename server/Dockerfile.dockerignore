@@ -1,0 +1,10 @@
+# BuildKit reads this file for `docker build -f server/Dockerfile .`
+# Send only what the server build needs; never local state or env files.
+*
+!go.mod
+!go.sum
+!internal/contract/**
+!schema/**
+!server/**
+**/*_test.go
+**/.env*
