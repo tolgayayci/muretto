@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { AuthCard, buttonPrimary } from "@/components/auth-card";
 import { Icon } from "@/components/ui";
 import { api } from "@/lib/api";
+import { SignInActions } from "./actions";
 
 export const metadata: Metadata = { title: "Sign in" };
 
-export default function SignInPage() {
+export default function LoginPage() {
   return (
     <AuthCard
       title="Sign in to Muretto"
@@ -21,14 +23,20 @@ export default function SignInPage() {
       }
     >
       <p>See what your team&apos;s agent sessions created, live. Muretto uses GitHub only to know who you are.</p>
-      {/* A plain link: the Go server runs the OAuth redirect and sets the session cookie. */}
-      <a href={api.signInURL()} className={`${buttonPrimary} mt-6`}>
-        <Icon name="github" /> Continue with GitHub
-      </a>
+      {/* The static shell links to the default destination; the client part adds return_to and errors. */}
+      <Suspense
+        fallback={
+          <a href={api.signInURL()} className={`${buttonPrimary} mt-6`}>
+            <Icon name="github" /> Continue with GitHub
+          </a>
+        }
+      >
+        <SignInActions dev={process.env.NODE_ENV === "development"} />
+      </Suspense>
       <ul className="mt-6 flex flex-col gap-2 text-xs text-faint">
         <li className="flex gap-2">
           <Icon name="check" className="size-3.5 shrink-0 translate-y-0.5 text-accent" />
-          Muretto reads your GitHub login, then discards the GitHub token.
+          No GitHub scopes requested. Muretto reads your public profile, then discards the GitHub token.
         </li>
         <li className="flex gap-2">
           <Icon name="check" className="size-3.5 shrink-0 translate-y-0.5 text-accent" />

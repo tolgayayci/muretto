@@ -5,15 +5,14 @@ import { api, type OrgEvent } from "./api";
 
 export type LiveStatus = "off" | "connecting" | "live" | "reconnecting";
 
-// Named SSE event types the server may use. Unnamed events arrive on onmessage.
-const NAMED = ["session", "resource", "finding", "attribution", "cost", "review", "check"];
-
 /**
  * Subscribes to GET /v1/orgs/{id}/events and calls onEvent for every event.
  *
- * EventSource retries by itself after a dropped connection (sending
- * Last-Event-ID). If the browser gives up (readyState CLOSED, e.g. after a
- * 5xx), we reopen it with exponential backoff, capped at 30 s.
+ * The server sends default `message` events with `id: <seq>` and JSON data
+ * {seq, type, id, developer, at}, plus a heartbeat every 20 s. EventSource
+ * retries by itself after a dropped connection (sending Last-Event-ID, which the
+ * server replays). If the browser gives up (readyState CLOSED, e.g. a 404 for a
+ * non-member or a 5xx), we reopen it with exponential backoff, capped at 30 s.
  */
 export function useOrgEvents(orgId: string | null, onEvent: (e: OrgEvent) => void): LiveStatus {
   const [status, setStatus] = useState<LiveStatus>("off");
@@ -31,20 +30,6 @@ export function useOrgEvents(orgId: string | null, onEvent: (e: OrgEvent) => voi
     let attempt = 0;
     let stopped = false;
 
-    const deliver = (msg: MessageEvent<string>) => {
-      try {
-        const data = JSON.parse(msg.data) as Partial<OrgEvent>;
-        handler.current({
-          type: typeof data.type === "string" ? data.type : msg.type,
-          id: typeof data.id === "string" ? data.id : (msg.lastEventId ?? ""),
-          developer: typeof data.developer === "string" ? data.developer : undefined,
-        });
-      } catch {
-        // Not JSON: still a signal that something changed.
-        handler.current({ type: msg.type, id: msg.lastEventId ?? "" });
-      }
-    };
-
     const open = () => {
       if (stopped) return;
       setStatus(attempt === 0 ? "connecting" : "reconnecting");
@@ -53,8 +38,21 @@ export function useOrgEvents(orgId: string | null, onEvent: (e: OrgEvent) => voi
         attempt = 0;
         setStatus("live");
       };
-      es.onmessage = deliver;
-      for (const name of NAMED) es.addEventListener(name, deliver as EventListener);
+      es.onmessage = (msg: MessageEvent<string>) => {
+        let data: Partial<OrgEvent> = {};
+        try {
+          data = JSON.parse(msg.data) as Partial<OrgEvent>;
+        } catch {
+          // Not JSON: still a signal that something changed.
+        }
+        handler.current({
+          seq: typeof data.seq === "number" ? data.seq : undefined,
+          type: typeof data.type === "string" ? data.type : "message",
+          id: typeof data.id === "string" ? data.id : msg.lastEventId,
+          developer: typeof data.developer === "string" ? data.developer : undefined,
+          at: typeof data.at === "string" ? data.at : undefined,
+        });
+      };
       es.onerror = () => {
         if (!es || es.readyState === EventSource.CONNECTING) {
           setStatus("reconnecting");
@@ -69,12 +67,12 @@ export function useOrgEvents(orgId: string | null, onEvent: (e: OrgEvent) => voi
       };
     };
 
-    open();
+    // Open from a timer so no state is set synchronously in the effect body.
+    retry = setTimeout(open, 0);
     return () => {
       stopped = true;
       clearTimeout(retry);
       es?.close();
-      setStatus("off");
     };
   }, [orgId]);
 

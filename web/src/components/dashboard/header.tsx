@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { Member } from "@/contract";
 import { api, ApiError, type OrgRef } from "@/lib/api";
 import type { LiveStatus } from "@/lib/events";
 import { CopyButton, Icon, SampleBadge, Segmented, Wordmark } from "../ui";
@@ -47,11 +48,11 @@ export function DashboardHeader({
 
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-bg/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:gap-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-2 px-4 sm:gap-4 sm:px-6">
         <Link href="/" className="rounded-md" aria-label="Muretto home">
-          <Wordmark />
+          <Wordmark compact />
         </Link>
-        <span className="h-5 w-px bg-line" aria-hidden="true" />
+        <span className="hidden h-5 w-px bg-line sm:block" aria-hidden="true" />
 
         {orgs.length > 0 ? (
           <label className="relative inline-flex items-center">
@@ -116,13 +117,26 @@ export function DashboardHeader({
 
 function InviteDialog({ org, sample, onClose }: { org: OrgRef; sample: boolean; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [state, setState] = useState<{ kind: "idle" | "busy" | "error"; url?: string; error?: string }>({ kind: "idle" });
+  const [state, setState] = useState<{ kind: "idle" | "busy" | "error"; url?: string; expires?: string; error?: string }>({
+    kind: "idle",
+  });
+  const [members, setMembers] = useState<Member[] | null>(null);
+
+  useEffect(() => {
+    if (sample) return;
+    const ac = new AbortController();
+    api.org(org.id, ac.signal).then(
+      (o) => setMembers(o.members),
+      () => {},
+    );
+    return () => ac.abort();
+  }, [org.id, sample]);
 
   async function create() {
     setState({ kind: "busy" });
     try {
-      const { url } = await api.createInvite(org.id);
-      setState({ kind: "idle", url });
+      const { url, expires_at } = await api.createInvite(org.id);
+      setState({ kind: "idle", url, expires: expires_at });
     } catch (e) {
       setState({ kind: "error", error: e instanceof ApiError ? e.message : "Couldn't create an invite link." });
     }
@@ -151,10 +165,16 @@ function InviteDialog({ org, sample, onClose }: { org: OrgRef; sample: boolean; 
             Sample data: invite links are created by the Muretto server.
           </p>
         ) : state.url ? (
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-sunken py-1 pr-1 pl-3">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs">{state.url}</code>
-            <CopyButton text={state.url} variant="solid" />
-          </div>
+          <>
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-sunken py-1 pr-1 pl-3">
+              <code className="min-w-0 flex-1 truncate font-mono text-xs">{state.url}</code>
+              <CopyButton text={state.url} variant="solid" />
+            </div>
+            <p className="mt-1.5 text-xs text-faint">
+              Single use.
+              {state.expires ? ` Expires ${new Date(state.expires).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}.` : ""}
+            </p>
+          </>
         ) : (
           <button
             type="button"
@@ -169,6 +189,21 @@ function InviteDialog({ org, sample, onClose }: { org: OrgRef; sample: boolean; 
           <p role="alert" className="mt-3 text-sm text-fg">
             {state.error}
           </p>
+        ) : null}
+        {members && members.length > 0 ? (
+          <div className="mt-5">
+            <h3 className="text-xs font-medium text-muted">Members</h3>
+            <ul className="mt-1.5 divide-y divide-line rounded-lg border border-line text-sm">
+              {members.map((m) => (
+                <li key={m.developer_id} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                  <span className="min-w-0 truncate">
+                    {m.display_name || m.account_login} <span className="font-mono text-xs text-faint">{m.account_login}</span>
+                  </span>
+                  <span className="text-xs text-faint">{m.role}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
         <div className="mt-6 flex justify-end">
           <button

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary } from "@/components/auth-card";
 import { Icon } from "@/components/ui";
-import { api, ApiError, rememberReturnTo } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 type State = { kind: "idle" | "busy" | "signin" } | { kind: "error"; message: string };
 
@@ -15,17 +15,16 @@ export function AcceptInvite({ token }: { token: string }) {
   async function accept() {
     setState({ kind: "busy" });
     try {
-      await api.acceptInvite(token);
+      const org = await api.acceptInvite(token);
       try {
         localStorage.setItem("muretto.scope", "team");
-        localStorage.removeItem("muretto.org");
+        localStorage.setItem("muretto.org", org.id);
       } catch {
-        /* fine */
+        /* not remembered; the dashboard picks the first team */
       }
       router.push("/app");
     } catch (err) {
       if (err instanceof ApiError && err.kind === "unauthorized") {
-        rememberReturnTo(`/join/${encodeURIComponent(token)}`);
         setState({ kind: "signin" });
       } else if (err instanceof ApiError && (err.kind === "invalid" || err.kind === "not_found")) {
         setState({ kind: "error", message: "This invite link is invalid, used or expired. Ask for a new one." });
@@ -40,8 +39,8 @@ export function AcceptInvite({ token }: { token: string }) {
   if (state.kind === "signin") {
     return (
       <div className="mt-4">
-        <p>Sign in with GitHub first. We&apos;ll bring you back to this invite.</p>
-        <a href={api.signInURL()} className={`${buttonPrimary} mt-5`}>
+        <p>Sign in with GitHub first. You&apos;ll come straight back to this invite.</p>
+        <a href={api.signInURL(`/join/${encodeURIComponent(token)}`)} className={`${buttonPrimary} mt-5`}>
           <Icon name="github" /> Continue with GitHub
         </a>
       </div>
@@ -56,7 +55,7 @@ export function AcceptInvite({ token }: { token: string }) {
       </p>
       {state.kind === "error" ? (
         <p role="alert" className="mt-3 flex items-center gap-1.5 text-sm text-fg">
-          <Icon name="alert" className="size-4 text-muted" /> {state.message}
+          <Icon name="alert" className="size-4 shrink-0 text-muted" /> {state.message}
         </p>
       ) : null}
       <button type="button" onClick={accept} disabled={state.kind === "busy"} className={`${buttonPrimary} mt-5`}>

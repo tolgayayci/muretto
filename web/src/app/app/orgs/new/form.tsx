@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { buttonPrimary, inputClass } from "@/components/auth-card";
 import { Icon } from "@/components/ui";
-import { api, ApiError, rememberReturnTo } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 
 export function CreateOrgForm() {
   const router = useRouter();
@@ -33,8 +33,7 @@ export function CreateOrgForm() {
     } catch (err) {
       setBusy(false);
       if (err instanceof ApiError && err.kind === "unauthorized") {
-        rememberReturnTo("/app/orgs/new");
-        router.push("/signin");
+        router.push("/login?return_to=/app/orgs/new");
       } else {
         setError(err instanceof ApiError && err.kind === "unreachable" ? "Can't reach the Muretto server." : (err as Error).message);
       }

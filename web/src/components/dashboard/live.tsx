@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Answer } from "@/contract";
-import { api, ApiError, takeReturnTo, type Me } from "@/lib/api";
+import { api, ApiError, type Me } from "@/lib/api";
 import { useOrgEvents } from "@/lib/events";
 import { ClockProvider } from "../clock";
 import { Board, type Scope } from "./board";
@@ -46,11 +46,6 @@ export function LiveDashboard() {
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
-      const back = takeReturnTo();
-      if (back && back !== "/app") {
-        router.replace(back);
-        return;
-      }
       try {
         const m = await api.me(ac.signal);
         const stored = read(ORG_KEY);
@@ -62,7 +57,7 @@ export function LiveDashboard() {
       } catch (e) {
         if (ac.signal.aborted) return;
         if (e instanceof ApiError && e.kind === "unauthorized") {
-          router.replace("/signin");
+          router.replace("/login?return_to=/app");
         } else if (e instanceof ApiError && e.kind === "unreachable") {
           setPhase("unreachable");
         } else {
@@ -86,7 +81,7 @@ export function LiveDashboard() {
         },
         (e: unknown) => {
           if (signal?.aborted) return;
-          if (e instanceof ApiError && e.kind === "unauthorized") router.replace("/signin");
+          if (e instanceof ApiError && e.kind === "unauthorized") router.replace("/login?return_to=/app");
           else
             setProblem(
               e instanceof ApiError && e.kind === "unreachable" ? "Lost contact with the server. Retrying." : (e as Error).message,

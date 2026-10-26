@@ -18,6 +18,9 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    return [{ source: "/signin", destination: "/login", permanent: false }];
+  },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${apiURL}/:path*` }];
   },
