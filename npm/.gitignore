@@ -1,0 +1,5 @@
+# Filled in by scripts/assemble.mjs at release time; never committed.
+.dist/
+muretto-*/bin/
+*/LICENSE
+*.tgz
