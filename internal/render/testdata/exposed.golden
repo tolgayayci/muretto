@@ -1,0 +1,16 @@
+3 exposed · checked 3 min ago
+
+  critical table      customers        ⚠ RLS off: publicly readable
+    Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it. · session 8f2a (alice)
+    → muretto fix customers
+
+  high     bucket     customer-files   ⚠ public
+    Anyone with a file URL can download objects from this bucket. · session 8f2a (alice)
+    → muretto fix customer-files
+
+  medium   deployment preview-a81f     ⚠ public preview
+    Deployment protection is off for this project, so the preview URL is reachable by anyone. · session 8f2a (alice)
+    Caveat: Protection exceptions are not visible to the API.
+    → muretto fix preview-a81f
+
+  ! 1 session was seen only in transcripts (hooks did not run); their evidence may be incomplete.  → muretto doctor

@@ -1,0 +1,13 @@
+Muretto · alice · checked 3 min ago
+
+  5 agent-created resources · 5 still exist · 3 exposed · 1 needs review
+  3 resources with creator unknown
+
+  Recent sessions
+  e7e0  today 11:00         alice     look around the projects                    0 created
+  b0b5  today 09:15         bob       prototype orders table                      0 created
+  8f2a  Oct 19 14:02        alice     add customer import with file uploads       5 created · 3 exposed · 1 review due
+
+  → muretto exposed   → muretto session 8f2a   → muretto resources
+
+  ! 1 session was seen only in transcripts (hooks did not run); their evidence may be incomplete.  → muretto doctor

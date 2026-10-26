@@ -1,0 +1,232 @@
+# Supabase attribution scenarios. All refs, ids and names are fake.
+# projaaaaaaaaaaaaaaaa and projbbbbbbbbbbbbbbbb are two projects in org org-fake.
+
+=== MCP create_project: ref in result gives exact
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:05 tool=mcp__supabase__create_project
+  created supabase.project value=projaaaaaaaaaaaaaaaa sig=supabase.mcp.create_project
+resource supabase.project:projaaaaaaaaaaaaaaaa name=waitlist account=org-fake created=10:04
+expect supabase.project:projaaaaaaaaaaaaaaaa exact s1 id_in_result
+
+=== CLI projects create: ref in dashboard URL gives exact
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:06 tool=Bash
+  created supabase.project value=projaaaaaaaaaaaaaaaa sig=supabase.cli.projects_create
+resource supabase.project:projaaaaaaaaaaaaaaaa name=waitlist account=org-fake created=10:05
+expect supabase.project:projaaaaaaaaaaaaaaaa exact s1 id_in_result
+
+=== MCP apply_migration with project_id: table named in its container
+# apply_migration returns only {"success": true}; the project comes from the input.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa sig=supabase.mcp.apply_migration
+resource supabase.project:projaaaaaaaaaaaaaaaa name=import-dev account=org-fake created=d-0/08:00
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.customers name=customers account=org-fake parent=supabase.project:projaaaaaaaaaaaaaaaa seen=advisor
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.customers exact s1 name_in_container
+
+=== same table name from two sessions in one project
+session s1 start=10:00
+session s2 start=11:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__execute_sql
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+action toolu_b1 session=s2 at=11:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.customers name=customers seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.customers unknown
+
+=== same table name from two sessions in different projects
+session s1 start=10:00
+session s2 start=11:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+action toolu_b1 session=s2 at=11:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.customers container=projbbbbbbbbbbbbbbbb
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.customers name=customers seen=advisor
+resource supabase.table:projbbbbbbbbbbbbbbbb/public.customers name=customers seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.customers exact s1 name_in_container
+expect supabase.table:projbbbbbbbbbbbbbbbb/public.customers exact s2 name_in_container
+
+=== CLI db push with no ref printed: no container, so no match
+# supabase db push prints "Applying migration ..." but never the ref. Without
+# --project-ref in the command, the target project is unknown.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created supabase.table value=public.orders sig=supabase.cli.db_push
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.orders name=orders seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.orders unknown
+expect-evidence-only supabase.table:public.orders session=s1
+
+=== CLI db push with --project-ref in the command
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created supabase.table value=public.orders container=projaaaaaaaaaaaaaaaa sig=supabase.cli.db_push
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.orders name=orders seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.orders exact s1 name_in_container
+
+=== unscoped db push in another session makes a named table ambiguous
+# s2 pushed a migration creating public.orders to an unknown project; it may
+# have been this one, so s1's name match is not enough.
+session s1 start=10:00
+session s2 start=09:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.orders container=projaaaaaaaaaaaaaaaa
+action toolu_b1 session=s2 at=09:10 tool=Bash
+  created supabase.table value=public.orders sig=supabase.cli.db_push
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.orders name=orders seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.orders unknown
+expect-evidence-only supabase.table:public.orders session=s2
+
+=== table created by a session but not listable (catalog read off)
+# No list endpoint for tables without the opt-in: evidence only, unconfirmed.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.invoices container=projaaaaaaaaaaaaaaaa
+resource supabase.project:projaaaaaaaaaaaaaaaa name=billing account=org-fake created=09:00
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect-evidence-only supabase.table:projaaaaaaaaaaaaaaaa/public.invoices session=s1
+
+=== bucket created through SQL insert into storage.buckets
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
+  created supabase.bucket value=customer-files container=projaaaaaaaaaaaaaaaa sig=supabase.sql.insert_bucket
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/customer-files name=customer-files parent=supabase.project:projaaaaaaaaaaaaaaaa created=10:19
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/customer-files exact s1 name_in_container
+
+=== bucket that existed before the session (dashboard), session ran insert ... on conflict do nothing
+# Provider created_at is a day older than the session: veto.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
+  created supabase.bucket value=avatars container=projaaaaaaaaaaaaaaaa
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/avatars name=avatars created=d-1/09:00
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/avatars unknown
+
+=== bucket created a few seconds before the hook fired is not vetoed
+# The action time is when the tool finished; created_at can be slightly earlier.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
+  created supabase.bucket value=uploads container=projaaaaaaaaaaaaaaaa
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/uploads name=uploads created=10:18
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/uploads exact s1 name_in_container
+
+=== bucket deleted then recreated manually (gap seen by a scan)
+# The session created it at 10:20; a scan at 12:00 saw it gone; a human
+# recreated it later. gone_at after the session's action vetoes the match.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
+  created supabase.bucket value=exports container=projaaaaaaaaaaaaaaaa
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/exports name=exports gone=12:00 existence=confirmed
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/exports unknown
+
+=== bucket deleted then recreated manually (provider created_at later)
+# Recreated a day later in the dashboard; created_at is after the action, which
+# timing must never turn into a veto or a match on its own, but the scan-recorded
+# disappearance does.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
+  created supabase.bucket value=reports container=projaaaaaaaaaaaaaaaa
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/reports name=reports created=d1/09:00 gone=d1/08:00
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/reports unknown
+
+=== resource the session created that is now gone keeps its attribution
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__deploy_edge_function
+  created supabase.function value=projaaaaaaaaaaaaaaaa/process-import
+resource supabase.function:projaaaaaaaaaaaaaaaa/process-import name=process-import existence=gone gone=d1/10:00 created=10:19
+expect supabase.function:projaaaaaaaaaaaaaaaa/process-import exact s1 id_in_result
+
+=== edge function from CLI: "Deployed Functions on project <ref>: <slug>"
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:30 tool=Bash
+  created supabase.function value=stripe-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook name=stripe-webhook created=10:29
+expect supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook exact s1 name_in_container
+
+=== redeploying an existing function is not creating it
+# created_at long before the session: the session updated it, it did not create it.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:30 tool=Bash
+  created supabase.function value=stripe-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook name=stripe-webhook created=d-5/10:00
+expect supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook unknown
+
+=== branch from MCP create_branch: branch ref in result
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:40 tool=mcp__supabase__create_branch
+  created supabase.branch value=brchaaaaaaaaaaaaaaaa
+resource supabase.branch:brchaaaaaaaaaaaaaaaa name=import-test parent=supabase.project:projaaaaaaaaaaaaaaaa created=10:39
+expect supabase.branch:brchaaaaaaaaaaaaaaaa exact s1 id_in_result
+
+=== session that only listed projects
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:05 tool=mcp__supabase__list_projects
+  referenced supabase.project value=projaaaaaaaaaaaaaaaa
+  referenced supabase.project value=projbbbbbbbbbbbbbbbb
+resource supabase.project:projaaaaaaaaaaaaaaaa name=one
+resource supabase.project:projbbbbbbbbbbbbbbbb name=two
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect supabase.project:projbbbbbbbbbbbbbbbb unknown
+
+=== session that read a table with select
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:05 tool=mcp__supabase__execute_sql
+  referenced supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.customers name=customers seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.customers unknown
+
+=== manual dashboard creation: nobody created it
+resource supabase.project:projaaaaaaaaaaaaaaaa name=prod account=org-fake created=d-30/09:00
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/public-assets name=public-assets created=d-20/09:00
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/public-assets unknown
+
+=== failed apply_migration naming a table is not enough
+# The only creating action for the name failed (e.g. relation already exists).
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration status=error
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.customers name=customers seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.customers unknown
+
+=== failed then successful migration in the same session
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration status=error
+  created supabase.table value=public.leads container=projaaaaaaaaaaaaaaaa
+action toolu_a2 session=s1 at=10:12 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.leads container=projaaaaaaaaaaaaaaaa
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.leads name=leads seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.leads exact s1 name_in_container
+
+=== subagent creates a bucket: attributed to the parent session
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:25 tool=mcp__supabase__execute_sql agent=a0fake0agent00001
+  created supabase.bucket value=thumbnails container=projaaaaaaaaaaaaaaaa
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/thumbnails name=thumbnails created=10:24
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/thumbnails exact s1 name_in_container
+
+=== container given as the project name, not the ref
+# Container matching accepts the parent's name.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:25 tool=Bash
+  created supabase.bucket value=media container=import-dev
+resource supabase.project:projaaaaaaaaaaaaaaaa name=import-dev account=org-fake created=d-3/09:00
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/media name=media parent=supabase.project:projaaaaaaaaaaaaaaaa created=10:24
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/media exact s1 name_in_container
+
+=== project name that exists in two projects of the container is ambiguous
+# Container is the org; two projects share the name "staging".
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:25 tool=Bash
+  created supabase.project value=staging container=org-fake
+resource supabase.project:projaaaaaaaaaaaaaaaa name=staging account=org-fake
+resource supabase.project:projbbbbbbbbbbbbbbbb name=staging account=org-fake
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect supabase.project:projbbbbbbbbbbbbbbbb unknown
+
+=== Stripe Projects provisioning without a ref in output
+# "stripe projects add" prints no provider id: nothing to match.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:05 tool=Bash
+resource supabase.project:projaaaaaaaaaaaaaaaa name=shop account=org-fake created=10:04
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown

@@ -1,0 +1,18 @@
+9 resources · checked 3 min ago
+
+  SUPABASE  project acme-dev
+  · project    acme-dev         unknown  creator unknown
+  ✓ table      customers        exact    session 8f2a (alice) · ⚠ RLS off: publicly readable
+  ? table      orders           unknown  seen in session b0b5 (bob) only · not confirmed
+  ✓ bucket     customer-files   exact    session 8f2a (alice) · ⚠ public
+  ✓ function   process-import   exact    session 8f2a (alice)
+  ✓ branch     import-test      exact    session 8f2a (alice)
+
+  SUPABASE
+  · project    acme-prod        unknown  creator unknown
+
+  VERCEL  project acme-web
+  · project    acme-web         unknown  creator unknown
+  ✓ deployment preview-a81f     exact    session 8f2a (alice) · ⚠ public preview
+
+  ! 1 session was seen only in transcripts (hooks did not run); their evidence may be incomplete.  → muretto doctor

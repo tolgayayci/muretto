@@ -1,0 +1,96 @@
+# Provider-independent scenarios: forks, resumes, duplicates, conflicts.
+
+=== fork copies history: the original session keeps the resource
+# --fork-session copies tool_use ids into a new session. Same toolu id twice.
+session s1 start=10:00
+session s2 start=12:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__create_project
+  created supabase.project value=projaaaaaaaaaaaaaaaa
+action toolu_a1 session=s2 at=10:10 tool=mcp__supabase__create_project
+  created supabase.project value=projaaaaaaaaaaaaaaaa
+resource supabase.project:projaaaaaaaaaaaaaaaa name=fork-test created=10:09
+expect supabase.project:projaaaaaaaaaaaaaaaa exact s1 id_in_result
+
+=== fork listed before the original in the input still resolves to the original
+session s2 start=12:00
+session s1 start=10:00
+action toolu_a1 session=s2 at=10:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000010
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000010
+resource vercel.deployment:dpl_FAKEdeploy0000000000000010 name=fork-example-team.vercel.app created=10:09
+expect vercel.deployment:dpl_FAKEdeploy0000000000000010 exact s1 id_in_result
+
+=== forked session then creates its own resource
+session s1 start=10:00
+session s2 start=12:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000011
+action toolu_a1 session=s2 at=10:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000011
+action toolu_b9 session=s2 at=12:30 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000012
+resource vercel.deployment:dpl_FAKEdeploy0000000000000011 name=a-example-team.vercel.app created=10:09
+resource vercel.deployment:dpl_FAKEdeploy0000000000000012 name=b-example-team.vercel.app created=12:29
+expect vercel.deployment:dpl_FAKEdeploy0000000000000011 exact s1 id_in_result
+expect vercel.deployment:dpl_FAKEdeploy0000000000000012 exact s2 id_in_result
+
+=== two different sessions print the same id as created (conflict)
+# Two distinct tool calls both claim creation: never pick one.
+session s1 start=10:00
+session s2 start=11:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created supabase.project value=projaaaaaaaaaaaaaaaa
+action toolu_b1 session=s2 at=11:10 tool=Bash
+  created supabase.project value=projaaaaaaaaaaaaaaaa
+resource supabase.project:projaaaaaaaaaaaaaaaa name=dup created=10:09
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+
+=== resumed session: same session id, later actions
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000013
+action toolu_a2 session=s1 at=d1/09:00 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000014
+resource vercel.deployment:dpl_FAKEdeploy0000000000000013 name=c-example-team.vercel.app created=10:09
+resource vercel.deployment:dpl_FAKEdeploy0000000000000014 name=d-example-team.vercel.app created=d1/08:58
+expect vercel.deployment:dpl_FAKEdeploy0000000000000013 exact s1 id_in_result
+expect vercel.deployment:dpl_FAKEdeploy0000000000000014 exact s1 id_in_result
+
+=== timing alone never attributes
+# A resource appears one minute after a session did unrelated work.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+resource vercel.deployment:dpl_FAKEdeploy0000000000000015 name=e-example-team.vercel.app created=10:11
+expect vercel.deployment:dpl_FAKEdeploy0000000000000015 unknown
+
+=== created identifier of the wrong kind does not match
+# A project ref that equals a branch's ref string under a different kind.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created supabase.project value=brchaaaaaaaaaaaaaaaa
+resource supabase.branch:brchaaaaaaaaaaaaaaaa name=preview created=10:09
+expect supabase.branch:brchaaaaaaaaaaaaaaaa unknown
+expect-evidence-only supabase.project:brchaaaaaaaaaaaaaaaa session=s1
+
+=== evidence-only resource claimed by two sessions
+session s1 start=10:00
+session s2 start=11:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.notes container=projaaaaaaaaaaaaaaaa
+action toolu_b1 session=s2 at=11:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.notes container=projaaaaaaaaaaaaaaaa
+expect-evidence-only supabase.table:projaaaaaaaaaaaaaaaa/public.notes
+
+=== session with no provider actions
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Edit
+resource vercel.project:prj_FAKEproject00000000000009 name=blog account=team_FAKEteam000000000000 created=d-100/10:00
+expect vercel.project:prj_FAKEproject00000000000009 unknown
+
+=== action from a session that is not in the session list
+# Orphaned action (session record missing). It still attributes by id.
+action toolu_a1 session=s9 at=10:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000016
+resource vercel.deployment:dpl_FAKEdeploy0000000000000016 name=f-example-team.vercel.app created=10:09
+expect vercel.deployment:dpl_FAKEdeploy0000000000000016 exact s9 id_in_result

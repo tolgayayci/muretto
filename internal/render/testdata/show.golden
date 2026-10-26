@@ -1,0 +1,21 @@
+table customers  supabase.table:projaaaaaaaaaaaaaaaa/public.customers
+Provider: supabase · account org-fake-acme · in acme-dev
+Status: exists (seen via advisor, last seen 3 min ago)
+Creator: session 8f2a (alice) · exact
+
+Timeline
+  Oct 19 14:02        session 8f2a started: "add customer import with file uploads"
+  Oct 19 14:06        mcp__supabase__apply_migration  projaaaaaaaaaaaaaaaa/public.customers
+  Oct 19 14:40        first seen by Muretto
+  today 14:00         review: keep
+
+Exposure
+  ⚠ RLS off: publicly readable  checked 3 min ago
+
+Cost
+  unknown · no cost data available
+
+Review
+  keep · owner alice
+
+  → muretto why customers   → muretto fix customers

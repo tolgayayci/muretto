@@ -1,0 +1,15 @@
+Session 8f2a · alice · Claude Code · Oct 19 14:02–14:31
+Task: "add customer import with file uploads"
+Repo: acme/web (feat/import)
+
+  SUPABASE  project acme-dev
+  ✓ table      customers        exact   ⚠ RLS off: publicly readable
+  ✓ bucket     customer-files   exact   ⚠ public
+  ✓ function   process-import   exact
+  ✓ branch     import-test      exact   7 days old · review due
+
+  VERCEL  project acme-web
+  ✓ deployment preview-a81f     exact   ⚠ public preview
+
+  3 exposed · 1 needs review · checked 3 min ago
+  → muretto why customers   → muretto fix customers
