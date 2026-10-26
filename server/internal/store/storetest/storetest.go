@@ -223,6 +223,7 @@ func testIngest(t *testing.T, s store.Store) {
 		t.Fatalf("first ingest: %+v %v", res, err)
 	}
 	in.Records = []store.Record{rec("r:1", "aaaa"), rec("r:2", "cccc")}
+	in.Now = t0.Add(time.Hour)
 	res, err = s.Ingest(ctx, in)
 	if err != nil || res.Accepted != 1 || res.Unchanged != 1 || len(res.Events) != 1 {
 		t.Fatalf("second ingest: %+v %v", res, err)
@@ -240,6 +241,15 @@ func testIngest(t *testing.T, s store.Store) {
 	for _, r := range recs {
 		if r.UserID != u.ID {
 			t.Fatalf("record of another user: %+v", r)
+		}
+		// UpdatedAt is when the current rev was received; the team view caps
+		// client timestamps at it (docs/decisions/0505).
+		want := t0
+		if r.Key == "r:2" {
+			want = t0.Add(time.Hour)
+		}
+		if !r.UpdatedAt.Equal(want) {
+			t.Fatalf("record %s updated_at %v, want %v", r.Key, r.UpdatedAt, want)
 		}
 	}
 	both, _ := s.Records(ctx, []string{u.ID, v.ID})
