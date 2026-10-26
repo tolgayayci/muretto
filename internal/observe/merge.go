@@ -44,6 +44,7 @@ func Merge(batches ...Batch) Batch {
 		}
 		out.Files = append(out.Files, b.Files...)
 		out.Warnings = append(out.Warnings, b.Warnings...)
+		out.Ambiguous = append(out.Ambiguous, b.Ambiguous...)
 	}
 
 	// Group actions by tool_use_id, keeping first-seen order.
@@ -61,11 +62,13 @@ func Merge(batches ...Batch) Batch {
 		g := groups[id]
 		win, ambiguous := pickAction(g, sessions)
 		if ambiguous {
+			out.Ambiguous = append(out.Ambiguous, id)
 			out.Warnings = append(out.Warnings, warn("action_owner_ambiguous",
 				fmt.Sprintf("tool call %s appears in %d sessions with identical timing; kept session %s", id, len(g), win.Action.SessionID)))
 		}
 		out.Actions = append(out.Actions, win)
 	}
+	out.Ambiguous = uniqueStrings(out.Ambiguous)
 	for _, id := range order {
 		out.Sessions = append(out.Sessions, *sessions[id])
 	}
@@ -176,4 +179,17 @@ func pickAction(g []RawAction, sessions map[string]*contract.Session) (RawAction
 		}
 	}
 	return win, ambiguous
+}
+
+// uniqueStrings returns ss without duplicates, keeping first-seen order.
+func uniqueStrings(ss []string) []string {
+	seen := make(map[string]bool, len(ss))
+	out := ss[:0]
+	for _, s := range ss {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }

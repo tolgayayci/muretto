@@ -187,6 +187,12 @@ func TestForkFullyIdenticalIsFlagged(t *testing.T) {
 	if len(m.Actions) != 1 || m.Actions[0].Action.SessionID != sessA || !hasWarning(m, "action_owner_ambiguous") {
 		t.Errorf("%+v %v", m.Actions, m.Warnings)
 	}
+	if len(m.Ambiguous) != 1 || m.Ambiguous[0] != bash1 {
+		t.Errorf("Ambiguous = %v, want [%s]", m.Ambiguous, bash1)
+	}
+	if again := Merge(m, m); len(again.Ambiguous) != 1 {
+		t.Errorf("re-merge Ambiguous = %v, want one id", again.Ambiguous)
+	}
 }
 
 func TestHookDecidesForkOwner(t *testing.T) {
@@ -208,7 +214,7 @@ func TestHookDecidesForkOwner(t *testing.T) {
 	if acts[bash1].Action.SessionID != sessB || acts[bash1].Action.Source != "hook" {
 		t.Errorf("owner %s source %s", acts[bash1].Action.SessionID, acts[bash1].Action.Source)
 	}
-	if hasWarning(m, "action_owner_ambiguous") {
+	if hasWarning(m, "action_owner_ambiguous") || len(m.Ambiguous) != 0 {
 		t.Error("hook evidence should remove the ambiguity")
 	}
 }

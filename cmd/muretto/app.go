@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -332,26 +331,6 @@ func (a *app) toStoreActions(s *state, raws []observe.RawAction) []store.Action 
 	return out
 }
 
-// ambiguousActions pulls the tool_use_ids out of observe.Merge's
-// action_owner_ambiguous warnings. (Compiled here, not at package init, to
-// keep `muretto hook` start-up minimal.)
-func ambiguousActions(ws []contract.Warning) []string {
-	var out []string
-	var re *regexp.Regexp
-	for _, w := range ws {
-		if w.Code != "action_owner_ambiguous" {
-			continue
-		}
-		if re == nil {
-			re = regexp.MustCompile(`tool call (\S+) appears in`)
-		}
-		if m := re.FindStringSubmatch(w.Message); m != nil {
-			out = append(out, m[1])
-		}
-	}
-	return out
-}
-
 func (a *app) ingest(ctx context.Context, s *state) {
 	dev := s.cfg.DeveloperID()
 	var batches []observe.Batch
@@ -375,7 +354,7 @@ func (a *app) ingest(ctx context.Context, s *state) {
 	// the commit; a crash in between re-ingests them (SaveBatch is idempotent).
 	m := observe.Merge(batches...)
 	s.warnings = append(s.warnings, m.Warnings...)
-	if err := s.st.SaveBatch(ctx, m.Sessions, a.toStoreActions(s, m.Actions), ambiguousActions(m.Warnings)...); err != nil {
+	if err := s.st.SaveBatch(ctx, m.Sessions, a.toStoreActions(s, m.Actions), m.Ambiguous...); err != nil {
 		a.warn(s, "store_error", "Could not store hook and transcript data: "+err.Error(), "")
 	} else {
 		if len(m.Files) > 0 {

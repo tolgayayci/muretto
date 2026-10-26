@@ -41,6 +41,10 @@ type Batch struct {
 	Actions  []RawAction
 	Files    []string // spool files consumed; delete with Ack only after the store commits
 	Warnings []contract.Warning
+	// Ambiguous lists tool_use_ids that Merge found in two or more sessions with
+	// identical timing. The kept owner is a tie-break, so attribution must treat
+	// resources created by these actions as unknown.
+	Ambiguous []string
 }
 
 const (
