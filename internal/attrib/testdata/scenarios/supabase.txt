@@ -230,3 +230,70 @@ session s1 start=10:00
 action toolu_a1 session=s1 at=10:05 tool=Bash
 resource supabase.project:projaaaaaaaaaaaaaaaa name=shop account=org-fake created=10:04
 expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+
+# ---- Proof of creation (docs/decisions/0406-proof-of-creation.md) ----
+
+=== CREATE TABLE IF NOT EXISTS on an existing advisor table only references it
+# The review's reproduction: the statement succeeds whether or not the table
+# existed, and advisor tables carry no created_at to veto with.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  referenced supabase.table value=public.users container=projaaaaaaaaaaaaaaaa sig=supabase.cli.db_query
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.users name=public.users seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.users unknown
+
+=== bucket upsert (insert ... on conflict) only references the bucket
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
+  referenced supabase.bucket value=avatars container=projaaaaaaaaaaaaaaaa sig=supabase.mcp.sql
+resource supabase.bucket:projaaaaaaaaaaaaaaaa/avatars name=avatars
+expect supabase.bucket:projaaaaaaaaaaaaaaaa/avatars unknown
+
+=== advisor table Muretto listed before the creating action: first-seen veto
+# No provider created_at, but a successful scan at 09:00 already listed it.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__execute_sql
+  created supabase.table value=public.users container=projaaaaaaaaaaaaaaaa sig=supabase.mcp.sql
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.users name=public.users seen=advisor first_seen=09:00
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.users unknown
+
+=== first seen just before the action (within tolerance) is not vetoed
+# A scan can run while the tool call is still finishing; the hook stamps later.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.leads container=projaaaaaaaaaaaaaaaa sig=supabase.mcp.sql
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.leads name=public.leads seen=advisor first_seen=10:05
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.leads exact s1 name_in_container
+
+=== function deploy that only updated a function Muretto already listed
+# supabase functions deploy creates or updates. No created_at here (unit
+# unverified, or missing): Muretto's own earlier scan is the veto.
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:30 tool=Bash
+  created supabase.function value=stripe-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook name=stripe-webhook first_seen=d-1/12:00
+expect supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook unknown
+
+=== function deploy that only updated: MCP deploy_edge_function, provider created_at older
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:30 tool=mcp__supabase__deploy_edge_function
+  created supabase.function value=send-email container=projaaaaaaaaaaaaaaaa sig=supabase.mcp.deploy_edge_function
+resource supabase.function:projaaaaaaaaaaaaaaaa/send-email name=send-email created=d-3/08:00
+expect supabase.function:projaaaaaaaaaaaaaaaa/send-email unknown
+
+=== first function deploy, first listed by a later scan: exact
+session s1 start=10:00
+action toolu_a1 session=s1 at=10:30 tool=Bash
+  created supabase.function value=resize-image container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/resize-image name=resize-image first_seen=11:00
+expect supabase.function:projaaaaaaaaaaaaaaaa/resize-image exact s1 name_in_container
+
+=== seen, then gone, then created again by a session: cannot tell when it came back
+# Muretto listed it at 09:00 and saw it gone at 09:30. It may have come back
+# before the session's 10:00 action (a redeploy then only updated it), and the
+# store keeps no return time, so the label stays unknown.
+session s1 start=09:50
+action toolu_a1 session=s1 at=10:00 tool=Bash
+  created supabase.function value=sync-users container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/sync-users name=sync-users first_seen=09:00 gone=09:30
+expect supabase.function:projaaaaaaaaaaaaaaaa/sync-users unknown

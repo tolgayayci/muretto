@@ -13,8 +13,11 @@
 //     to exactly one resource in that container gives exact, if the creating
 //     action succeeded and no other session created something with that name.
 //   - Provider created_at may veto a match (the resource is older than every
-//     creating action); so may a recorded disappearance after the last
-//     creating action (the resource was recreated). Timing never creates one.
+//     creating action); so may Muretto's own history: a scan that listed it
+//     (first_seen_at) before the earliest creating action means the action
+//     did not create it (docs/decisions/0406-proof-of-creation.md); so may a
+//     recorded disappearance after the last creating action (the resource
+//     was recreated). Timing never creates one.
 //   - Two sessions claiming the same resource give unknown, with the
 //     conflicting evidence listed.
 //   - Referenced identifiers never attribute.
@@ -407,6 +410,14 @@ func decide(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time)
 		att.Reason = fmt.Sprintf("the provider says it was created at %s, before session %s's action at %s, so that session cannot have created it", r.CreatedAt.UTC().Format(time.RFC3339), shortID(sid), earliest.UTC().Format(time.RFC3339))
 		return att
 	}
+	if seenBefore(r, earliest) {
+		if r.GoneAt != nil && !r.GoneAt.After(earliest) {
+			att.Reason = fmt.Sprintf("Muretto listed it at %s and saw it gone at %s, before session %s's action at %s; it cannot tell whether it came back before that action, which may then only have updated it", r.FirstSeenAt.UTC().Format(time.RFC3339), r.GoneAt.UTC().Format(time.RFC3339), shortID(sid), earliest.UTC().Format(time.RFC3339))
+		} else {
+			att.Reason = fmt.Sprintf("Muretto already listed it at %s, before session %s's action at %s, so that session cannot have created it", r.FirstSeenAt.UTC().Format(time.RFC3339), shortID(sid), earliest.UTC().Format(time.RFC3339))
+		}
+		return att
+	}
 	if r.Existence != contract.ResourceExistenceGone && r.GoneAt != nil && r.GoneAt.After(latest) {
 		att.Reason = fmt.Sprintf("it disappeared at %s, after session %s created it, and was recreated outside that session", r.GoneAt.UTC().Format(time.RFC3339), shortID(sid))
 		return att
@@ -424,6 +435,17 @@ func decide(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time)
 		att.Reason = fmt.Sprintf("session %s created it: a creating call named this %s in its container, and no other session did", shortID(sid), short(r.Kind))
 	}
 	return att
+}
+
+// seenBefore reports whether a successful Muretto scan listed r (first_seen_at)
+// more than VetoTolerance before the earliest creating action: the resource
+// existed already, so the action did not create it (it may have updated it,
+// e.g. a function redeploy). Evidence-only resources were never listed.
+func seenBefore(r contract.Resource, earliest time.Time) bool {
+	if r.SeenVia == contract.ResourceSeenViaEvidence || r.FirstSeenAt.IsZero() {
+		return false
+	}
+	return r.FirstSeenAt.Before(earliest.Add(-VetoTolerance))
 }
 
 func decideEvidenceOnly(r contract.Resource, claims []claim, now time.Time) contract.Attribution {

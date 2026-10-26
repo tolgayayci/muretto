@@ -23,14 +23,21 @@ import (
 //	  created|referenced <kind> value=<v> [container=<c>] [sig=<id>]
 //	resource <kind>:<provider_id> [name=] [account=] [account_name=] [account_slug=] [host=] [parent=<id>]
 //	         [created=<time>] [existence=confirmed|gone|unconfirmed] [gone=<time>] [seen=list|advisor]
+//	         [first_seen=<time>]
 //	expect <resource id> exact <session> <rule>
 //	expect <resource id> unknown
 //	expect-evidence-only <resource id> [session=<id>]
 //
 // Times are HH:MM on 2026-10-20 UTC, or dN/HH:MM for N days later.
+// first_seen (when a Muretto scan first listed the resource) defaults to the
+// scenario's now (d3/00:00), after every action: set it to test the
+// first-seen veto.
 // Every resource (listed and evidence-only) must have an expect line.
 
-var base = time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
+var (
+	base        = time.Date(2026, 10, 20, 0, 0, 0, 0, time.UTC)
+	scenarioNow = base.AddDate(0, 0, 3)
+)
 
 type scenario struct {
 	name      string
@@ -172,7 +179,10 @@ func loadScenarios(t *testing.T) []*scenario {
 				r := contract.Resource{
 					ID: id, Kind: kind, Provider: prov, ProviderID: pid, Name: opts["name"], AccountID: opts["account"],
 					Attributes: contract.ResourceAttributes{}, Existence: contract.ResourceExistenceConfirmed,
-					SeenVia: contract.ResourceSeenViaList, FirstSeenAt: base, LastSeenAt: base,
+					SeenVia: contract.ResourceSeenViaList, FirstSeenAt: scenarioNow, LastSeenAt: scenarioNow,
+				}
+				if v, ok := opts["first_seen"]; ok {
+					r.FirstSeenAt = mustTime(v)
 				}
 				if v, ok := opts["account_name"]; ok {
 					r.AccountName = ptr(v)
@@ -227,7 +237,7 @@ func TestScenarios(t *testing.T) {
 	if len(scenarios) < 30 {
 		t.Fatalf("want at least 30 scenarios, have %d", len(scenarios))
 	}
-	now := base.AddDate(0, 0, 3)
+	now := scenarioNow
 	wrongExact, exactTotal, unknownTotal := 0, 0, 0
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
