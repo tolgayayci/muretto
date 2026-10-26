@@ -60,7 +60,7 @@ func (s *Server) events(w http.ResponseWriter, r *http.Request, p *principal) {
 	_ = rc.SetWriteDeadline(time.Time{}) // the stream outlives the server's WriteTimeout
 	h := w.Header()
 	h.Set("Content-Type", "text/event-stream")
-	h.Set("Cache-Control", "no-cache")
+	h.Set("Cache-Control", "no-cache, no-transform") // no-transform: proxies must not gzip/buffer the stream
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 
