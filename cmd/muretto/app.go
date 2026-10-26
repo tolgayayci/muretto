@@ -60,6 +60,7 @@ type Sync interface {
 	BuildBatch(a contract.Answer, clientVersion string, lastRevs map[string]string) (contract.SyncBatch, map[string]string)
 	Push(ctx context.Context, baseURL, token string, b contract.SyncBatch) error
 	Login(ctx context.Context, baseURL string, out io.Writer) (string, error)
+	Revoke(ctx context.Context, baseURL, token string) error
 	Payload() []syncclient.FieldDoc
 }
 
@@ -110,7 +111,8 @@ func (realSync) Push(ctx context.Context, u, t string, b contract.SyncBatch) err
 func (realSync) Login(ctx context.Context, u string, out io.Writer) (string, error) {
 	return syncclient.Login(ctx, u, out)
 }
-func (realSync) Payload() []syncclient.FieldDoc { return syncclient.Payload() }
+func (realSync) Revoke(ctx context.Context, u, t string) error { return syncclient.Revoke(ctx, u, t) }
+func (realSync) Payload() []syncclient.FieldDoc                { return syncclient.Payload() }
 
 func newApp() *app {
 	return &app{

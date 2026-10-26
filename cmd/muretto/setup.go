@@ -260,7 +260,15 @@ func (a *app) cmdLogout(ctx context.Context, args []string) error {
 		return err
 	}
 	defer s.close()
-	if err := a.secrets.Delete(secrets.SyncKey(hostOf(s.cfg.SyncServer()))); err != nil && !errors.Is(err, secrets.ErrUnavailable) {
+	server := s.cfg.SyncServer()
+	if token, _, err := a.secrets.Sync(hostOf(server)); err == nil {
+		rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		if err := a.sync.Revoke(rctx, server, token); err != nil {
+			a.out("Could not revoke the token on the server (%v); it was removed locally.", err)
+		}
+		cancel()
+	}
+	if err := a.secrets.Delete(secrets.SyncKey(hostOf(server))); err != nil && !errors.Is(err, secrets.ErrUnavailable) {
 		return err
 	}
 	s.cfg.Sync.Enabled = false

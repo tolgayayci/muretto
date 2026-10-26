@@ -112,6 +112,7 @@ func (h *fakeHooks) Inspect(paths.Paths, string) (claudecfg.Status, error) {
 }
 
 type fakeSync struct {
+	revoked int
 	pushes  int
 	failErr error
 }
@@ -129,6 +130,10 @@ func (s *fakeSync) Push(context.Context, string, string, contract.SyncBatch) err
 }
 func (s *fakeSync) Login(context.Context, string, io.Writer) (string, error) {
 	return "mrt_" + strings.Repeat("0", 32), nil
+}
+func (s *fakeSync) Revoke(context.Context, string, string) error {
+	s.revoked++
+	return nil
 }
 func (s *fakeSync) Payload() []syncclient.FieldDoc {
 	return []syncclient.FieldDoc{{Entity: "session", Field: "task_title", Note: "redacted, at most 120 chars"}, {Entity: "resource", Field: "name"}}
