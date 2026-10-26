@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated from schema/ by `npm run generate`.
+    "src/contract/**",
   ]),
 ]);
 
