@@ -105,6 +105,99 @@ func TestStringRedacts(t *testing.T) {
 	}
 }
 
+// TestStringReviewGaps covers the inputs an independent review found passing
+// through unchanged (or partly unchanged).
+func TestStringReviewGaps(t *testing.T) {
+	pw := fake("pw", 12)
+	tok := fake("tk", 24)
+	host := "@db.abcdefghijklmnopqrst.supabase.co:5432/postgres"
+	esc2 := `\\\"` // a quote escaped twice: JSON text inside a JSON string inside a string
+	tests := []struct {
+		name    string
+		in      string
+		secrets []string
+		keep    []string
+	}{
+		{"DB_PASS", "DB_PASS=" + pw, []string{pw}, []string{"DB_PASS="}},
+		{"export SMTP_PASS quoted", "export SMTP_PASS='" + pw + "'", []string{pw}, []string{"export SMTP_PASS="}},
+		{"REDIS_PASS", "REDIS_PASS=" + pw + " redis-cli ping", []string{pw}, []string{"redis-cli ping"}},
+		{"camelCase dbPass", `{"dbPass":"` + pw + `"}`, []string{pw}, []string{"dbPass"}},
+		{"passwd key", "passwd=" + pw, []string{pw}, nil},
+		{"url password with comma", "postgresql://postgres:" + pw + ",x" + host, []string{pw, ",x"}, []string{"postgresql://", host}},
+		{"url password with parens", "postgresql://postgres:a(" + pw + ")b" + host, []string{pw, ")b"}, []string{host}},
+		{"url password with braces", "postgresql://postgres:a{" + pw + "}b" + host, []string{pw, "}b"}, []string{host}},
+		{"url password with brackets", "postgresql://postgres:a[" + pw + "]b" + host, []string{pw, "]b"}, []string{host}},
+		{"url password with at slash hash", "postgresql://postgres:p@" + pw + "/w#rd" + host, []string{pw, "w#rd"}, []string{host}},
+		{"url password percent-encoded", "postgresql://postgres:p%40" + pw + "@db/postgres", []string{pw}, []string{"@db/postgres"}},
+		{"https password with comma", "https://u:" + pw + ",x@example.com/x", []string{pw}, []string{"@example.com/x"}},
+		{"db-url flag", "supabase db push --db-url postgresql://postgres:" + pw + ",x@h/db", []string{pw}, []string{"--db-url postgresql://", "@h/db"}},
+		{"curl -u", "curl -u admin:" + pw + " https://x.example", []string{pw}, []string{"-u admin:", "https://x.example"}},
+		{"curl -u attached", "curl -uadmin:" + pw + " https://x.example", []string{pw}, []string{"-uadmin:"}},
+		{"curl --user", "curl --user admin:" + pw + " https://x.example", []string{pw}, []string{"--user admin:"}},
+		{"curl --user=", "curl --user='admin:" + pw + "' https://x.example", []string{pw}, []string{"--user='admin:"}},
+		{"mysql -p attached", "mysql -uroot -p" + pw + " db", []string{pw}, []string{"mysql -uroot -p", " db"}},
+		{"mysqldump -p quoted", "mysqldump -u root -p'" + pw + "' db", []string{pw}, []string{"mysqldump -u root -p"}},
+		{"vercel -t", "vercel deploy -t " + tok, []string{tok}, []string{"vercel deploy -t "}},
+		{"vercel -t prod", "vercel deploy --prod -t " + tok + " --yes", []string{tok}, []string{"--yes"}},
+		{"double-escaped json", `{` + esc2 + `password` + esc2 + `:` + esc2 + pw + esc2 + `}`, []string{pw}, []string{"password"}},
+		{"double-escaped db_pass", `[{` + esc2 + `db_pass` + esc2 + `:` + esc2 + pw + esc2 + `}]`, []string{pw}, []string{"db_pass"}},
+		{"escaped quote inside value", `{"password":"a\"` + pw + `"}`, []string{pw}, []string{"password"}},
+		{"python dict list value", "{'Authorization': ['Bearer " + tok + "']}", []string{tok}, []string{"'Authorization'"}},
+		{"python dict secret list", "{'password': ['" + pw + "', 'x" + pw + "']}", []string{pw}, []string{"'password'"}},
+		{"python dict single-quoted", "{'client_secret': '" + pw + "'}", []string{pw}, []string{"'client_secret'"}},
+		{"yaml value with spaces", "password: correct " + pw + " battery", []string{pw, "battery"}, []string{"password: "}},
+		{"yaml value with spaces keeps next line", "password: a " + pw + "\nuser: bob", []string{pw}, []string{"\nuser: bob"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := String(tc.in)
+			for _, s := range tc.secrets {
+				if strings.Contains(got, s) {
+					t.Errorf("secret %q survived:\n in: %s\nout: %s", s, tc.in, got)
+				}
+			}
+			for _, k := range tc.keep {
+				if !strings.Contains(got, k) {
+					t.Errorf("lost %q:\n in: %s\nout: %s", k, tc.in, got)
+				}
+			}
+			if again := String(got); again != got {
+				t.Errorf("not idempotent:\n1: %s\n2: %s", got, again)
+			}
+		})
+	}
+	// The same inputs inside decoded JSON (the hook's tool_input).
+	for _, tc := range tests {
+		enc, _ := json.Marshal(Value(map[string]any{"command": tc.in}))
+		for _, s := range tc.secrets {
+			if strings.Contains(string(enc), s) {
+				t.Errorf("%s: secret %q survived Value: %s", tc.name, s, enc)
+			}
+		}
+	}
+}
+
+// The new flag and URL rules must not touch look-alikes that carry no secret.
+func TestStringKeepsLookalikes(t *testing.T) {
+	keep := []string{
+		"docker run -u 1000:1000 alpine",
+		"ssh -p22 host",
+		"mkdir -p/tmp/x",
+		"mysql -p dbname",
+		"docker build -t web:latest .",
+		"tar -tf archive.tar",
+		"https://host.example:8443/path@v2",
+		"https://registry.npmjs.org/@scope%2fpkg",
+		"psql postgres://localhost:5432/app?sslmode=disable",
+		"bypass: true",
+	}
+	for _, s := range keep {
+		if got := String(s); got != s {
+			t.Errorf("changed a non-secret:\n in: %s\nout: %s", s, got)
+		}
+	}
+}
+
 // Identifiers attribution depends on must survive untouched.
 func TestStringKeepsIdentifiers(t *testing.T) {
 	keep := []string{
@@ -145,10 +238,10 @@ func TestIsSecretKey(t *testing.T) {
 	yes := []string{"password", "DB_PASSWORD", "db-password", "client_secret", "clientSecret", "token", "access_token",
 		"accessToken", "api_key", "apiKey", "x-api-key", "private_key", "privateKey", "service_role", "SUPABASE_SERVICE_ROLE_KEY",
 		"authorization", "Authorization", "jwt_secret", "STRIPE_KEY", "anon_key", "credentials", "aws_secret_access_key",
-		"claimUrl", "SENTRY_DSN", "passphrase", "db_pwd"}
+		"claimUrl", "SENTRY_DSN", "passphrase", "db_pwd", "pass", "DB_PASS", "smtp-pass", "dbPass", "passwd"}
 	no := []string{"", "name", "ref", "project_ref", "id", "key", "input_tokens", "outputTokens", "totalTokens", "token_type",
 		"max_tokens", "primary_key", "public_key", "cwd", "PWD", "author", "status", "region", "session_id", "tool_use_id",
-		"description", "command"}
+		"description", "command", "bypass", "compass"}
 	for _, k := range yes {
 		if !IsSecretKey(k) {
 			t.Errorf("IsSecretKey(%q) = false, want true", k)
@@ -220,6 +313,10 @@ func FuzzString(f *testing.F) {
 	f.Add(`{"password":"x"}`)
 	f.Add("-----BEGIN PRIVATE " + "KEY-----")
 	f.Add("--token")
+	f.Add("curl -u a:b mysql -px vercel -t y")
+	f.Add(`{\\\"password\\\":\\\"x\\\"}`)
+	f.Add("{'Authorization': ['Bearer x']} password: a b")
+	f.Add("postgres://u:a,(b)@h/db")
 	f.Fuzz(func(t *testing.T, s string) {
 		out := String(s)
 		if again := String(out); again != out {
