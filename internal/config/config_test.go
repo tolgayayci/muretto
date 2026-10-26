@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -36,5 +37,21 @@ func TestRoundTripAndPermissions(t *testing.T) {
 	}
 	if d.ReviewAfter().Hours() != 168 {
 		t.Fatal("default review window")
+	}
+}
+
+func TestPathHashSalt(t *testing.T) {
+	a := &Config{Developer: Developer{InstallID: "install-fake-a"}}
+	b := &Config{Developer: Developer{InstallID: "install-fake-b"}}
+	sa := a.PathHashSalt()
+	if sa != a.PathHashSalt() || len(sa) != 64 {
+		t.Fatalf("salt not a stable 32-byte hex: %q", sa)
+	}
+	if sa == b.PathHashSalt() {
+		t.Error("salt does not depend on the install id")
+	}
+	// Neither the synced ids nor the install id itself may be the salt.
+	if strings.Contains(sa, a.Developer.InstallID) || strings.Contains(sa, a.MachineIDHash()) || sa == a.DeveloperID() {
+		t.Error("salt derivable from synced or raw ids")
 	}
 }

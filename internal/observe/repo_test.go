@@ -30,15 +30,20 @@ func TestRepoForRemote(t *testing.T) {
 `)
 	sub := filepath.Join(root, "apps", "site")
 	must(t, os.MkdirAll(sub, 0o700))
-	r := RepoFor(sub, dev)
+	r := RepoFor(sub, salt)
 	if r.RemoteUrl == nil || *r.RemoteUrl != "https://github.com/acme/web.git" || *r.DisplayName != "acme/web" {
 		t.Errorf("%+v", r)
 	}
 	if strings.Contains(*r.RemoteUrl, pw) || strings.Contains(*r.RemoteUrl, "alice") {
 		t.Error("credentials kept")
 	}
-	if r.PathHash != PathHash(dev, sub) || r.PathHash == PathHash("other-dev", sub) || len(r.PathHash) != 64 {
-		t.Error("path hash not salted per developer")
+	if r.PathHash != PathHash(salt, sub) || r.PathHash == PathHash("other-salt", sub) || len(r.PathHash) != 64 {
+		t.Error("path hash not keyed by the local salt")
+	}
+	// The synced developer id must not reproduce the hash (0103): a server that
+	// knows it could otherwise test guesses of likely paths.
+	if r.PathHash == PathHash(dev, sub) {
+		t.Error("path hash reproducible from the developer id")
 	}
 }
 
@@ -50,7 +55,7 @@ func TestRepoForWorktreeFile(t *testing.T) {
 	wt := filepath.Join(t.TempDir(), "feat")
 	must(t, os.MkdirAll(wt, 0o700))
 	must(t, os.WriteFile(filepath.Join(wt, ".git"), []byte("gitdir: "+wtGit+"\n"), 0o600))
-	r := RepoFor(wt, dev)
+	r := RepoFor(wt, salt)
 	if r.RemoteUrl == nil || *r.RemoteUrl != "git@github.com:acme/api.git" || *r.DisplayName != "acme/api" {
 		t.Errorf("%+v", r)
 	}
@@ -59,12 +64,12 @@ func TestRepoForWorktreeFile(t *testing.T) {
 func TestRepoForNoGit(t *testing.T) {
 	d := filepath.Join(t.TempDir(), "scratch-app")
 	must(t, os.MkdirAll(d, 0o700))
-	r := RepoFor(d, dev)
+	r := RepoFor(d, salt)
 	if r.RemoteUrl != nil || *r.DisplayName != "scratch-app" {
 		t.Errorf("%+v", r)
 	}
 	// A cwd that no longer exists still gets a hash and a name.
-	r = RepoFor("/nonexistent/path/to/proj", dev)
+	r = RepoFor("/nonexistent/path/to/proj", salt)
 	if *r.DisplayName != "proj" || r.PathHash == "" {
 		t.Errorf("%+v", r)
 	}

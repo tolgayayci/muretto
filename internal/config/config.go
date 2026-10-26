@@ -4,6 +4,7 @@
 package config
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -146,6 +147,16 @@ func (c *Config) MachineIDHash() string {
 
 // DeveloperID is the local developer id: the machine hash, prefixed.
 func (c *Config) DeveloperID() string { return "dev_" + c.MachineIDHash() }
+
+// PathHashSalt keys observe.PathHash: HMAC-SHA256(install id, "muretto path
+// hash v1"), hex. It derives from the install id, which never leaves the
+// machine, and is never sent itself, so the sync server can't test guesses of
+// likely paths against a path hash. (Unlike the developer id, which is synced.)
+func (c *Config) PathHashSalt() string {
+	m := hmac.New(sha256.New, []byte(c.Developer.InstallID))
+	m.Write([]byte("muretto path hash v1"))
+	return hex.EncodeToString(m.Sum(nil))
+}
 
 // SyncServer returns the configured server or the default.
 func (c *Config) SyncServer() string {

@@ -19,6 +19,7 @@ import (
 
 const (
 	dev        = "dev-fake-0001"
+	salt       = "path-salt-fake-0001"
 	researchFx = "../../docs/research/fixtures/claude-code/"
 	sessA      = "aaaaaaaa-1111-4111-8111-000000000001"
 	sessB      = "bbbbbbbb-2222-4222-8222-000000000002"
@@ -79,7 +80,7 @@ func hasWarning(b Batch, code string) bool {
 func TestScanResearchFixture(t *testing.T) {
 	d := t.TempDir()
 	copyFile(t, researchFx+"transcript-sample.jsonl", filepath.Join(d, "projects", "-home-dev-acme-app", sessDoc+".jsonl"))
-	b, err := ScanTranscripts(d, dev, time.Time{})
+	b, err := ScanTranscripts(d, dev, salt, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +119,7 @@ func TestScanResearchFixture(t *testing.T) {
 }
 
 func TestScanParentSubagentFork(t *testing.T) {
-	b, err := ScanTranscripts(claudeDir(t), dev, time.Time{})
+	b, err := ScanTranscripts(claudeDir(t), dev, salt, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +197,7 @@ func TestForkFullyIdenticalIsFlagged(t *testing.T) {
 }
 
 func TestHookDecidesForkOwner(t *testing.T) {
-	tr, err := ScanTranscripts(claudeDir(t), dev, time.Time{})
+	tr, err := ScanTranscripts(claudeDir(t), dev, salt, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +206,7 @@ func TestHookDecidesForkOwner(t *testing.T) {
 	in, _ := json.Marshal(map[string]any{"session_id": sessB, "tool_name": "Bash", "tool_use_id": bash1,
 		"tool_input": map[string]any{"command": "supabase projects create acme-import"}, "tool_response": map[string]any{"stdout": "ok", "stderr": ""}})
 	hook.Run("PostToolUse", bytes.NewReader(in), p, time.Date(2026, 10, 20, 9, 0, 9, 0, time.UTC))
-	sp, err := IngestSpool(p, dev)
+	sp, err := IngestSpool(p, dev, salt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +279,7 @@ func TestIngestSpool(t *testing.T) {
 	old := time.Now().Add(-2 * time.Hour)
 	must(t, os.Chtimes(stale, old, old))
 
-	b, err := IngestSpool(p, dev)
+	b, err := IngestSpool(p, dev, salt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,18 +334,24 @@ func TestIngestSpool(t *testing.T) {
 	if err := Ack(b.Files); err != nil {
 		t.Errorf("second Ack: %v", err)
 	}
-	if b2, err := IngestSpool(p, dev); err != nil || len(b2.Sessions) != 0 {
+	if b2, err := IngestSpool(p, dev, salt); err != nil || len(b2.Sessions) != 0 {
 		t.Errorf("re-ingest: %v %v", b2.Sessions, err)
 	}
 }
 
 func TestIngestSpoolMissingDir(t *testing.T) {
-	b, err := IngestSpool(paths.At(filepath.Join(t.TempDir(), "nope")), dev)
+	b, err := IngestSpool(paths.At(filepath.Join(t.TempDir(), "nope")), dev, salt)
 	if err != nil || len(b.Sessions) != 0 {
 		t.Errorf("%v %v", b, err)
 	}
-	if _, err := IngestSpool(paths.At(t.TempDir()), ""); err == nil {
+	if _, err := IngestSpool(paths.At(t.TempDir()), "", salt); err == nil {
 		t.Error("empty developer id accepted")
+	}
+	if _, err := IngestSpool(paths.At(t.TempDir()), dev, ""); err == nil {
+		t.Error("empty path salt accepted")
+	}
+	if _, err := ScanTranscripts(t.TempDir(), dev, "", time.Time{}); err == nil {
+		t.Error("empty path salt accepted by ScanTranscripts")
 	}
 }
 
@@ -353,13 +360,13 @@ func TestMergeSpoolAndTranscript(t *testing.T) {
 	t0 := time.Date(2026, 10, 26, 12, 0, 0, 5e6, time.UTC)
 	hook.Run("UserPromptSubmit", strings.NewReader(`{"session_id":"`+sessDoc+`","prompt":"Add a waitlist signup table"}`), p, t0)
 	hook.Run("PostToolUse", bytes.NewReader(readFx(t, "hook-posttooluse-bash.json")), p, t0.Add(2*time.Second))
-	sp, err := IngestSpool(p, dev)
+	sp, err := IngestSpool(p, dev, salt)
 	if err != nil {
 		t.Fatal(err)
 	}
 	d := t.TempDir()
 	copyFile(t, researchFx+"transcript-sample.jsonl", filepath.Join(d, "projects", "-home-dev-acme-app", sessDoc+".jsonl"))
-	tr, err := ScanTranscripts(d, dev, time.Time{})
+	tr, err := ScanTranscripts(d, dev, salt, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +402,7 @@ func TestTitleOrder(t *testing.T) {
 		{sessionAcc{customTitle: strings.Repeat("x", 300)}, strings.Repeat("x", 120), "custom_title"},
 	} {
 		tc.acc.started = at
-		s := tc.acc.session(dev, newRepoCache())
+		s := tc.acc.session(dev, newRepoCache(salt))
 		if s.TitleSource != tc.src || deref(s.TaskTitle) != tc.want {
 			t.Errorf("%+v -> %q %s", tc.acc, deref(s.TaskTitle), s.TitleSource)
 		}
@@ -424,7 +431,7 @@ func TestTranscriptRedaction(t *testing.T) {
 	f := filepath.Join(d, "projects", "-w", "s1.jsonl")
 	must(t, os.MkdirAll(filepath.Dir(f), 0o700))
 	must(t, os.WriteFile(f, buf.Bytes(), 0o600))
-	b, err := ScanTranscripts(d, dev, time.Time{})
+	b, err := ScanTranscripts(d, dev, salt, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -460,7 +467,7 @@ func TestTranscriptTolerance(t *testing.T) {
 	}, "\n")
 	must(t, os.WriteFile(filepath.Join(proj, "s1.jsonl"), []byte(junk), 0o600))
 	must(t, os.WriteFile(filepath.Join(proj, "empty.jsonl"), nil, 0o600))
-	b, err := ScanTranscripts(d, dev, time.Time{})
+	b, err := ScanTranscripts(d, dev, salt, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -474,11 +481,11 @@ func TestTranscriptTolerance(t *testing.T) {
 
 func TestSinceAndMissingDir(t *testing.T) {
 	d := claudeDir(t)
-	b, err := ScanTranscripts(d, dev, time.Now().Add(time.Hour))
+	b, err := ScanTranscripts(d, dev, salt, time.Now().Add(time.Hour))
 	if err != nil || len(b.Sessions) != 0 {
 		t.Errorf("since filter: %d %v", len(b.Sessions), err)
 	}
-	b, err = ScanTranscripts(filepath.Join(d, "nope"), dev, time.Time{})
+	b, err = ScanTranscripts(filepath.Join(d, "nope"), dev, salt, time.Time{})
 	if err != nil || len(b.Sessions) != 0 {
 		t.Errorf("missing dir: %v", err)
 	}
@@ -489,7 +496,7 @@ func TestUntestedVersionWarns(t *testing.T) {
 	f := filepath.Join(d, "projects", "-w", "s1.jsonl")
 	must(t, os.MkdirAll(filepath.Dir(f), 0o700))
 	must(t, os.WriteFile(f, []byte(`{"type":"user","sessionId":"s1","version":"9.0.0","timestamp":"2026-10-26T12:00:00Z","message":{"content":"hi there"}}`+"\n"), 0o600))
-	b, _ := ScanTranscripts(d, dev, time.Time{})
+	b, _ := ScanTranscripts(d, dev, salt, time.Time{})
 	if !hasWarning(b, "transcript_version_untested") {
 		t.Error("no version warning")
 	}

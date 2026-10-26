@@ -117,7 +117,7 @@ func (a *sessionAcc) session(developerID string, repos *repoCache) contract.Sess
 		s.TitleSource = contract.SessionTitleSourceAiTitle
 	}
 	if a.cwd != "" {
-		s.Repo = repos.get(a.cwd, developerID)
+		s.Repo = repos.get(a.cwd)
 	}
 	return s
 }
@@ -127,11 +127,15 @@ func cleanTitle(t string) string {
 	return strings.TrimSpace(truncateRunes(redact.String(strings.TrimSpace(line)), TaskTitleMax))
 }
 
-// IngestSpool reads all spool files.
-func IngestSpool(p paths.Paths, developerID string) (Batch, error) {
+// IngestSpool reads all spool files. pathSalt keys the repo path hash (see
+// PathHash) and must not be empty.
+func IngestSpool(p paths.Paths, developerID, pathSalt string) (Batch, error) {
 	var b Batch
 	if developerID == "" {
 		return b, errors.New("developer id is empty")
+	}
+	if pathSalt == "" {
+		return b, errors.New("path hash salt is empty")
 	}
 	entries, err := os.ReadDir(p.Spool)
 	if errors.Is(err, os.ErrNotExist) {
@@ -225,7 +229,7 @@ func IngestSpool(p paths.Paths, developerID string) (Batch, error) {
 			b.Actions = append(b.Actions, ra)
 		}
 	}
-	repos := newRepoCache()
+	repos := newRepoCache(pathSalt)
 	for _, id := range order {
 		b.Sessions = append(b.Sessions, sessions[id].session(developerID, repos))
 	}
