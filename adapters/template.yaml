@@ -142,7 +142,8 @@ rules:
 #            must all match Bash input.command), not_command, input_matches,
 #            output; or mcp_tools (+ mcp_server, default mcp_servers).
 #            status: ok (default) or any. result_lacks: skip if the JSON result
-#            has these top-level keys (e.g. error).
+#            has these top-level keys (e.g. error). result_has: skip unless
+#            the result is a JSON object with one of these keys (e.g. success).
 #   role:    created (the call made it) or referenced (the id only appeared)
 #   extract: from output | command | input.<path> with a regex (named groups
 #            become template fields), or from result | input with templates
@@ -151,6 +152,10 @@ rules:
 #            capture: extra regexes whose groups join the context.
 #            container: where the value is unique (e.g. the project).
 #            match: override the kind's match rule for these identifiers.
+#            preprocess: [shell_args, sql] rewrites the text before the
+#            regex runs (sql drops comments and hides string contents).
+#            referenced_if: <group> makes a match referenced when that group
+#            matched (e.g. CREATE TABLE IF NOT EXISTS proves nothing).
 signatures:
   - id: example.cli.projects_create
     kind: project
