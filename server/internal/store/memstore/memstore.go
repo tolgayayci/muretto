@@ -289,7 +289,9 @@ func (s *Store) UserOrgs(_ context.Context, userID string) ([]store.Membership, 
 			out = append(out, store.Membership{Org: s.orgs[orgID], Role: m.role, JoinedAt: m.joinedAt})
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Org.CreatedAt.Before(out[j].Org.CreatedAt) || (out[i].Org.CreatedAt.Equal(out[j].Org.CreatedAt) && out[i].Org.ID < out[j].Org.ID) })
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Org.CreatedAt.Before(out[j].Org.CreatedAt) || (out[i].Org.CreatedAt.Equal(out[j].Org.CreatedAt) && out[i].Org.ID < out[j].Org.ID)
+	})
 	return out, nil
 }
 
@@ -313,7 +315,9 @@ func (s *Store) OrgMembers(_ context.Context, orgID string) ([]store.Member, err
 	for uid, m := range s.memberships[orgID] {
 		out = append(out, store.Member{User: s.users[uid], Role: m.role, JoinedAt: m.joinedAt})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].JoinedAt.Before(out[j].JoinedAt) || (out[i].JoinedAt.Equal(out[j].JoinedAt) && out[i].User.ID < out[j].User.ID) })
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].JoinedAt.Before(out[j].JoinedAt) || (out[i].JoinedAt.Equal(out[j].JoinedAt) && out[i].User.ID < out[j].User.ID)
+	})
 	return out, nil
 }
 
