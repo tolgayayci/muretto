@@ -1,0 +1,118 @@
+# Vercel attribution scenarios. Team team_FAKEteam000000000000 has slug example-team.
+
+=== vercel deploy prints a dpl_ id: exact
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000001 sig=vercel.cli.deploy_json
+resource vercel.deployment:dpl_FAKEdeploy0000000000000001 name=waitlist-abc123-example-team.vercel.app account=team_FAKEteam000000000000 created=14:08
+expect vercel.deployment:dpl_FAKEdeploy0000000000000001 exact s1 id_in_result
+
+=== deployment that failed checks still created a deployment
+# {"status":"error","reason":"checks_failed"} still carries deployment.id.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash status=error
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000002
+resource vercel.deployment:dpl_FAKEdeploy0000000000000002 name=waitlist-def456-example-team.vercel.app created=14:09
+expect vercel.deployment:dpl_FAKEdeploy0000000000000002 exact s1 id_in_result
+
+=== deployment id seen by vercel inspect / list is only a reference
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  referenced vercel.deployment value=dpl_FAKEdeploy0000000000000003
+resource vercel.deployment:dpl_FAKEdeploy0000000000000003 name=site-ghi789-example-team.vercel.app created=d-2/10:00
+expect vercel.deployment:dpl_FAKEdeploy0000000000000003 unknown
+
+=== an id that appears in output but was never created anywhere
+# Referenced only: no attribution and no evidence-only resource appear.
+# The session printed a deployment id (e.g. from a log); nothing lists it.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  referenced vercel.deployment value=dpl_FAKEdeploy0000000000000099
+=== (control) unrelated listed deployment stays unknown
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  referenced vercel.deployment value=dpl_FAKEdeploy0000000000000099
+resource vercel.deployment:dpl_FAKEdeploy0000000000000004 name=other-example-team.vercel.app created=d-1/10:00
+expect vercel.deployment:dpl_FAKEdeploy0000000000000004 unknown
+
+=== project created by CLI: name + team slug, unique in team
+# "> Success! Project example-waitlist added (example-team)"
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:03 tool=Bash
+  created vercel.project value=example-waitlist container=example-team sig=vercel.cli.project_create
+resource vercel.project:prj_FAKEproject00000000000001 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=14:02
+expect vercel.project:prj_FAKEproject00000000000001 exact s1 name_in_container
+
+=== project created by CLI, same name exists in another team
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:03 tool=Bash
+  created vercel.project value=example-waitlist container=example-team
+resource vercel.project:prj_FAKEproject00000000000001 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=14:02
+resource vercel.project:prj_FAKEproject00000000000002 name=example-waitlist account=team_FAKEother00000000000 account_slug=other-team created=d-9/10:00
+expect vercel.project:prj_FAKEproject00000000000001 exact s1 name_in_container
+expect vercel.project:prj_FAKEproject00000000000002 unknown
+
+=== project from MCP create_project carries a prj_ id
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:03 tool=mcp__claude_ai_Vercel__create_project
+  created vercel.project value=prj_FAKEproject00000000000003
+resource vercel.project:prj_FAKEproject00000000000003 name=landing account=team_FAKEteam000000000000 created=14:02
+expect vercel.project:prj_FAKEproject00000000000003 exact s1 id_in_result
+
+=== project name claimed by two sessions in the same team
+session s1 start=14:00
+session s2 start=15:00
+action toolu_a1 session=s1 at=14:03 tool=Bash
+  created vercel.project value=example-waitlist container=example-team
+action toolu_b1 session=s2 at=15:03 tool=Bash
+  created vercel.project value=example-waitlist container=example-team
+resource vercel.project:prj_FAKEproject00000000000001 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=14:02
+expect vercel.project:prj_FAKEproject00000000000001 unknown
+
+=== env var name added by CLI with team/project container
+# "✓ Added NEXT_PUBLIC_SUPABASE_URL" + "Project example-team/example-waitlist"
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:20 tool=Bash
+  created vercel.env_var value=NEXT_PUBLIC_SUPABASE_URL container=example-team/example-waitlist sig=vercel.cli.env_add
+resource vercel.project:prj_FAKEproject00000000000001 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=d-1/10:00
+resource vercel.env_var:prj_FAKEproject00000000000001/NEXT_PUBLIC_SUPABASE_URL/preview,production name=NEXT_PUBLIC_SUPABASE_URL account=team_FAKEteam000000000000 account_slug=example-team parent=vercel.project:prj_FAKEproject00000000000001 created=14:19
+expect vercel.project:prj_FAKEproject00000000000001 unknown
+expect vercel.env_var:prj_FAKEproject00000000000001/NEXT_PUBLIC_SUPABASE_URL/preview,production exact s1 name_in_container
+
+=== env var name with one key and two target sets is ambiguous
+# Same key exists twice (development vs production); the CLI line does not
+# say which one this session added.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:20 tool=Bash
+  created vercel.env_var value=API_URL container=example-team/example-waitlist
+resource vercel.project:prj_FAKEproject00000000000001 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=d-1/10:00
+resource vercel.env_var:prj_FAKEproject00000000000001/API_URL/development name=API_URL account=team_FAKEteam000000000000 account_slug=example-team parent=vercel.project:prj_FAKEproject00000000000001
+resource vercel.env_var:prj_FAKEproject00000000000001/API_URL/production name=API_URL account=team_FAKEteam000000000000 account_slug=example-team parent=vercel.project:prj_FAKEproject00000000000001
+expect vercel.project:prj_FAKEproject00000000000001 unknown
+expect vercel.env_var:prj_FAKEproject00000000000001/API_URL/development unknown
+expect vercel.env_var:prj_FAKEproject00000000000001/API_URL/production unknown
+
+=== domain added by CLI: domain names are unique keys
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:30 tool=Bash
+  created vercel.domain value=example-waitlist.dev sig=vercel.cli.domains_add
+resource vercel.domain:example-waitlist.dev name=example-waitlist.dev account=team_FAKEteam000000000000 created=14:29
+expect vercel.domain:example-waitlist.dev exact s1 id_in_result
+
+=== project created by vercel link on an existing project
+# vercel link --yes on a project made a week ago in the dashboard: created_at vetoes.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:03 tool=Bash
+  created vercel.project value=example-waitlist container=example-team
+resource vercel.project:prj_FAKEproject00000000000001 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=d-7/10:00
+expect vercel.project:prj_FAKEproject00000000000001 unknown
+
+=== deployment from another machine's session with the same id twice in one session
+# The same dpl_ id printed by deploy and again by a follow-up inspect in s1.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000005
+action toolu_a2 session=s1 at=14:12 tool=Bash
+  referenced vercel.deployment value=dpl_FAKEdeploy0000000000000005
+resource vercel.deployment:dpl_FAKEdeploy0000000000000005 name=site-jkl012-example-team.vercel.app created=14:09
+expect vercel.deployment:dpl_FAKEdeploy0000000000000005 exact s1 id_in_result
