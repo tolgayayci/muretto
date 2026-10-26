@@ -398,6 +398,53 @@ func TestInspectMissingFile(t *testing.T) {
 	}
 }
 
+// The plugin dir ships the same hooks as Install (with muretto from PATH).
+func TestPluginMatchesInstall(t *testing.T) {
+	b, err := os.ReadFile("../../plugin/hooks/hooks.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Hooks map[string][]struct {
+			Matcher *string `json:"matcher"`
+			Hooks   []struct {
+				Type    string   `json:"type"`
+				Command string   `json:"command"`
+				Args    []string `json:"args"`
+				Timeout int      `json:"timeout"`
+			} `json:"hooks"`
+		} `json:"hooks"`
+	}
+	if err := json.Unmarshal(b, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Hooks) != len(Events) {
+		t.Errorf("plugin has %d events, install has %d", len(doc.Hooks), len(Events))
+	}
+	for _, e := range Events {
+		g := doc.Hooks[e.Name]
+		if len(g) != 1 || len(g[0].Hooks) != 1 {
+			t.Errorf("%s: %+v", e.Name, g)
+			continue
+		}
+		m := ""
+		if g[0].Matcher != nil {
+			m = *g[0].Matcher
+		}
+		h := g[0].Hooks[0]
+		if m != e.Matcher || h.Type != "command" || h.Command != "muretto" || !slices.Equal(h.Args, []string{"hook", e.Name}) || h.Timeout != Timeout {
+			t.Errorf("%s differs from install: matcher %q %+v", e.Name, m, h)
+		}
+	}
+	var pj struct {
+		Name string `json:"name"`
+	}
+	pb, err := os.ReadFile("../../plugin/.claude-plugin/plugin.json")
+	if err != nil || json.Unmarshal(pb, &pj) != nil || pj.Name != "muretto" {
+		t.Errorf("plugin.json: %v %+v", err, pj)
+	}
+}
+
 func TestOrderedJSONRoundTrip(t *testing.T) {
 	for _, in := range []string{
 		`{}`, `[]`, `{"a":{"b":[]}}`, `{"k":"\u2028\"\\","n":-0.0e+10,"z":[true,null,{"q":"é"}]}`,
