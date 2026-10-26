@@ -146,6 +146,21 @@ func (w *whenSpec) matches(d *action) bool {
 			}
 		}
 	}
+	if len(w.ResultHas) > 0 {
+		m, ok := d.result.(map[string]any)
+		if !ok {
+			return false
+		}
+		has := false
+		for _, k := range w.ResultHas {
+			if _, ok := m[k]; ok {
+				has = true
+			}
+		}
+		if !has {
+			return false
+		}
+	}
 	return true
 }
 
@@ -190,8 +205,9 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 		}
 	}
 	type hit struct {
-		ctx     map[string]any
-		excerpt string
+		ctx        map[string]any
+		excerpt    string
+		referenced bool
 	}
 	var hits []hit
 
@@ -221,7 +237,7 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 			hits = append(hits, hit{ctx: ctx})
 		}
 	default:
-		text := textFrom(d, base, e.From)
+		text := preprocess(e.Preprocess, textFrom(d, base, e.From))
 		if text == "" {
 			return nil
 		}
@@ -233,6 +249,7 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 					groups[n] = m[i]
 				}
 			}
+			ref := e.ReferencedIf != "" && groups[e.ReferencedIf] != ""
 			values := []string{""}
 			if e.Split != nil {
 				values = nil
@@ -250,7 +267,7 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 				if e.Split != nil {
 					ctx[e.Split.Field] = v
 				}
-				hits = append(hits, hit{ctx: ctx, excerpt: m[0]})
+				hits = append(hits, hit{ctx: ctx, excerpt: strings.ReplaceAll(m[0], segmentSep, " "), referenced: ref})
 			}
 		}
 	}
@@ -267,6 +284,9 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 			Value:       val,
 			Role:        contract.IdentifierRole(s.Role),
 			SignatureID: s.ID,
+		}
+		if h.referenced {
+			id.Role = contract.IdentifierRoleReferenced
 		}
 		if c, ok := e.Container.render(h.ctx); ok {
 			id.Container = &c
