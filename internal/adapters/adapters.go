@@ -204,20 +204,23 @@ func (r *Registry) Matches(id contract.Identifier, res contract.Resource) bool {
 	if a == nil {
 		return false
 	}
-	m := matchFor(a, id)
 	ctx := resourceCtx(res, nil)
-	want, ok := m.Value.render(ctx)
-	if !ok || want != id.Value {
-		return false
+	for _, m := range matchesFor(a, id) {
+		want, ok := m.Value.render(ctx)
+		if !ok || want != id.Value {
+			continue
+		}
+		if m.Container.empty() {
+			return true
+		}
+		if id.Container == nil {
+			continue
+		}
+		if c, ok := m.Container.render(ctx); ok && c == *id.Container {
+			return true
+		}
 	}
-	if m.Container.empty() {
-		return true
-	}
-	if id.Container == nil {
-		return false
-	}
-	c, ok := m.Container.render(ctx)
-	return ok && c == *id.Container
+	return false
 }
 
 // RemoveHint returns the command a human could run to delete res. Never executed.

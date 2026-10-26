@@ -332,19 +332,33 @@ var defaultMatch = func() matchSpec {
 	return matchSpec{Value: t}
 }()
 
-func matchFor(a *adapterSpec, id contract.Identifier) matchSpec {
+// matchesFor returns the match rules that may apply to id: one per extract of
+// its signature that produces id's kind (the extract's own rule, else the
+// kind's), or the kind's rule when the signature is unknown. An identifier
+// does not record which extract produced it, so any of them may match.
+func matchesFor(a *adapterSpec, id contract.Identifier) []matchSpec {
+	kindMatch := defaultMatch
+	if k := kindByFull(a, id.Kind); k != nil && k.Match != nil {
+		kindMatch = *k.Match
+	}
+	var out []matchSpec
 	for _, s := range a.Signatures {
 		if s.ID != id.SignatureID {
 			continue
 		}
 		for _, e := range s.Extract {
-			if fullKind(a, e.Kind) == id.Kind && e.Match != nil {
-				return *e.Match
+			if fullKind(a, e.Kind) != id.Kind {
+				continue
+			}
+			if e.Match != nil {
+				out = append(out, *e.Match)
+			} else {
+				out = append(out, kindMatch)
 			}
 		}
 	}
-	if k := kindByFull(a, id.Kind); k != nil && k.Match != nil {
-		return *k.Match
+	if len(out) == 0 {
+		out = append(out, kindMatch)
 	}
-	return defaultMatch
+	return out
 }
