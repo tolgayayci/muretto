@@ -4,7 +4,21 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
+
+// Supabase function created_at is an int64 whose unit is unverified (ms or s,
+// docs/research/supabase.md). format auto must read both as the same instant,
+// so the created_at veto works for redeployed functions either way.
+func TestParseTimeAutoUnits(t *testing.T) {
+	want := time.Date(2025, 10, 24, 10, 0, 0, 0, time.UTC)
+	for _, v := range []string{"1761300000000", "1761300000", "2025-10-24T10:00:00Z"} {
+		got, ok := parseTime(v, "auto")
+		if !ok || !got.Equal(want) {
+			t.Errorf("parseTime(%s, auto) = %v, %v; want %v", v, got, ok, want)
+		}
+	}
+}
 
 func TestLexSQL(t *testing.T) {
 	cases := []struct{ in, want string }{
