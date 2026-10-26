@@ -1,0 +1,29 @@
+# gitleaks configuration: the default rules, plus one narrow exception.
+[extend]
+useDefault = true
+
+# The redactor's own tests must contain curl basic-auth command lines to prove
+# they get redacted. The passwords in them are built at runtime or are the
+# placeholder SECRET, so no real or fake credential is committed. Only the
+# curl-auth-user rule is relaxed, and only in these files; every other rule
+# still applies to them.
+[[allowlists]]
+description = "Redaction test vectors for curl -u user:password"
+targetRules = ["curl-auth-user"]
+paths = [
+  '''^internal/redact/redact\.go$''',
+  '''^internal/redact/redact_test\.go$''',
+  '''^internal/observe/leak_test\.go$''',
+]
+
+# Local build output is git-ignored and never committed (Next.js writes a fresh
+# preview-mode signing key into web/.next on every build). Skip it so a local
+# `make secrets` scans what could actually be committed.
+[[allowlists]]
+description = "Git-ignored build output"
+paths = [
+  '''^web/\.next/''',
+  '''(^|/)node_modules/''',
+  '''^bin/''',
+  '''^dist/''',
+]

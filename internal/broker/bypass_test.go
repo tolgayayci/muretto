@@ -34,7 +34,7 @@ var bypassAllowed = []string{
 // the network or run another program.
 var allowedImports = map[string]string{
 	"bufio": "", "bytes": "", "cmp": "", "context": "", "crypto/rand": "",
-	"crypto/sha256": "", "embed": "", "encoding/base64": "", "encoding/hex": "",
+	"crypto/hmac": "", "crypto/sha256": "", "embed": "", "encoding/base64": "", "encoding/hex": "",
 	"encoding/json": "", "errors": "", "flag": "", "fmt": "", "io": "", "io/fs": "",
 	"maps": "", "math": "", "net/url": "parsing only", "os/signal": "",
 	"path": "", "path/filepath": "", "regexp": "", "runtime": "", "slices": "",
