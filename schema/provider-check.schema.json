@@ -31,6 +31,11 @@
       "maxLength": 300,
       "description": "Narrower scope when the kind is listed per parent, e.g. a project ref."
     },
+    "rule_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Set when this check evaluated an exposure rule (e.g. rls_disabled). A resource of this kind in this scope is not_exposed only if this check succeeded and produced no exposed finding for it."
+    },
     "status": {
       "type": "string",
       "enum": [

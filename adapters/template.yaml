@@ -1,0 +1,2 @@
+# Template adapter. Stream B defines the format and documents it in docs/WRITING_AN_ADAPTER.md.
+provider: template

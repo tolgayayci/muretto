@@ -396,6 +396,11 @@ type ProviderCheck struct {
 	// adapters add providers without schema changes.
 	Provider string `json:"provider"`
 
+	// Set when this check evaluated an exposure rule (e.g. rls_disabled). A resource
+	// of this kind in this scope is not_exposed only if this check succeeded and
+	// produced no exposed finding for it.
+	RuleID *string `json:"rule_id,omitempty,omitzero"`
+
 	// Narrower scope when the kind is listed per parent, e.g. a project ref.
 	Scope *string `json:"scope,omitempty,omitzero"`
 
