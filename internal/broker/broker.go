@@ -5,10 +5,20 @@
 // What Do refuses before sending anything:
 //   - a URL that is not https, carries user info, or has no matching Rule
 //     (provider host + method + path pattern + allowed query names);
+//   - a host that is not canonical (see CanonicalHost): explicit ports,
+//     trailing dots, IP literals and user info are refused, both in requests
+//     and in Rules (a Rule with such a host never matches);
+//   - a path with an empty, dot or percent-encoded segment;
 //   - every method other than GET, except a POST whose body sha256 equals
 //     both the Rule's BodySHA256 and a hash declared in Go in pinned.go;
-//   - anything that mentions Vercel's "decrypt" (query name or path), and the
-//     endpoints in deniedPaths, even if a Rule would allow them.
+//   - a GET that carries any body (whatever its ContentLength), a request
+//     with Transfer-Encoding or trailers, and method-override headers;
+//   - anything that mentions Vercel's "decrypt" (path, query name or query
+//     value), and the endpoints in deniedPaths (compared case-insensitively),
+//     even if a Rule would allow them.
+//
+// A POST body is read once (at most MaxRequestBodyBytes), hashed, and exactly
+// those bytes are sent: Do never sends the caller's reader.
 //
 // What Do enforces while talking to the network:
 //   - redirects are refused unless they stay on the same host and the new
@@ -28,6 +38,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"regexp"
 	"strings"
@@ -83,10 +94,26 @@ func New(client *http.Client, allow []Rule) *Broker {
 	if c.Timeout == 0 {
 		c.Timeout = DefaultTimeout
 	}
-	b := &Broker{allow: append([]Rule(nil), allow...)}
+	b := &Broker{allow: canonicalRules(allow)}
 	c.CheckRedirect = b.checkRedirect
 	b.client = &c
 	return b
+}
+
+// canonicalRules copies rules with canonical hosts. A rule whose host is not
+// canonical (port, trailing dot, IP literal, ...) gets an empty host and so
+// never matches: the broker fails closed on a bad rule rather than guessing.
+func canonicalRules(in []Rule) []Rule {
+	out := make([]Rule, len(in))
+	for i, r := range in {
+		h, err := CanonicalHost(r.Host)
+		if err != nil {
+			h = ""
+		}
+		r.Host = h
+		out[i] = r
+	}
+	return out
 }
 
 // Rules returns a copy of the broker's allowlist.
@@ -107,9 +134,17 @@ func NewRequest(ctx context.Context, method, rawURL string, body []byte) (*http.
 }
 
 // Check reports whether req would be allowed, without sending it. It returns
-// the matching rule. It may read and restore req.Body.
+// the matching rule. For a POST it reads req.Body and replaces it with the
+// bytes it read.
 func (b *Broker) Check(req *http.Request) (Rule, error) {
-	return b.match(req)
+	rule, body, err := b.match(req)
+	if err != nil {
+		return Rule{}, err
+	}
+	if body != nil {
+		setBody(req, body)
+	}
+	return rule, nil
 }
 
 // Do sends req if it matches an allowlist rule, and fails otherwise.
@@ -120,26 +155,32 @@ func (b *Broker) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	if req == nil {
 		return nil, fmt.Errorf("%w: nil request", ErrRefused)
 	}
-	rule, err := b.match(req)
+	rule, body, err := b.match(req)
 	if err != nil {
 		return nil, err
 	}
-	req = req.WithContext(ctx)
+	// Send a copy whose body is exactly the bytes that were checked (or none).
+	req = req.Clone(ctx)
+	if body != nil {
+		setBody(req, body)
+	} else {
+		req.Body, req.GetBody, req.ContentLength = nil, nil, 0
+	}
 	resp, err := b.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	body, err := readCapped(resp.Body, MaxResponseBytes)
+	respBody, err := readCapped(resp.Body, MaxResponseBytes)
 	_ = resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
-	body = sanitizeBody(body, resp.Header.Get("Content-Type"), rule.Strip)
+	respBody = sanitizeBody(respBody, resp.Header.Get("Content-Type"), rule.Strip)
 	if b.observe != nil {
-		b.observe(req, resp.StatusCode, body)
+		b.observe(req, resp.StatusCode, respBody)
 	}
-	resp.Body = io.NopCloser(bytes.NewReader(body))
-	resp.ContentLength = int64(len(body))
+	resp.Body = io.NopCloser(bytes.NewReader(respBody))
+	resp.ContentLength = int64(len(respBody))
 	resp.Header.Del("Content-Length")
 	return resp, nil
 }
@@ -168,7 +209,7 @@ func (b *Broker) checkRedirect(req *http.Request, via []*http.Request) error {
 	if prev.Method != http.MethodGet || req.Method != http.MethodGet {
 		return fmt.Errorf("%w: redirect of a non-GET request", ErrRefused)
 	}
-	if _, err := b.match(req); err != nil {
+	if _, _, err := b.match(req); err != nil {
 		return err
 	}
 	return nil
@@ -176,64 +217,143 @@ func (b *Broker) checkRedirect(req *http.Request, via []*http.Request) error {
 
 var safeSegment = regexp.MustCompile(`^[A-Za-z0-9._~@-]+$`)
 
+// hostLabel is one DNS label; topLabel is the last one, which must start with
+// a letter so that no dotted-number form ("127.1", "0x7f.1") can pass as a
+// name.
+var (
+	hostLabel = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+	topLabel  = regexp.MustCompile(`^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$`)
+)
+
+// methodOverrideHeaders let some servers treat a GET as another method.
+var methodOverrideHeaders = []string{"X-Http-Method-Override", "X-Http-Method", "X-Method-Override"}
+
 func refuse(format string, args ...any) error {
 	return fmt.Errorf("%w: "+format, append([]any{ErrRefused}, args...)...)
 }
 
-// match applies every refusal rule and returns the matching Rule.
-func (b *Broker) match(req *http.Request) (Rule, error) {
+// CanonicalHost returns h in the only form the broker compares hosts in: a
+// lowercase DNS name with at least two labels. It refuses explicit ports
+// (even :443), trailing dots, IP literals, user info, and anything that is
+// not plain ASCII letters, digits, '-' and '.'. Adapter loading uses it for
+// base_url, and the broker for every Rule and request.
+func CanonicalHost(h string) (string, error) {
+	if h == "" {
+		return "", refuse("empty host")
+	}
+	if strings.ContainsAny(h, "@:[]%") {
+		return "", refuse("host %q has user info, a port or an IP literal", h)
+	}
+	if strings.HasSuffix(h, ".") {
+		return "", refuse("host %q has a trailing dot", h)
+	}
+	h = strings.ToLower(h)
+	if _, err := netip.ParseAddr(h); err == nil {
+		return "", refuse("host %q is an IP literal", h)
+	}
+	labels := strings.Split(h, ".")
+	if len(labels) < 2 || len(h) > 253 {
+		return "", refuse("host %q is not a DNS name", h)
+	}
+	for _, l := range labels {
+		if !hostLabel.MatchString(l) {
+			return "", refuse("host %q is not a DNS name", h)
+		}
+	}
+	if !topLabel.MatchString(labels[len(labels)-1]) {
+		return "", refuse("host %q is not a DNS name", h)
+	}
+	return h, nil
+}
+
+func containsDecrypt(s string) bool {
+	return strings.Contains(strings.ToLower(s), "decrypt")
+}
+
+// match applies every refusal rule and returns the matching Rule. For a POST
+// it also returns the body it read and hashed: the caller must send exactly
+// these bytes. req.Body is consumed in that case.
+func (b *Broker) match(req *http.Request) (Rule, []byte, error) {
 	u := req.URL
 	if u == nil {
-		return Rule{}, refuse("no URL")
+		return Rule{}, nil, refuse("no URL")
 	}
 	if u.Scheme != "https" {
-		return Rule{}, refuse("scheme %q is not https", u.Scheme)
+		return Rule{}, nil, refuse("scheme %q is not https", u.Scheme)
 	}
 	if u.User != nil {
-		return Rule{}, refuse("URL carries credentials")
+		return Rule{}, nil, refuse("URL carries credentials")
 	}
-	if u.Opaque != "" || u.Fragment != "" {
-		return Rule{}, refuse("unsupported URL form")
+	if u.Opaque != "" || u.Fragment != "" || u.RawFragment != "" {
+		return Rule{}, nil, refuse("unsupported URL form")
+	}
+	host, err := CanonicalHost(u.Host)
+	if err != nil {
+		return Rule{}, nil, err
 	}
 	if req.Host != "" && !strings.EqualFold(req.Host, u.Host) {
-		return Rule{}, refuse("Host header differs from URL host")
+		return Rule{}, nil, refuse("Host header differs from URL host")
 	}
-	host := strings.ToLower(u.Host)
 	path := u.EscapedPath()
-	if strings.Contains(strings.ToLower(path), "decrypt") {
-		return Rule{}, refuse("decrypt is never allowed")
+	if strings.Contains(path, "%") {
+		return Rule{}, nil, refuse("percent-encoded path %q", path)
+	}
+	if containsDecrypt(path) || containsDecrypt(u.Path) || containsDecrypt(u.RawQuery) {
+		return Rule{}, nil, refuse("decrypt is never allowed")
 	}
 	query, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
-		return Rule{}, refuse("malformed query")
+		return Rule{}, nil, refuse("malformed query")
 	}
-	for name := range query {
-		if strings.Contains(strings.ToLower(name), "decrypt") {
-			return Rule{}, refuse("decrypt is never allowed")
+	for name, values := range query {
+		if containsDecrypt(name) {
+			return Rule{}, nil, refuse("decrypt is never allowed")
+		}
+		for _, v := range values {
+			if containsDecrypt(v) {
+				return Rule{}, nil, refuse("decrypt is never allowed")
+			}
 		}
 	}
 	segs, ok := splitPath(path)
 	if !ok {
-		return Rule{}, refuse("unsafe path %q", path)
+		return Rule{}, nil, refuse("unsafe path %q", path)
 	}
-	if d := denied(host, segs); d != "" {
-		return Rule{}, refuse("endpoint %s is denied in code", d)
+	folded := make([]string, len(segs))
+	for i, s := range segs {
+		folded[i] = strings.ToLower(s)
+	}
+	if d := denied(host, folded); d != "" {
+		return Rule{}, nil, refuse("endpoint %s is denied in code", d)
+	}
+	if len(req.TransferEncoding) > 0 || len(req.Trailer) > 0 {
+		return Rule{}, nil, refuse("Transfer-Encoding and trailers are never sent")
+	}
+	for _, h := range methodOverrideHeaders {
+		if _, ok := req.Header[h]; ok {
+			return Rule{}, nil, refuse("header %s is never sent", h)
+		}
 	}
 
+	var body []byte
 	var bodyHash string
 	switch req.Method {
 	case http.MethodGet, "":
-		if req.Body != nil && req.Body != http.NoBody && req.ContentLength != 0 {
-			return Rule{}, refuse("GET with a body")
+		// Any body at all is refused, whatever ContentLength claims: a
+		// streaming body has ContentLength 0 but is still sent.
+		if (req.Body != nil && req.Body != http.NoBody) || req.ContentLength != 0 {
+			return Rule{}, nil, refuse("GET with a body")
 		}
 	case http.MethodPost:
-		h, err := hashBody(req)
+		data, err := readBody(req)
 		if err != nil {
-			return Rule{}, err
+			return Rule{}, nil, err
 		}
-		bodyHash = h
+		body = data
+		sum := sha256.Sum256(data)
+		bodyHash = hex.EncodeToString(sum[:])
 	default:
-		return Rule{}, refuse("method %s is never allowed", req.Method)
+		return Rule{}, nil, refuse("method %s is never allowed", req.Method)
 	}
 	method := req.Method
 	if method == "" {
@@ -242,7 +362,7 @@ func (b *Broker) match(req *http.Request) (Rule, error) {
 
 	var lastWhy string
 	for _, r := range b.allow {
-		if !strings.EqualFold(r.Host, host) || !strings.EqualFold(r.Method, method) {
+		if r.Host == "" || r.Host != host || !strings.EqualFold(r.Method, method) {
 			continue
 		}
 		if !pathMatches(r.PathPattern, segs) {
@@ -262,12 +382,12 @@ func (b *Broker) match(req *http.Request) (Rule, error) {
 				continue
 			}
 		}
-		return r, nil
+		return r, body, nil
 	}
 	if lastWhy != "" {
-		return Rule{}, refuse("%s", lastWhy)
+		return Rule{}, nil, refuse("%s", lastWhy)
 	}
-	return Rule{}, refuse("%s %s%s matches no allowlist rule", method, host, path)
+	return Rule{}, nil, refuse("%s %s%s matches no allowlist rule", method, host, path)
 }
 
 func splitPath(p string) ([]string, bool) {
@@ -315,21 +435,29 @@ func disallowedQuery(allowed []string, q url.Values) string {
 	return ""
 }
 
-func hashBody(req *http.Request) (string, error) {
+// readBody reads a POST body once, up to MaxRequestBodyBytes, and closes it.
+func readBody(req *http.Request) ([]byte, error) {
 	if req.Body == nil || req.Body == http.NoBody {
-		return "", refuse("POST without a body")
+		return nil, refuse("POST without a body")
 	}
 	data, err := io.ReadAll(io.LimitReader(req.Body, MaxRequestBodyBytes+1))
 	_ = req.Body.Close()
+	req.Body = http.NoBody
 	if err != nil {
-		return "", refuse("unreadable POST body")
+		return nil, refuse("unreadable POST body")
 	}
 	if int64(len(data)) > MaxRequestBodyBytes {
-		return "", refuse("POST body too large")
+		return nil, refuse("POST body too large")
 	}
+	if len(data) == 0 {
+		return nil, refuse("POST without a body")
+	}
+	return data, nil
+}
+
+// setBody makes req carry exactly data.
+func setBody(req *http.Request, data []byte) {
 	req.Body = io.NopCloser(bytes.NewReader(data))
 	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(data)), nil }
 	req.ContentLength = int64(len(data))
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:]), nil
 }
