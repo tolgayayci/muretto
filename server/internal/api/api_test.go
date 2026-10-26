@@ -142,7 +142,11 @@ func TestAuthFailures(t *testing.T) {
 	if resp, _ := alice.Do("POST", "/v1/orgs", map[string]string{"name": "Acme"}); resp.StatusCode != 403 {
 		t.Fatalf("POST without CSRF: %d", resp.StatusCode)
 	}
-	alice.CSRF = "0" + csrf[1:]
+	wrong := "0" // must differ from the real first character (1 in 16 runs it was "0")
+	if csrf[0] == '0' {
+		wrong = "1"
+	}
+	alice.CSRF = wrong + csrf[1:]
 	if resp, _ := alice.Do("POST", "/v1/orgs", map[string]string{"name": "Acme"}); resp.StatusCode != 403 {
 		t.Fatalf("POST with wrong CSRF: %d", resp.StatusCode)
 	}
