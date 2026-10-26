@@ -1,0 +1,9 @@
+table customers: exact
+Created by session 8f2a (alice) (rule name_in_container)
+Reason: session 8f2a1c3e created it: a creating call named this table in its container, and no other session did
+
+Evidence
+  1. Oct 19 14:06 · session 8f2a (alice) · mcp__supabase__apply_migration
+     matched projaaaaaaaaaaaaaaaa/public.customers (supabase.mcp.apply_migration, toolu_01FAKEaaaaaaaaaaaaaaaaa1)
+     │ {"project_id":"projaaaaaaaaaaaaaaaa","name":"create_customers","query":"create table public.customers (id big…
+     │ → {"success": true}

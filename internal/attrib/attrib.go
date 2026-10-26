@@ -444,6 +444,8 @@ func evidence(cs []claim) []contract.Evidence {
 		switch {
 		case c.ident.Excerpt != nil:
 			ex = *c.ident.Excerpt
+		case c.action.InputExcerpt != nil && c.action.ResultExcerpt != nil:
+			ex = *c.action.InputExcerpt + "\n→ " + *c.action.ResultExcerpt
 		case c.action.ResultExcerpt != nil:
 			ex = *c.action.ResultExcerpt
 		case c.action.InputExcerpt != nil:
