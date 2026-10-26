@@ -5,6 +5,9 @@
 //
 //   - id_in_result: an identifier with role created whose value equals a
 //     resource's provider id gives exact.
+//   - host_in_result: the same, when the value equals the resource's own
+//     generated hostname (attributes.host, e.g. a Vercel deployment URL that
+//     `vercel deploy` prints in human mode). Hosts are unique per resource.
 //   - name_in_container: an identifier with role created that names its
 //     container (a project ref, a team, team/project) and a name that resolves
 //     to exactly one resource in that container gives exact, if the creating
@@ -30,6 +33,7 @@ import (
 // Rule ids stored in Attribution.RuleID.
 const (
 	RuleIDInResult      = "id_in_result"
+	RuleHostInResult    = "host_in_result"
 	RuleNameInContainer = "name_in_container"
 )
 
@@ -173,6 +177,7 @@ func dedupe(sessions []contract.Session, actions []contract.AgentAction) []contr
 type index struct {
 	byKey  map[string]map[string]*contract.Resource // kind -> provider id
 	byName map[string]map[string][]*contract.Resource
+	byHost map[string]map[string][]*contract.Resource // kind -> attributes.host
 	byID   map[string]*contract.Resource
 	byPID  map[string]*contract.Resource // provider id of any kind (for containers)
 }
@@ -181,6 +186,7 @@ func newIndex(resources []contract.Resource) *index {
 	ix := &index{
 		byKey:  map[string]map[string]*contract.Resource{},
 		byName: map[string]map[string][]*contract.Resource{},
+		byHost: map[string]map[string][]*contract.Resource{},
 		byID:   map[string]*contract.Resource{},
 		byPID:  map[string]*contract.Resource{},
 	}
@@ -194,6 +200,12 @@ func newIndex(resources []contract.Resource) *index {
 		if r.Name != "" {
 			ix.byName[r.Kind][r.Name] = append(ix.byName[r.Kind][r.Name], r)
 		}
+		if h, ok := r.Attributes["host"].(string); ok && h != "" {
+			if ix.byHost[r.Kind] == nil {
+				ix.byHost[r.Kind] = map[string][]*contract.Resource{}
+			}
+			ix.byHost[r.Kind][h] = append(ix.byHost[r.Kind][h], r)
+		}
 		ix.byID[r.ID] = r
 		if _, dup := ix.byPID[r.ProviderID]; !dup {
 			ix.byPID[r.ProviderID] = r
@@ -206,6 +218,9 @@ func newIndex(resources []contract.Resource) *index {
 func (ix *index) match(id contract.Identifier) ([]*contract.Resource, string) {
 	if r := ix.byKey[id.Kind][id.Value]; r != nil {
 		return []*contract.Resource{r}, RuleIDInResult
+	}
+	if rs := ix.byHost[id.Kind][id.Value]; len(rs) > 0 {
+		return rs, RuleHostInResult // more than one is ambiguous, never exact
 	}
 	if id.Container == nil || *id.Container == "" {
 		return nil, ""
@@ -343,8 +358,8 @@ func decide(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time)
 
 	rule := RuleNameInContainer
 	for _, c := range claims {
-		if c.rule == RuleIDInResult {
-			rule = RuleIDInResult
+		if c.rule == RuleIDInResult || (c.rule == RuleHostInResult && rule != RuleIDInResult) {
+			rule = c.rule
 		}
 	}
 	if rule == RuleNameInContainer {
@@ -400,9 +415,12 @@ func decide(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time)
 	att.Label = contract.AttributionLabelExact
 	att.SessionID = &sid
 	att.RuleID = &rule
-	if rule == RuleIDInResult {
+	switch rule {
+	case RuleIDInResult:
 		att.Reason = fmt.Sprintf("session %s created it: its id appeared in the result of a creating call", shortID(sid))
-	} else {
+	case RuleHostInResult:
+		att.Reason = fmt.Sprintf("session %s created it: its URL appeared in the result of a creating call", shortID(sid))
+	default:
 		att.Reason = fmt.Sprintf("session %s created it: a creating call named this %s in its container, and no other session did", shortID(sid), short(r.Kind))
 	}
 	return att

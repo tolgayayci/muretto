@@ -7,6 +7,34 @@ action toolu_a1 session=s1 at=14:10 tool=Bash
 resource vercel.deployment:dpl_FAKEdeploy0000000000000001 name=waitlist-abc123-example-team.vercel.app account=team_FAKEteam000000000000 created=14:08
 expect vercel.deployment:dpl_FAKEdeploy0000000000000001 exact s1 id_in_result
 
+=== vercel deploy in human mode prints only the deployment URL: exact by host
+# stdout "https://waitlist-abc123-example-team.vercel.app"; the host is the
+# deployment's own generated URL (attributes.host), unique per deployment.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  created vercel.deployment value=waitlist-abc123-example-team.vercel.app sig=vercel.cli.deploy
+resource vercel.deployment:dpl_FAKEdeploy0000000000000011 name=waitlist-abc123-example-team.vercel.app host=waitlist-abc123-example-team.vercel.app account=team_FAKEteam000000000000 created=14:08
+expect vercel.deployment:dpl_FAKEdeploy0000000000000011 exact s1 host_in_result
+
+=== deployment URL printed as created by two sessions
+session s1 start=14:00
+session s2 start=15:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  created vercel.deployment value=waitlist-abc123-example-team.vercel.app
+action toolu_b1 session=s2 at=15:10 tool=Bash
+  created vercel.deployment value=waitlist-abc123-example-team.vercel.app
+resource vercel.deployment:dpl_FAKEdeploy0000000000000012 host=waitlist-abc123-example-team.vercel.app created=14:08
+expect vercel.deployment:dpl_FAKEdeploy0000000000000012 unknown
+
+=== deployment URL whose deployment is gone from the list
+# The host matches no listed deployment: evidence only, never exact.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:10 tool=Bash
+  created vercel.deployment value=old-xyz789-example-team.vercel.app
+resource vercel.deployment:dpl_FAKEdeploy0000000000000013 host=new-abc123-example-team.vercel.app created=14:08
+expect vercel.deployment:dpl_FAKEdeploy0000000000000013 unknown
+expect-evidence-only vercel.deployment:old-xyz789-example-team.vercel.app session=s1
+
 === deployment that failed checks still created a deployment
 # {"status":"error","reason":"checks_failed"} still carries deployment.id.
 session s1 start=14:00
