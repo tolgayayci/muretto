@@ -1,0 +1,38 @@
+{
+  "name": "muretto",
+  "version": "0.0.0-dev",
+  "description": "A read-only git log for infrastructure: see what your AI coding agents created outside the repo.",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/tolgayayci/muretto#readme",
+  "bugs": {
+    "url": "https://github.com/tolgayayci/muretto/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tolgayayci/muretto.git",
+    "directory": "npm/muretto"
+  },
+  "keywords": [
+    "claude-code",
+    "ai-agents",
+    "infrastructure",
+    "supabase",
+    "vercel",
+    "cli"
+  ],
+  "bin": {
+    "muretto": "bin/muretto.js"
+  },
+  "files": [
+    "bin/muretto.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "muretto-darwin-arm64": "0.0.0-dev",
+    "muretto-darwin-x64": "0.0.0-dev",
+    "muretto-linux-arm64": "0.0.0-dev",
+    "muretto-linux-x64": "0.0.0-dev"
+  }
+}
