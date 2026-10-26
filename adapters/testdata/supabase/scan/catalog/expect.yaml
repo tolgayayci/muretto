@@ -1,0 +1,35 @@
+account: { id: example-org }
+options: [catalog_rls]
+
+resources:
+  - supabase.project:abcdefghijklmnopqrst
+  - supabase.table:abcdefghijklmnopqrst/public.customers
+  - supabase.table:abcdefghijklmnopqrst/private.audit
+  - supabase.table:abcdefghijklmnopqrst/public.drafts
+  - supabase.table:abcdefghijklmnopqrst/public.notes
+
+fields:
+  supabase.project:abcdefghijklmnopqrst:
+    db_schema: public, graphql_public
+  supabase.table:abcdefghijklmnopqrst/public.customers:
+    _seen_via: list # advisor and catalog merged; the full list wins
+    advisor_lint: rls_disabled_in_public
+    rls_enabled: false
+
+findings:
+  rls_disabled:supabase.table:abcdefghijklmnopqrst/public.customers: exposed
+  rls_disabled:supabase.table:abcdefghijklmnopqrst/private.audit: not_exposed # schema not exposed
+  rls_disabled:supabase.table:abcdefghijklmnopqrst/public.drafts: not_exposed # no anon grant (2026 default)
+  rls_disabled:supabase.table:abcdefghijklmnopqrst/public.notes: not_exposed # RLS on
+
+checks:
+  - supabase.project|||ok
+  - supabase.branch|abcdefghijklmnopqrst||ok
+  - supabase.function|abcdefghijklmnopqrst||ok
+  - supabase.bucket|abcdefghijklmnopqrst||ok
+  - supabase.bucket|abcdefghijklmnopqrst|public_bucket|ok
+  - supabase.table|abcdefghijklmnopqrst|rls_disabled|ok # advisor
+  - supabase.table|abcdefghijklmnopqrst||ok # catalog list
+  - supabase.table|abcdefghijklmnopqrst|rls_disabled|ok # catalog
+
+forbidden: ["MURETTO_FAKE_SECRET"]

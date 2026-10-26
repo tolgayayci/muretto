@@ -1,0 +1,18 @@
+[
+  {
+    "id": "avatars",
+    "name": "avatars",
+    "owner": "",
+    "created_at": "2026-10-22T08:00:00.000Z",
+    "updated_at": "2026-10-22T08:00:00.000Z",
+    "public": true
+  },
+  {
+    "id": "customer-files",
+    "name": "customer-files",
+    "owner": "",
+    "created_at": "2026-10-23T08:00:00.000Z",
+    "updated_at": "2026-10-23T08:00:00.000Z",
+    "public": false
+  }
+]

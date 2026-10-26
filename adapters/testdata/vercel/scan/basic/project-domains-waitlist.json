@@ -1,0 +1,7 @@
+{
+  "domains": [
+    { "name": "example-waitlist.vercel.app", "apexName": "vercel.app", "projectId": "prj_EXAMPLE000000000000000001", "verified": true, "createdAt": 1793000000000, "redirect": null, "gitBranch": null },
+    { "name": "waitlist.example-waitlist.dev", "apexName": "example-waitlist.dev", "projectId": "prj_EXAMPLE000000000000000001", "verified": false, "createdAt": 1793000400000, "verification": [ { "type": "TXT", "domain": "_vercel.example-waitlist.dev", "value": "vc-domain-verify=MURETTO_FAKE_SECRET", "reason": "pending_domain_verification" } ] }
+  ],
+  "pagination": { "count": 2, "next": null, "prev": null }
+}

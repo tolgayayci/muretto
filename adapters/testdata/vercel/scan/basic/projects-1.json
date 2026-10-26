@@ -1,0 +1,44 @@
+{
+  "projects": [
+    {
+      "id": "prj_EXAMPLE000000000000000001",
+      "name": "example-waitlist",
+      "accountId": "team_EXAMPLE00000000000000",
+      "createdAt": 1793000000000,
+      "updatedAt": 1793000300000,
+      "framework": "nextjs",
+      "creator": { "type": "user", "user": { "id": "usr_EXAMPLE", "username": "example-dev" }, "via": "cli" },
+      "link": {
+        "type": "github",
+        "org": "example-org",
+        "repo": "example-waitlist",
+        "repoId": 100000001,
+        "productionBranch": "main",
+        "deployHooks": [ { "id": "hook_EXAMPLE", "name": "fake", "ref": "main", "url": "https://api.vercel.com/v1/integrations/deploy/prj_EXAMPLE000000000000000001/MURETTO_FAKE_SECRET_hook" } ]
+      },
+      "ssoProtection": null,
+      "passwordProtection": null,
+      "trustedIps": null,
+      "optionsAllowlist": null,
+      "paused": false,
+      "env": [ { "key": "DATABASE_URL", "value": "MURETTO_FAKE_SECRET_project_env", "type": "encrypted" } ],
+      "protectionBypass": { "MURETTO_FAKE_SECRET_bypass00000000": { "createdAt": 1793000000000, "createdBy": "usr_EXAMPLE", "scope": "automation-bypass" } },
+      "latestDeployments": [
+        { "id": "dpl_EXAMPLEPREVIEW000000000001", "url": "example-waitlist-abc123def-example-team.vercel.app", "target": null, "createdAt": 1793000200000, "meta": { "githubCommitMessage": "MURETTO_FAKE_SECRET_meta" } }
+      ]
+    },
+    {
+      "id": "prj_EXAMPLE000000000000000002",
+      "name": "example-admin",
+      "accountId": "team_EXAMPLE00000000000000",
+      "createdAt": 1793000010000,
+      "updatedAt": 1793000310000,
+      "framework": "vite",
+      "ssoProtection": { "deploymentType": "all_except_custom_domains" },
+      "passwordProtection": null,
+      "trustedIps": null,
+      "paused": false
+    }
+  ],
+  "pagination": { "count": 2, "next": 1792999999999, "prev": 1793000310000 }
+}

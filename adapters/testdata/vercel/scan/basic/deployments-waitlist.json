@@ -1,0 +1,36 @@
+{
+  "deployments": [
+    {
+      "uid": "dpl_EXAMPLEPREVIEW000000000001",
+      "name": "example-waitlist",
+      "url": "example-waitlist-abc123def-example-team.vercel.app",
+      "projectId": "prj_EXAMPLE000000000000000001",
+      "created": 1793000200000,
+      "createdAt": 1793000200000,
+      "ready": 1793000260000,
+      "state": "READY",
+      "readyState": "READY",
+      "target": null,
+      "source": "cli",
+      "type": "LAMBDAS",
+      "creator": { "uid": "usrEXAMPLE000000000000", "username": "example-dev", "type": "user" },
+      "meta": { "githubCommitSha": "0000000000000000000000000000000000000000", "githubCommitRef": "feature/waitlist" },
+      "inspectorUrl": "https://vercel.com/example-team/example-waitlist/EXAMPLEdeploymentid00000",
+      "aliasAssigned": 1793000261000
+    },
+    {
+      "uid": "dpl_EXAMPLEPROD00000000000000001",
+      "name": "example-waitlist",
+      "url": "example-waitlist-prod456ghi-example-team.vercel.app",
+      "projectId": "prj_EXAMPLE000000000000000001",
+      "created": 1793000100000,
+      "createdAt": 1793000100000,
+      "state": "READY",
+      "readyState": "READY",
+      "target": "production",
+      "source": "git",
+      "creator": { "uid": "usrEXAMPLE000000000000", "username": "example-dev", "type": "user" }
+    }
+  ],
+  "pagination": { "count": 2, "next": null, "prev": 1793000200001 }
+}

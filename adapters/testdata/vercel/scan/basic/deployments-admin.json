@@ -1,0 +1,16 @@
+{
+  "deployments": [
+    {
+      "uid": "dpl_EXAMPLEADMINPREVIEW00000001",
+      "name": "example-admin",
+      "url": "example-admin-git-feature-example-team.vercel.app",
+      "projectId": "prj_EXAMPLE000000000000000002",
+      "createdAt": 1793000400000,
+      "state": "READY",
+      "readyState": "READY",
+      "target": null,
+      "source": "git"
+    }
+  ],
+  "pagination": { "count": 1, "next": null, "prev": null }
+}

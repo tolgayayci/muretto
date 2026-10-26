@@ -1,0 +1,16 @@
+{
+  "deployments": [
+    {
+      "uid": "dpl_EXAMPLELEGACYPREVIEW000001",
+      "name": "example-legacy",
+      "url": "example-legacy-xyz789-example-team.vercel.app",
+      "projectId": "prj_EXAMPLE000000000000000003",
+      "createdAt": 1792000100000,
+      "state": "READY",
+      "readyState": "READY",
+      "target": null,
+      "source": "cli"
+    }
+  ],
+  "pagination": { "count": 1, "next": null, "prev": null }
+}

@@ -1,0 +1,50 @@
+{
+  "envs": [
+    {
+      "id": "EXAMPLEenvid0000",
+      "key": "NEXT_PUBLIC_SUPABASE_URL",
+      "value": "MURETTO_FAKE_SECRET_value0",
+      "type": "encrypted",
+      "visibility": "config",
+      "target": ["production", "preview", "development"],
+      "createdAt": 1793000100000,
+      "createdBy": "usrEXAMPLE000000000000",
+      "securityIssues": []
+    },
+    {
+      "id": "EXAMPLEenvid0001",
+      "key": "NEXT_PUBLIC_STRIPE_SECRET_KEY",
+      "value": "MURETTO_FAKE_SECRET_value1",
+      "vsmValue": "MURETTO_FAKE_SECRET_vsm1",
+      "type": "encrypted",
+      "visibility": "config",
+      "target": ["production"],
+      "createdAt": 1793000110000,
+      "createdBy": "usrEXAMPLE000000000000",
+      "securityIssues": ["readable-secret"]
+    },
+    {
+      "id": "EXAMPLEenvid0002",
+      "key": "DATABASE_URL",
+      "value": "MURETTO_FAKE_SECRET_value2",
+      "legacyValue": "MURETTO_FAKE_SECRET_legacy2",
+      "type": "sensitive",
+      "visibility": "secret",
+      "target": ["preview", "production"],
+      "configurationId": "icfg_EXAMPLE0000000000000",
+      "contentHint": { "type": "postgres-url", "storeId": "store_EXAMPLE000000000" },
+      "createdAt": 1793000120000,
+      "securityIssues": []
+    },
+    {
+      "id": "EXAMPLEenvid0003",
+      "key": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+      "value": "MURETTO_FAKE_SECRET_value3",
+      "type": "encrypted",
+      "visibility": "config",
+      "target": "preview",
+      "createdAt": 1793000130000
+    }
+  ],
+  "pagination": { "count": 4, "next": null, "prev": null }
+}
