@@ -197,7 +197,7 @@ func Findings() []contract.ExposureFinding {
 			Severity: contract.ExposureFindingSeverityMedium, Signal: contract.ExposureFindingSignalApiField,
 			Title: "public preview", CheckedAt: &t, Caveat: p("Protection exceptions are not visible to the API."),
 			Explanation: "Deployment protection is off for this project, so the preview URL is reachable by anyone.",
-			Fix: contract.Fix{Kind: contract.FixKindSteps, Text: "Project → Settings → Deployment Protection → enable Vercel Authentication for previews."}},
+			Fix:         contract.Fix{Kind: contract.FixKindSteps, Text: "Project → Settings → Deployment Protection → enable Vercel Authentication for previews."}},
 	}
 }
 
