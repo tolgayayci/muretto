@@ -228,6 +228,13 @@ export function groupResources(view: View, ids: string[]): ResourceGroup[] {
   return [...groups.values()].sort((a, b) => a.provider.localeCompare(b.provider));
 }
 
+/** Name of the resource with the most severe exposure among ids (for "muretto fix <name>" hints). */
+export function worstExposedName(view: View, ids: string[]): string | undefined {
+  const set = new Set(ids);
+  const item = view.exposed.find((e) => set.has(e.finding.resource_id));
+  return item?.resource?.name;
+}
+
 /** Most severe finding for a resource, preferring exposed over unknown over not_exposed. */
 export function headlineFinding(view: View, resourceId: string): ExposureFinding | undefined {
   const list = view.findings.get(resourceId) ?? [];

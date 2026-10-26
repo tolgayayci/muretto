@@ -2,7 +2,7 @@
 // Rendered on the server from the same sample Answer as the dashboard preview,
 // laid out like the CLI's target output (docs/BRIEF.md §10).
 import { kindLabel, providerLabel, sessionSpan, shortId } from "@/lib/format";
-import { buildView, groupResources, headlineFinding } from "@/lib/model";
+import { buildView, groupResources, headlineFinding, worstExposedName } from "@/lib/model";
 import { SAMPLE_NOW, SAMPLE_SHOWCASE_SESSION, SAMPLE_TIME_ZONE, sampleTeamAnswer } from "@/lib/sample";
 
 // Terminal colors are fixed: the terminal is dark in both themes.
@@ -20,8 +20,7 @@ export function SessionTerminal() {
   const now = Date.parse(SAMPLE_NOW);
   const id = shortId(s.session.id);
   const groups = groupResources(view, s.resource_ids);
-  const firstExposed = s.resource_ids.find((rid) => view.findings.get(rid)?.some((f) => f.state === "exposed"));
-  const exposedName = firstExposed ? view.resource.get(firstExposed)?.name : undefined;
+  const exposedName = worstExposedName(view, s.resource_ids);
   const kindW = Math.max(...s.resource_ids.map((rid) => kindLabel(view.resource.get(rid)!.kind).length)) + 2;
   const nameW = Math.max(...s.resource_ids.map((rid) => view.resource.get(rid)!.name.length)) + 3;
 

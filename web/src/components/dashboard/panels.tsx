@@ -343,11 +343,13 @@ export function CostPanel({ scope }: { scope: "me" | "team" }) {
   const rows: { key: string; label: React.ReactNode; ids: string[] }[] = [];
 
   if (scope === "team") {
+    // Grouped by the member who synced the data (developer_name); one member may
+    // sync sessions from several machines, each with its own local developer id.
     const byDev = new Map<string, { name: string; ids: string[] }>();
     for (const s of view.sessions) {
-      const e = byDev.get(s.session.developer_id) ?? { name: s.developer_name, ids: [] };
+      const e = byDev.get(s.developer_name) ?? { name: s.developer_name, ids: [] };
       e.ids.push(...s.resource_ids);
-      byDev.set(s.session.developer_id, e);
+      byDev.set(s.developer_name, e);
     }
     for (const [id, e] of byDev) rows.push({ key: id, label: e.name, ids: e.ids });
   } else {

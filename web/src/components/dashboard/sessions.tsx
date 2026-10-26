@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { SessionView } from "@/contract";
 import { kindLabel, plural, providerLabel, sessionSpan, shortId } from "@/lib/format";
-import { groupResources, summarizeCosts, type ResourceGroup } from "@/lib/model";
+import { groupResources, summarizeCosts, worstExposedName, type ResourceGroup } from "@/lib/model";
 import { useClock } from "../clock";
 import { Icon, Panel } from "../ui";
 import { CostInline, DataAge, ResourceLine, useDash } from "./parts";
@@ -50,8 +50,7 @@ function SessionRow({ s, expanded, onToggle }: { s: SessionView; expanded: boole
   const bodyId = `session-${s.session.id}`;
   const cost = summarizeCosts(view, s.resource_ids);
   const transcriptOnly = !s.session.sources.includes("hook");
-  const firstExposed = s.resource_ids.find((id) => view.findings.get(id)?.some((f) => f.state === "exposed"));
-  const exposedName = firstExposed ? view.resource.get(firstExposed)?.name : undefined;
+  const exposedName = worstExposedName(view, s.resource_ids);
 
   return (
     <li className="border-b border-line last:border-b-0">
