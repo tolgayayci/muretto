@@ -108,6 +108,47 @@ func TestSessionMergeAndActionDedupe(t *testing.T) {
 	}
 }
 
+func TestActionDedupeMatchesMergeAndFlagsTies(t *testing.T) {
+	ctx := context.Background()
+	s := open(t)
+	same := t0
+	a := session("sa", same, contract.SessionSourcesElemTranscript)
+	b := session("sb", same, contract.SessionSourcesElemTranscript)
+	act := func(id, sess string, src contract.AgentActionSource, at time.Time) Action {
+		return Action{Action: contract.AgentAction{ID: id, SessionID: sess, OccurredAt: at, ToolName: "Bash", Status: "ok", Source: src}}
+	}
+	// A hook record beats an earlier transcript copy in another session.
+	if err := s.SaveBatch(ctx, []contract.Session{a, b}, []Action{act("t1", "sa", contract.AgentActionSourceTranscript, t0)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SaveBatch(ctx, nil, []Action{act("t1", "sb", contract.AgentActionSourceHook, t0.Add(time.Second))}); err != nil {
+		t.Fatal(err)
+	}
+	// Identical timing in two sessions: lower id kept, flagged ambiguous.
+	_ = s.SaveBatch(ctx, nil, []Action{act("t2", "sb", contract.AgentActionSourceTranscript, t0)})
+	_ = s.SaveBatch(ctx, nil, []Action{act("t2", "sa", contract.AgentActionSourceTranscript, t0)})
+	// Ambiguity reported by observe.Merge.
+	_ = s.SaveBatch(ctx, nil, []Action{act("t3", "sa", contract.AgentActionSourceHook, t0)}, "t3")
+	// Re-ingesting is idempotent.
+	_ = s.SaveBatch(ctx, nil, []Action{act("t3", "sa", contract.AgentActionSourceHook, t0)})
+
+	acts, _ := s.Actions(ctx)
+	owner := map[string]string{}
+	for _, x := range acts {
+		owner[x.ID] = x.SessionID
+	}
+	if owner["t1"] != "sb" || owner["t2"] != "sa" || len(acts) != 3 {
+		t.Fatalf("owners: %v", owner)
+	}
+	amb, err := s.AmbiguousActions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !amb["t2"] || !amb["t3"] || amb["t1"] {
+		t.Fatalf("ambiguous: %v", amb)
+	}
+}
+
 func res(id string) contract.Resource {
 	kind := id[:len("supabase.bucket")]
 	return contract.Resource{ID: id, Kind: kind, Provider: "supabase", ProviderID: id[len(kind)+1:], Name: "b",

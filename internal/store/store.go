@@ -112,9 +112,14 @@ type Action struct {
 	Extracted bool
 }
 
-// SaveBatch stores sessions (merged with what is stored) and actions
-// (deduplicated on id; the copy from the earliest-started session wins).
-func (s *Store) SaveBatch(ctx context.Context, sessions []contract.Session, actions []Action) error {
+// SaveBatch stores sessions (merged with what is stored) and actions,
+// deduplicated on id with the same precedence as observe.Merge: a hook record
+// beats a transcript copy, then the earlier action time, then the session
+// that started first. A remaining tie between two sessions keeps the lower
+// session id and marks the action owner-ambiguous, as do the ids passed in
+// ambiguous. It is idempotent: re-ingesting a batch changes nothing, so a
+// crash between commit and observe.Ack is safe.
+func (s *Store) SaveBatch(ctx context.Context, sessions []contract.Session, actions []Action, ambiguous ...string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -153,14 +158,16 @@ func (s *Store) SaveBatch(ctx context.Context, sessions []contract.Session, acti
 		if a.Action.Identifiers == nil {
 			a.Action.Identifiers = []contract.Identifier{}
 		}
-		var oldSession, oldSource string
-		err := tx.QueryRowContext(ctx, "SELECT session_id, source FROM actions WHERE id = ?", a.Action.ID).Scan(&oldSession, &oldSource)
+		var oldSession, oldSource, oldAt string
+		err := tx.QueryRowContext(ctx, "SELECT session_id, source, occurred_at FROM actions WHERE id = ?", a.Action.ID).Scan(&oldSession, &oldSource, &oldAt)
 		if err == nil {
 			replace := false
 			if oldSession != a.Action.SessionID {
-				ns, nok := started(a.Action.SessionID)
-				olds, ook := started(oldSession)
-				replace = nok && (!ook || ns.Before(olds))
+				var tie bool
+				replace, tie = beats(a.Action, oldSession, oldSource, oldAt, started)
+				if tie {
+					ambiguous = append(ambiguous, a.Action.ID)
+				}
 			} else {
 				replace = oldSource != string(contract.AgentActionSourceHook) || a.Action.Source == contract.AgentActionSourceHook
 			}
@@ -186,7 +193,59 @@ func (s *Store) SaveBatch(ctx context.Context, sessions []contract.Session, acti
 			return err
 		}
 	}
+	for _, id := range ambiguous {
+		if _, err := tx.ExecContext(ctx, "UPDATE actions SET owner_ambiguous = 1 WHERE id = ?", id); err != nil {
+			return err
+		}
+	}
 	return tx.Commit()
+}
+
+// beats reports whether action a, held by another session, should replace
+// the stored copy, and whether the two copies are indistinguishable.
+func beats(a contract.AgentAction, oldSession, oldSource, oldAt string, started func(string) (time.Time, bool)) (replace, tie bool) {
+	hook := func(src string) int {
+		if src == string(contract.AgentActionSourceHook) {
+			return 0
+		}
+		return 1
+	}
+	if hn, ho := hook(string(a.Source)), hook(oldSource); hn != ho {
+		return hn < ho, false
+	}
+	if ot, err := time.Parse(time.RFC3339Nano, oldAt); err == nil && !a.OccurredAt.Equal(ot) {
+		return a.OccurredAt.Before(ot), false
+	}
+	ns, nok := started(a.SessionID)
+	olds, ook := started(oldSession)
+	switch {
+	case nok && !ook:
+		return true, false
+	case !nok && ook:
+		return false, false
+	case nok && ook && !ns.Equal(olds):
+		return ns.Before(olds), false
+	}
+	return a.SessionID < oldSession, true
+}
+
+// AmbiguousActions returns the ids of actions whose owning session cannot be
+// told apart from another session's copy.
+func (s *Store) AmbiguousActions(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id FROM actions WHERE owner_ambiguous = 1")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }
 
 func boolInt(b bool) int {
