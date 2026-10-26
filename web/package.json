@@ -1,0 +1,32 @@
+{
+  "name": "muretto-web",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev",
+    "build": "NEXT_TELEMETRY_DISABLED=1 next build",
+    "start": "NEXT_TELEMETRY_DISABLED=1 next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "generate": "node scripts/generate-contract.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "20.19.43",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.1",
+    "json-schema-to-typescript": "16.0.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.3"
+  }
+}
