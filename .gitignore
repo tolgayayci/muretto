@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 demo/.env
+demo/.run/
 *.pem
 *.key
 
