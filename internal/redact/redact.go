@@ -218,7 +218,7 @@ func redactURLUserinfo(s string) string {
 			authEnd = firstAt + x
 		}
 		at := strings.LastIndexByte(region[:authEnd], '@')
-		if region[:at] == Placeholder {
+		if ui := region[:at]; ui == Placeholder || ui == "git" { // ssh://git@host is not a credential
 			continue
 		}
 		if b.Cap() == 0 {

@@ -119,6 +119,7 @@ func TestStringKeepsIdentifiers(t *testing.T) {
 		"supabase functions deploy process-import --project-ref abcdefghijklmnopqrst",
 		"CREATE TABLE public.customers (id uuid primary key, name text);",
 		"git@github.com:acme/web.git",
+		"ssh://git@github.com/acme/web.git",
 		"https://github.com/acme/web.git",
 		"https://www.npmjs.com/package/@scope/pkg",
 		"psql postgres://localhost:5432/app",
