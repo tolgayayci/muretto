@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   reactStrictMode: true,
   poweredByHeader: false,
+  // Next's own gzip buffers the proxied SSE stream (/api/v1/orgs/{id}/events),
+  // so live updates never arrive. Vercel compresses at its edge anyway.
+  compress: false,
   devIndicators: false,
   turbopack: {
     rules: {
