@@ -52,7 +52,7 @@ func Batch(dev, projectRef string) contract.SyncBatch {
 	finding := contract.ExposureFinding{
 		ID: "rls_disabled:" + resID, ResourceID: resID, RuleID: "rls_disabled", State: contract.ExposureFindingStateExposed,
 		Severity: contract.ExposureFindingSeverityHigh, Title: "RLS disabled", Explanation: "Table readable by anon.",
-		Fix: contract.Fix{Kind: contract.FixKindSql, Text: "alter table public.customers enable row level security;"},
+		Fix:    contract.Fix{Kind: contract.FixKindSql, Text: "alter table public.customers enable row level security;"},
 		Signal: contract.ExposureFindingSignalOfficialAdvisor, CheckedAt: ptr(T0),
 	}
 	cost := contract.CostRecord{ResourceID: resID, Source: contract.CostRecordSourceEstimated, AmountMicros: ptr(10_000_000),
@@ -62,7 +62,7 @@ func Batch(dev, projectRef string) contract.SyncBatch {
 		Status: contract.ProviderCheckStatusOk, AttemptedAt: T0, LastSuccessAt: ptr(T0), Items: ptr(1)}
 
 	return contract.SyncBatch{
-		SchemaVersion: 1, BatchID: hash16("batch-" + dev + projectRef) + hash16(projectRef), SentAt: T0, ClientVersion: "test",
+		SchemaVersion: 1, BatchID: hash16("batch-"+dev+projectRef) + hash16(projectRef), SentAt: T0, ClientVersion: "test",
 		Developer:    contract.Developer{ID: "dev-" + dev, DisplayName: dev, MachineIDHash: hash16("machine-" + dev)},
 		Sessions:     []contract.SyncSession{{Rev: rev(session), Entity: session}},
 		Resources:    []contract.SyncResource{{Rev: rev(resource), Entity: resource}},
