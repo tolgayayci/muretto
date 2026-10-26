@@ -35,6 +35,10 @@ export interface SpoolRecord {
   reason?: string;
   session_title?: string;
   /**
+   * SessionStart only, when Claude Code sends it.
+   */
+  model?: string;
+  /**
    * UserPromptSubmit only: the first line of the prompt, redacted and truncated. The full prompt is never stored.
    */
   title_candidate?: string;
