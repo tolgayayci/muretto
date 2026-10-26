@@ -321,10 +321,15 @@ func (a *adapterSpec) validate() error {
 		bad("display_name is required")
 	}
 	u, err := url.Parse(a.API.BaseURL)
-	if err != nil || u.Scheme != "https" || u.Host == "" || (u.Path != "" && u.Path != "/") || u.User != nil {
-		bad("api.base_url must be https://host with no path or credentials")
+	if err != nil || u.Scheme != "https" || u.Host == "" || (u.Path != "" && u.Path != "/") || u.User != nil ||
+		u.Opaque != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
+		bad("api.base_url must be https://host with no path, query or credentials")
+	} else if host, err := broker.CanonicalHost(u.Host); err != nil {
+		// The broker compares hosts only in canonical form, so a port (even
+		// :443), a trailing dot or an IP literal could dodge its deny list.
+		bad("api.base_url host must be a plain DNS name (no port, trailing dot or IP): %v", err)
 	} else {
-		a.API.host = strings.ToLower(u.Host)
+		a.API.host = host
 	}
 	if a.API.Auth.Header == "" {
 		bad("api.auth.header is required")

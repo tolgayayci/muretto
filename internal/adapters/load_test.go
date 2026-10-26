@@ -81,6 +81,27 @@ kinds: []`,
 		"http base": strings.Replace(base, "https://", "http://", 1) + `endpoints:
   orgs: { path: /orgs }
 kinds: []`,
+		"base_url with :443": strings.Replace(base, "api.example.com", "api.example.com:443", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
+		"base_url with trailing dot": strings.Replace(base, "api.example.com", "api.example.com.", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
+		"base_url IPv4": strings.Replace(base, "api.example.com", "203.0.113.7", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
+		"base_url IPv6": strings.Replace(base, "api.example.com", "[2001:db8::1]", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
+		"base_url userinfo": strings.Replace(base, "api.example.com", "u@api.example.com", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
+		"base_url query": strings.Replace(base, "api.example.com", "api.example.com?x=1", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
+		"base_url single label": strings.Replace(base, "api.example.com", "localhost", 1) + `endpoints:
+  orgs: { path: /orgs }
+kinds: []`,
 		"stripped attribute": base + `endpoints:
   orgs: { path: /orgs }
 kinds:
@@ -101,6 +122,27 @@ kinds:
 		if _, err := parseAdapter([]byte(src), name); err == nil {
 			t.Errorf("%s: want a load error", name)
 		}
+	}
+}
+
+// A base_url in an equivalent upper-case form is stored lowercase, so the
+// broker's rules and deny list see one spelling of each host.
+func TestBaseURLHostCanonical(t *testing.T) {
+	src := `format: 1
+provider: x-test
+display_name: X
+api: { base_url: https://API.Example.COM, auth: { header: Authorization, scheme: Bearer } }
+token_help: t
+accounts: { endpoint: orgs, id: "{id}" }
+endpoints:
+  orgs: { path: /orgs }
+kinds: []`
+	a, err := parseAdapter([]byte(src), "x.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.API.host != "api.example.com" {
+		t.Fatalf("host = %q", a.API.host)
 	}
 }
 

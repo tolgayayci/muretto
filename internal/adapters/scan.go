@@ -424,7 +424,7 @@ func (s *scanner) result() ScanResult {
 // fetch calls one endpoint through the broker, following pagination, and
 // returns the decoded JSON of every page.
 func (s *scanner) fetch(ep *endpointSpec, ctx map[string]any) ([]any, error) {
-	base := strings.TrimSuffix(s.a.API.BaseURL, "/")
+	base := "https://" + s.a.API.host // canonical form, checked at load time
 	path := ep.Path
 	for name, t := range ep.Params {
 		v, ok := t.render(ctx)
