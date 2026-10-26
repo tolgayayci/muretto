@@ -13,6 +13,7 @@ import (
 // on D's branch), reimplemented here so this package fails if its identifiers
 // stop fitting it:
 //   - id_in_result: value == provider_id;
+//   - host_in_result: value == attributes.host;
 //   - with a container: container+"/"+value == provider_id, or value == name
 //     and container is the account id, account name, attributes.account_slug,
 //     or the parent's provider id or name.
@@ -22,6 +23,9 @@ func attribMatch(id contract.Identifier, res contract.Resource, byID map[string]
 	}
 	if id.Value == res.ProviderID {
 		return true
+	}
+	if h, ok := res.Attributes["host"].(string); ok && h != "" && id.Value == h {
+		return true // host_in_result (docs/decisions/0901)
 	}
 	if id.Container == nil {
 		return false
@@ -77,6 +81,9 @@ var contractActions = []struct {
 		[]string{"supabase.project:abcdefghijklmnopqrst"}},
 	{"Bash", map[string]any{"command": "vercel deploy"},
 		`{"status":"ok","deployment":{"id":"dpl_EXAMPLEPREVIEW000000000001","url":"https://example-waitlist-abc123def-example-team.vercel.app"}}`,
+		[]string{"vercel.deployment:dpl_EXAMPLEPREVIEW000000000001"}},
+	{"Bash", map[string]any{"command": "vercel deploy --non-interactive=false"}, // human mode: bare URL on stdout
+		"https://example-waitlist-abc123def-example-team.vercel.app\n",
 		[]string{"vercel.deployment:dpl_EXAMPLEPREVIEW000000000001"}},
 	{"Bash", map[string]any{"command": "vercel env add NEXT_PUBLIC_STRIPE_SECRET_KEY production"},
 		"✓ Added           NEXT_PUBLIC_STRIPE_SECRET_KEY\n  Project         example-team/example-waitlist\n",

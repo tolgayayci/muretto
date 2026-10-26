@@ -26,6 +26,8 @@ fields:
     verify_jwt: false
     project_ref: abcdefghijklmnopqrst
   supabase.bucket:abcdefghijklmnopqrst/avatars:
+    _status: null # no status or url in the bucket list: unset, not ""
+    _url: null
     public: true
     bucket_id: avatars
   supabase.table:abcdefghijklmnopqrst/public.customers:

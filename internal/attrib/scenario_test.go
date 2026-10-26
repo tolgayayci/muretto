@@ -21,7 +21,7 @@ import (
 //	session <id> start=<time>
 //	action <id> session=<id> at=<time> tool=<name> [status=ok|error] [agent=<subagent>]
 //	  created|referenced <kind> value=<v> [container=<c>] [sig=<id>]
-//	resource <kind>:<provider_id> [name=] [account=] [account_name=] [parent=<id>]
+//	resource <kind>:<provider_id> [name=] [account=] [account_name=] [account_slug=] [host=] [parent=<id>]
 //	         [created=<time>] [existence=confirmed|gone|unconfirmed] [gone=<time>] [seen=list|advisor]
 //	expect <resource id> exact <session> <rule>
 //	expect <resource id> unknown
@@ -179,6 +179,9 @@ func loadScenarios(t *testing.T) []*scenario {
 				}
 				if v, ok := opts["account_slug"]; ok {
 					r.Attributes["account_slug"] = v
+				}
+				if v, ok := opts["host"]; ok {
+					r.Attributes["host"] = v
 				}
 				if v, ok := opts["parent"]; ok {
 					r.ParentID = ptr(v)

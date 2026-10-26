@@ -1,0 +1,7 @@
+{
+  "db_schema": "public, graphql_public",
+  "max_rows": 1000,
+  "db_extra_search_path": "public, extensions",
+  "db_pool": null,
+  "jwt_secret": "MURETTO_FAKE_SECRET_jwt"
+}

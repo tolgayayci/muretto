@@ -1,0 +1,15 @@
+[
+  {
+    "id": "00000000-0000-4000-8000-000000000021",
+    "slug": "process-import",
+    "name": "process-import",
+    "status": "ACTIVE",
+    "version": 1,
+    "created_at": {{ms:-96m}},
+    "updated_at": {{ms:-96m}},
+    "verify_jwt": true,
+    "import_map": false,
+    "entrypoint_path": "file:///tmp/source/index.ts",
+    "ezbr_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+]

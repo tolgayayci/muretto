@@ -209,11 +209,12 @@ func (s *scanner) addItem(k *kindSpec, src *sourceSpec, item, ictx map[string]an
 	if n, ok := src.Name.render(ictx); ok {
 		res.Name = truncate(n, 300)
 	}
-	if v, ok := src.Status.render(ictx); ok {
+	// A kind without a status or url template renders "": leave them unset.
+	if v, ok := src.Status.render(ictx); ok && v != "" {
 		st := truncate(v, 50)
 		res.Status = &st
 	}
-	if v, ok := src.URL.render(ictx); ok {
+	if v, ok := src.URL.render(ictx); ok && v != "" {
 		u := truncate(v, 1000)
 		res.Url = &u
 	}

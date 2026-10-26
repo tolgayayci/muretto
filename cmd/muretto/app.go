@@ -84,6 +84,10 @@ type app struct {
 	secrets         *secrets.Store
 	readPassword    func() (string, error)
 	executable      func() (string, error)
+	// newBroker builds the read-only provider broker. It is nil in the binary
+	// (broker.New with the default client); end-to-end tests give the broker a
+	// client that serves fixtures. The allowlist applies either way.
+	newBroker func(allow []broker.Rule) *broker.Broker
 
 	in *bufio.Reader
 }
@@ -407,7 +411,7 @@ func (a *app) scan(ctx context.Context, s *state, refresh bool) {
 			_ = s.st.RecordCheckFailure(ctx, acct.Provider, acct.ID, now, contract.ProviderCheckErrorCodeAuth, "no token available")
 			continue
 		}
-		b := broker.New(nil, s.reg.Allowlist())
+		b := a.broker(s.reg)
 		sctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		res, err := s.reg.Scan(sctx, b, acct.Provider, adapters.Credentials{
 			Token: token, AccountID: acct.ID, AccountName: acct.Name, AccountSlug: acct.Slug,
@@ -424,6 +428,14 @@ func (a *app) scan(ctx context.Context, s *state, refresh bool) {
 			a.warn(s, "store_error", "Could not store the scan of "+label+": "+err.Error(), "")
 		}
 	}
+}
+
+// broker returns a read-only broker for reg's allowlist.
+func (a *app) broker(reg Registry) *broker.Broker {
+	if a.newBroker != nil {
+		return a.newBroker(reg.Allowlist())
+	}
+	return broker.New(nil, reg.Allowlist())
 }
 
 func acctLabel(acct config.Account) string {

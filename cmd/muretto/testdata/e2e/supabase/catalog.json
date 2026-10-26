@@ -1,0 +1,4 @@
+[
+  { "schema": "public", "name": "customers", "rls_enabled": false, "rls_forced": false, "anon_schema_usage": true, "anon_select": true, "authenticated_select": true },
+  { "schema": "public", "name": "waitlist", "rls_enabled": true, "rls_forced": false, "anon_schema_usage": true, "anon_select": true, "authenticated_select": true }
+]

@@ -1,0 +1,16 @@
+{
+  "lints": [
+    {
+      "name": "rls_disabled_in_public",
+      "title": "RLS Disabled in Public",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST",
+      "detail": "Table `public.customers` is public, but RLS has not been enabled.",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public",
+      "metadata": { "schema": "public", "name": "customers", "type": "table" },
+      "cache_key": "rls_disabled_in_public_public_customers"
+    }
+  ]
+}
