@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# GoReleaser OSS v2.18.3. Verify locally (never publishes):
+#   go run github.com/goreleaser/goreleaser/v2@v2.18.3 check
+#   go run github.com/goreleaser/goreleaser/v2@v2.18.3 release --snapshot --clean --skip=publish
+# Releases are built only in CI (.github/workflows/release.yml), from a v* tag.
+#
+# TODO(signing): sign checksums.txt and attach build provenance before 1.0
+# (cosign keyless `signs:` + SLSA provenance / actions/attest-build-provenance).
+# Then make install.sh verify the signature too. See docs/INSTALL.md.
+version: 2
+
+project_name: muretto
+
+before:
+  hooks:
+    # `go mod tidy` is checked in CI; never mutate the tree during a release.
+    - go mod verify
+
+builds:
+  - id: muretto
+    main: ./cmd/muretto
+    binary: muretto
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      # Ignored by the linker until cmd/muretto declares these variables.
+      - -X main.commit={{ .FullCommit }}
+      - -X main.date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    ids: [muretto]
+    formats: [tar.gz]
+    # muretto_1.2.3_darwin_arm64.tar.gz: install.sh and npm/scripts/assemble.mjs
+    # depend on this exact name.
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^Merge "
+
+release:
+  github:
+    owner: tolgayayci
+    name: muretto
+  draft: false
+  prerelease: auto
+
+homebrew_casks:
+  - name: muretto
+    ids: [default]
+    binaries: [muretto]
+    homepage: "https://github.com/tolgayayci/muretto"
+    description: "See everything your AI coding agents create outside the repo (read-only)."
+    directory: Casks
+    # Skipped for snapshots and prereleases.
+    skip_upload: auto
+    commit_author:
+      name: muretto-release-bot
+      email: tolgayayci@users.noreply.github.com
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
+    repository:
+      owner: tolgayayci
+      name: homebrew-tap
+      branch: main
+      # Fine-grained PAT (or GitHub App token) with contents:write on
+      # tolgayayci/homebrew-tap only; lives in the protected `release` environment.
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    # OPEN QUESTION: binaries are not signed or notarized yet. Removing the
+    # quarantine bit stops macOS from reporting the binary as "damaged", but it
+    # BYPASSES GATEKEEPER for this binary. Drop this hook once we sign and
+    # notarize (Apple Developer ID). On v2.19+ migrate to `install_steps`.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/muretto"]
+          end
