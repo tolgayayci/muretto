@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Muretto web: dashboard and landing page
 
-## Getting Started
+Next.js 16 app. The landing page is `/`; the dashboard is `/app`.
 
-First, run the development server:
+## Run
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```sh
+npm ci
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Without a server, open **`/app/sample`**: the full dashboard on built-in, clearly labelled sample data (the fake "acme" team). Set `NEXT_PUBLIC_MURETTO_SAMPLE=1` to make `/app` use it too.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+With the Go sync API (see `server/README.md`):
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+MURETTO_DEV_LOGIN=1 go run ./server/cmd/murettod     # from the repo root: 127.0.0.1:8080
+cd web && MURETTO_API_URL=http://127.0.0.1:8080 npm run dev
+```
 
-## Learn More
+Then use the "Dev sign-in" form on `/login` (development builds only).
 
-To learn more about Next.js, take a look at the following resources:
+## Routes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Route | What |
+|---|---|
+| `/` | Landing page |
+| `/app` | Dashboard (live, Me / Team) |
+| `/app/sample` | Dashboard on sample data |
+| `/app/orgs/new` | Create a team |
+| `/login` | GitHub sign-in (`?return_to=`, `?error=`) |
+| `/device?code=XXXX-XXXX` | Approve or deny a `muretto login` |
+| `/join/<token>` | Accept a team invite |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Scripts
 
-## Deploy on Vercel
+`npm run lint`, `npx tsc --noEmit`, `npm run build`, and `npm run generate` (TypeScript types in `src/contract/` from `../schema/*.schema.json`; commit the output).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Configuration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See `.env.example`. Decisions: `docs/decisions/0601`–`0604`.
