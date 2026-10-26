@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/tolgayayci/muretto/internal/contract"
+	"github.com/tolgayayci/muretto/internal/redact"
 )
 
 // Rule ids stored in Attribution.RuleID.
@@ -481,15 +482,21 @@ func evidence(cs []claim) []contract.Evidence {
 			mv = *c.ident.Container + "/" + mv
 		}
 		ex := ""
-		switch {
-		case c.ident.Excerpt != nil:
+		if c.ident.Excerpt != nil {
 			ex = *c.ident.Excerpt
-		case c.action.InputExcerpt != nil && c.action.ResultExcerpt != nil:
-			ex = *c.action.InputExcerpt + "\n→ " + *c.action.ResultExcerpt
-		case c.action.ResultExcerpt != nil:
-			ex = *c.action.ResultExcerpt
-		case c.action.InputExcerpt != nil:
-			ex = *c.action.InputExcerpt
+		} else {
+			// No excerpt of its own: show only the text around the matched
+			// value, never the whole tool input.
+			in := excerptWindow(c.action.InputExcerpt, c.ident.Value)
+			res := excerptWindow(c.action.ResultExcerpt, c.ident.Value)
+			switch {
+			case in != "" && res != "":
+				ex = in + "\n→ " + res
+			case res != "":
+				ex = res
+			default:
+				ex = in
+			}
 		}
 		out = append(out, contract.Evidence{
 			ActionID:     c.action.ID,
@@ -508,6 +515,31 @@ func evidence(cs []claim) []contract.Evidence {
 		return out[i].ActionID < out[j].ActionID
 	})
 	return out
+}
+
+// windowRadius is how many bytes of context an evidence excerpt keeps on each
+// side of the matched value when it falls back to an action's excerpts.
+const windowRadius = 200
+
+// excerptWindow returns the text within windowRadius bytes of value in *s (or
+// its start when value isn't there), redacted again as defence in depth: the
+// excerpts were redacted when recorded, but evidence is shown and synced.
+func excerptWindow(s *string, value string) string {
+	if s == nil || *s == "" {
+		return ""
+	}
+	t := *s
+	from, to := 0, min(len(t), 2*windowRadius)
+	if i := strings.Index(t, value); value != "" && i >= 0 {
+		from, to = max(0, i-windowRadius), min(len(t), i+len(value)+windowRadius)
+	}
+	for from > 0 && (t[from]&0xC0) == 0x80 { // keep whole UTF-8 runes
+		from--
+	}
+	for to < len(t) && (t[to]&0xC0) == 0x80 {
+		to++
+	}
+	return redact.String(t[from:to])
 }
 
 func clip(s string, n int) string {

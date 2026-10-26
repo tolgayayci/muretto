@@ -30,6 +30,9 @@ type anchored struct {
 	re       *regexp.Regexp
 	window   int                     // max bytes the match may span from the trigger
 	repl     func(m []string) string // nil: replace the whole match with Placeholder
+	// guard, when set, must accept the (lowercased) text and trigger position
+	// before the rule is tried there.
+	guard func(lower string, at int) bool
 }
 
 // tokenRules replace whole token shapes.
@@ -71,7 +74,9 @@ var tokenRules = []anchored{
 var contextRules = []anchored{
 	// Authorization / apikey style headers, in curl commands, logs or JSON text.
 	{name: "header", triggers: []string{"authorization", "apikey", "api-key", "x-auth-token", "x-api-token"}, window: 4096,
-		re: regexp.MustCompile(`^(?i)(authorization|api-?key|x-auth-token|x-api-token)(\\?["']?[ \t]*[:=][ \t]*\\?["']?)(?:(bearer|basic|token|digest)[ \t]+)?(\[REDACTED\]|[^\s"',;\\]+)`),
+		// The key and value may be quoted, escaped more than once (\\\"), and the
+		// value may be a list: {'Authorization': ['Bearer x']}.
+		re: regexp.MustCompile(`^(?i)(authorization|api-?key|x-auth-token|x-api-token)(\\*["']?[ \t]*[:=][ \t]*(?:\[[ \t]*)??\\*["']?)(?:(bearer|basic|token|digest)[ \t]+)?(\[REDACTED\]|[^\s"',;\\\[\]]+)`),
 		repl: func(m []string) string {
 			out := m[1] + m[2]
 			if m[3] != "" {
@@ -88,6 +93,65 @@ var contextRules = []anchored{
 			}
 			return m[1] + m[2] + Placeholder
 		}},
+	// Basic-auth user:password flags: curl -u user:pw, --user user:pw. Only
+	// the part after ':' is redacted; numeric uid:gid (docker -u 1000:1000)
+	// is kept.
+	{name: "user_flag", triggers: []string{" -u", "\t-u", "--user"}, window: 4096,
+		re: regexp.MustCompile(`^((?:[ \t]-u(?:[ \t]+|=)?|--user(?:[ \t]+|=))["']?([^\s:"'/@]+):)([^\s"']+)`),
+		repl: func(m []string) string {
+			if strings.HasPrefix(m[3], Placeholder) || (isDigits(m[2]) && isDigits(strings.TrimRight(m[3], `"'`))) {
+				return m[0]
+			}
+			return m[1] + Placeholder
+		}},
+	// mysql -uroot -phunter2: the password attached to -p. Only on a line that
+	// runs a MySQL/MariaDB client, because -p means other things elsewhere.
+	{name: "mysql_p", triggers: []string{" -p", "\t-p"}, window: 4096,
+		guard: lineHas("mysql", "mariadb"),
+		re:    regexp.MustCompile(`^([ \t]-p)("[^"\n]*"|'[^'\n]*'|[^\s"'-][^\s"']*)`),
+		repl: func(m []string) string {
+			if m[2] == Placeholder {
+				return m[0]
+			}
+			return m[1] + Placeholder
+		}},
+	// vercel -t <token>: the short form of --token. Only on a vercel line,
+	// because -t means other things elsewhere (docker -t, tar -t).
+	{name: "vercel_t", triggers: []string{" -t", "\t-t"}, window: 4096,
+		guard: lineHas("vercel"),
+		re:    regexp.MustCompile(`^([ \t]-t(?:[ \t]+|=))("[^"\n]*"|'[^'\n]*'|[^\s"']+)`),
+		repl: func(m []string) string {
+			if strings.HasPrefix(m[2], "-") || m[2] == Placeholder {
+				return m[0]
+			}
+			return m[1] + Placeholder
+		}},
+}
+
+// lineHas returns a guard that accepts a trigger position when one of words
+// occurs earlier on the same line.
+func lineHas(words ...string) func(lower string, at int) bool {
+	return func(lower string, at int) bool {
+		line := lower[strings.LastIndexByte(lower[:at], '\n')+1 : at]
+		for _, w := range words {
+			if strings.Contains(line, w) {
+				return true
+			}
+		}
+		return false
+	}
+}
+
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // String redacts secret-shaped substrings in s. It is idempotent.
@@ -135,6 +199,10 @@ func (r *anchored) apply(s, lower string) string {
 		if next < 0 {
 			break
 		}
+		if r.guard != nil && !r.guard(lower, next) {
+			pos = next + 1
+			continue
+		}
 		end := min(len(s), next+r.window)
 		loc := r.re.FindStringSubmatchIndex(s[next:end])
 		if loc == nil {
@@ -168,8 +236,8 @@ func (r *anchored) apply(s, lower string) string {
 	return b.String()
 }
 
-// dbSchemes may carry a raw '/' in the password, so their userinfo runs to the
-// last '@' of the authority rather than stopping at the first '/'.
+// dbSchemes may carry a raw '/', '?' or '#' in the password, so their password
+// runs to the last '@' of the URL rather than of the authority.
 var dbSchemes = map[string]bool{
 	"postgres": true, "postgresql": true, "mysql": true, "mariadb": true, "mongodb": true,
 	"mongodb+srv": true, "redis": true, "rediss": true, "amqp": true, "amqps": true,
@@ -200,25 +268,40 @@ func redactURLUserinfo(s string) string {
 		}
 		scheme := asciiLower(s[k:sep])
 		start := sep + 3
-		// The candidate region ends at whitespace, a quote or a bracket.
+		// The candidate region ends at whitespace, a quote, '<', '>' or '\'.
 		end := start
 		for end < len(s) && !isURLStop(s[end]) {
 			end++
 		}
 		region := s[start:end]
-		firstAt := strings.IndexByte(region, '@')
-		if firstAt <= 0 {
+		// The user name ends at the first ':' or '@' (anything else that
+		// can't be in a user name means there is no userinfo).
+		u := 0
+		for u < len(region) && !isUserStop(region[u]) {
+			u++
+		}
+		if u == 0 || u == len(region) {
 			continue
 		}
-		if !dbSchemes[scheme] && strings.ContainsAny(region[:firstAt], "/?#") {
-			continue // the '@' is in the path, not in the userinfo
-		}
-		authEnd := len(region)
-		if x := strings.IndexAny(region[firstAt:], "/?#"); x >= 0 {
-			authEnd = firstAt + x
-		}
-		at := strings.LastIndexByte(region[:authEnd], '@')
-		if ui := region[:at]; ui == Placeholder || ui == "git" { // ssh://git@host is not a credential
+		var at int
+		switch region[u] {
+		case '@': // token-only userinfo
+			if region[:u] == "git" { // ssh://git@host is not a credential
+				continue
+			}
+			at = u
+		case ':': // user:password; the password runs to the last '@' before the host
+			limit := len(region)
+			if !dbSchemes[scheme] {
+				if x := strings.IndexAny(region[u:], "/?#"); x >= 0 {
+					limit = u + x
+				}
+			}
+			at = strings.LastIndexByte(region[:limit], '@')
+			if at < u {
+				continue // host:port, no userinfo
+			}
+		default:
 			continue
 		}
 		if b.Cap() == 0 {
@@ -244,7 +327,17 @@ func isLetter(c byte) bool { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 
 
 func isURLStop(c byte) bool {
 	switch c {
-	case ' ', '\t', '\r', '\n', '"', '\'', '`', '<', '>', '(', ')', '[', ']', '{', '}', '\\', ',':
+	case ' ', '\t', '\r', '\n', '"', '\'', '`', '<', '>', '\\':
+		return true
+	}
+	return false
+}
+
+// isUserStop ends a URL's user name. Only ':' and '@' mean userinfo follows;
+// a password after ':' may contain any of the others.
+func isUserStop(c byte) bool {
+	switch c {
+	case ':', '@', '/', '?', '#', '(', ')', '[', ']', '{', '}', ',', ';':
 		return true
 	}
 	return false
@@ -280,6 +373,19 @@ func redactKeyValues(s string) string {
 		for v < len(s) && (s[v] == ' ' || s[v] == '\t') {
 			v++
 		}
+		if v < len(s) && s[v] == '[' && !strings.HasPrefix(s[v:], Placeholder) { // a list value: redact its content
+			vs, ve, ok := listSpan(s, v)
+			if !ok || vs < last || strings.TrimSpace(s[vs:ve]) == Placeholder {
+				continue
+			}
+			if b.Cap() == 0 {
+				b.Grow(len(s))
+			}
+			b.WriteString(s[last:vs])
+			b.WriteString(Placeholder)
+			last, pos = ve, ve
+			continue
+		}
 		vs, ve := valueSpan(s, v)
 		if ve <= vs || vs < last {
 			continue
@@ -287,6 +393,11 @@ func redactKeyValues(s string) string {
 		val := s[vs:ve]
 		if val == Placeholder || val[0] == '$' || val[0] == '=' || val[0] == '/' || isAuthScheme(val) {
 			continue
+		}
+		if s[sep] == ':' && vs == v {
+			// An unquoted "key: value" runs to the end of the line, so
+			// "password: correct horse battery" loses every word.
+			ve = lineValueEnd(s, ve)
 		}
 		if b.Cap() == 0 {
 			b.Grow(len(s))
@@ -312,7 +423,7 @@ func keyBefore(s string, sep int) (string, bool) {
 	}
 	if e > 0 && (s[e-1] == '"' || s[e-1] == '\'') {
 		e--
-		if e > 0 && s[e-1] == '\\' {
+		for n := 0; e > 0 && n < maxEscapes && s[e-1] == '\\'; n++ { // \", \\\", ...
 			e--
 		}
 	}
@@ -333,30 +444,93 @@ func isKeyByte(c byte) bool {
 	return isLetter(c) || (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-'
 }
 
+// maxEscapes bounds how many levels of backslash-escaping around a quote the
+// scanner recognises (JSON in a string in a string: \", \\\", \\\\\\\").
+const maxEscapes = 15
+
 // valueSpan returns the bounds of the value starting at i, without quotes.
+// A quote may be escaped any number of times (JSON inside JSON strings); the
+// value then ends at the quote escaped the same number of times. A quote
+// escaped more often is part of the value ("hun\"ter").
 func valueSpan(s string, i int) (start, end int) {
 	if i >= len(s) {
 		return i, i
 	}
-	switch {
-	case strings.HasPrefix(s[i:], Placeholder):
+	if strings.HasPrefix(s[i:], Placeholder) {
 		return i, i + len(Placeholder)
-	case s[i] == '\\' && i+1 < len(s) && s[i+1] == '"': // escaped JSON: \"value\"
-		if j := strings.Index(s[i+2:], `\"`); j >= 0 && !strings.Contains(s[i+2:i+2+j], "\n") {
-			return i + 2, i + 2 + j
+	}
+	k := 0
+	for i+k < len(s) && k <= maxEscapes && s[i+k] == '\\' {
+		k++
+	}
+	if i+k < len(s) && (s[i+k] == '"' || s[i+k] == '\'') {
+		q, vs := s[i+k], i+k+1
+		for j := vs; j < len(s) && s[j] != '\n'; j++ {
+			if s[j] != q {
+				continue
+			}
+			n := 0
+			for j-n > vs && s[j-n-1] == '\\' {
+				n++
+			}
+			switch {
+			case n == k:
+				return vs, j - n
+			case k == 0 && n%2 == 0: // "x\\": a literal backslash, then the quote
+				return vs, j
+			}
 		}
-		return i, i
-	case s[i] == '"' || s[i] == '\'':
-		if j := strings.IndexByte(s[i+1:], s[i]); j >= 0 && !strings.Contains(s[i+1:i+1+j], "\n") {
-			return i + 1, i + 1 + j
-		}
-		return i, i
+		return i, i // unterminated
+	}
+	if k > 0 {
+		return i, i // \n, \t: an escape, not a value
 	}
 	j := i
 	for j < len(s) && !isValueStop(s[j]) {
 		j++
 	}
 	return i, j
+}
+
+// lineValueEnd extends an unquoted value ending at end across spaces and
+// tabs to the next value stop, then drops trailing blanks.
+func lineValueEnd(s string, end int) int {
+	j := end
+	for j < len(s) && (s[j] == ' ' || s[j] == '\t' || !isValueStop(s[j])) {
+		j++
+	}
+	for j > end && (s[j-1] == ' ' || s[j-1] == '\t') {
+		j--
+	}
+	return j
+}
+
+// listSpan returns the content of the list value starting with '[' at i, up
+// to the matching ']' on the same line (quotes and nesting respected).
+func listSpan(s string, i int) (start, end int, ok bool) {
+	depth := 0
+	var q byte
+	for j := i; j < len(s) && j-i < 4096 && s[j] != '\n'; j++ {
+		c := s[j]
+		switch {
+		case q != 0:
+			if c == '\\' {
+				j++
+			} else if c == q {
+				q = 0
+			}
+		case c == '"' || c == '\'':
+			q = c
+		case c == '[':
+			depth++
+		case c == ']':
+			depth--
+			if depth == 0 {
+				return i + 1, j, j > i+1
+			}
+		}
+	}
+	return 0, 0, false
 }
 
 func isValueStop(c byte) bool {
@@ -414,8 +588,14 @@ func IsSecretKey(k string) bool {
 			return true
 		}
 	}
-	// FOO_KEY, anon_key, stripe_key and *_pwd.
-	return strings.HasSuffix(n, "_key") || strings.HasSuffix(n, "_pwd")
+	// FOO_KEY, anon_key, stripe_key, *_pwd, pass, DB_PASS and smtpPass.
+	return strings.HasSuffix(n, "_key") || strings.HasSuffix(n, "_pwd") ||
+		n == "pass" || strings.HasSuffix(n, "_pass") || isCamelPass(k)
+}
+
+// isCamelPass reports a camelCase key ending in "Pass" (dbPass, smtpPass).
+func isCamelPass(k string) bool {
+	return len(k) > 4 && strings.HasSuffix(k, "Pass") && k[len(k)-5] >= 'a' && k[len(k)-5] <= 'z'
 }
 
 func normalizeKey(k string) string {

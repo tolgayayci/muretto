@@ -76,8 +76,8 @@ type app struct {
 	claudeDir       func() (string, error)
 	loadRegistry    func() (Registry, error)
 	extractVersion  string
-	ingestSpool     func(p paths.Paths, developerID string) (observe.Batch, error)
-	scanTranscripts func(claudeDir, developerID string, since time.Time) (observe.Batch, error)
+	ingestSpool     func(p paths.Paths, developerID, pathSalt string) (observe.Batch, error)
+	scanTranscripts func(claudeDir, developerID, pathSalt string, since time.Time) (observe.Batch, error)
 	ack             func(files []string) error
 	hooks           Hooks
 	sync            Sync
@@ -333,9 +333,9 @@ func (a *app) toStoreActions(s *state, raws []observe.RawAction) []store.Action 
 }
 
 func (a *app) ingest(ctx context.Context, s *state) {
-	dev := s.cfg.DeveloperID()
+	dev, salt := s.cfg.DeveloperID(), s.cfg.PathHashSalt()
 	var batches []observe.Batch
-	if b, err := a.ingestSpool(s.p, dev); err != nil {
+	if b, err := a.ingestSpool(s.p, dev, salt); err != nil {
 		a.warn(s, "spool_unreadable", "Could not read the hook spool: "+err.Error(), "muretto doctor")
 	} else {
 		batches = append(batches, b)
@@ -344,7 +344,7 @@ func (a *app) ingest(ctx context.Context, s *state) {
 	started := a.now()
 	if dir, err := a.claudeDir(); err == nil {
 		since, _ := s.st.MetaTime(ctx, store.MetaTranscriptsScannedAt)
-		if tb, err := a.scanTranscripts(dir, dev, since); err != nil {
+		if tb, err := a.scanTranscripts(dir, dev, salt, since); err != nil {
 			a.warn(s, "transcripts_unreadable", "Could not read Claude Code transcripts: "+err.Error(), "")
 		} else {
 			batches = append(batches, tb)

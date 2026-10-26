@@ -231,8 +231,8 @@ func (h *harness) app(stdout, stderr io.Writer) *app {
 		loadRegistry:   func() (Registry, error) { return h.reg, nil },
 		extractVersion: "test",
 		// Like the real spool, files stay until they are acked.
-		ingestSpool: func(paths.Paths, string) (observe.Batch, error) { return h.spool, nil },
-		scanTranscripts: func(string, string, time.Time) (observe.Batch, error) {
+		ingestSpool: func(paths.Paths, string, string) (observe.Batch, error) { return h.spool, nil },
+		scanTranscripts: func(string, string, string, time.Time) (observe.Batch, error) {
 			b := h.transcripts
 			h.transcripts = observe.Batch{}
 			return b, nil

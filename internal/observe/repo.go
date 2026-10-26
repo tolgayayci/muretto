@@ -2,6 +2,7 @@ package observe
 
 import (
 	"bufio"
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/url"
@@ -13,31 +14,33 @@ import (
 	"github.com/tolgayayci/muretto/internal/redact"
 )
 
-// PathHash is the salted sha256 of a working directory. The salt is the
-// developer id, so the same path hashes the same for one developer but can't
-// be looked up in a table of common paths across developers. The path itself
-// never leaves the machine.
-func PathHash(developerID, cwd string) string {
-	h := sha256.New()
-	h.Write([]byte("muretto-repo-v1\x00"))
-	h.Write([]byte(developerID))
-	h.Write([]byte{0})
+// PathHash is the HMAC-SHA256 of a working directory keyed with pathSalt, a
+// secret that never leaves the machine (config.PathHashSalt, derived from the
+// random install id). The same path hashes the same on one machine, but the
+// sync server can't test guesses of likely paths: it never sees the key. The
+// path itself never leaves the machine either.
+func PathHash(pathSalt, cwd string) string {
+	h := hmac.New(sha256.New, []byte(pathSalt))
+	h.Write([]byte("muretto-repo-v2\x00"))
 	h.Write([]byte(filepath.Clean(cwd)))
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 type repoCache struct {
-	m map[string]*contract.SessionRepo
+	salt string
+	m    map[string]*contract.SessionRepo
 }
 
-func newRepoCache() *repoCache { return &repoCache{m: map[string]*contract.SessionRepo{}} }
+func newRepoCache(pathSalt string) *repoCache {
+	return &repoCache{salt: pathSalt, m: map[string]*contract.SessionRepo{}}
+}
 
-func (c *repoCache) get(cwd, developerID string) *contract.SessionRepo {
+func (c *repoCache) get(cwd string) *contract.SessionRepo {
 	if r, ok := c.m[cwd]; ok {
 		cp := *r
 		return &cp
 	}
-	r := RepoFor(cwd, developerID)
+	r := RepoFor(cwd, c.salt)
 	c.m[cwd] = r
 	cp := *r
 	return &cp
@@ -46,8 +49,9 @@ func (c *repoCache) get(cwd, developerID string) *contract.SessionRepo {
 // RepoFor describes the repository a session ran in. The remote URL comes from
 // reading .git/config directly (git is never executed), with any credentials
 // removed. display_name is owner/repo from the remote, else the directory name.
-func RepoFor(cwd, developerID string) *contract.SessionRepo {
-	r := &contract.SessionRepo{PathHash: PathHash(developerID, cwd)}
+// pathSalt keys the path hash (see PathHash).
+func RepoFor(cwd, pathSalt string) *contract.SessionRepo {
+	r := &contract.SessionRepo{PathHash: PathHash(pathSalt, cwd)}
 	root, cfg := findGitConfig(cwd)
 	if cfg != "" {
 		if remote := remoteURL(cfg); remote != "" {

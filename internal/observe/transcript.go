@@ -74,10 +74,14 @@ type pendingUse struct {
 // ScanTranscripts reads Claude Code transcripts modified since the given time:
 // <claudeDir>/projects/*/*.jsonl and <claudeDir>/projects/*/<session>/subagents/*.jsonl.
 // A zero since reads everything. Unreadable files and lines become warnings.
-func ScanTranscripts(claudeDir, developerID string, since time.Time) (Batch, error) {
+// pathSalt keys the repo path hash (see PathHash) and must not be empty.
+func ScanTranscripts(claudeDir, developerID, pathSalt string, since time.Time) (Batch, error) {
 	var b Batch
 	if developerID == "" {
 		return b, errors.New("developer id is empty")
+	}
+	if pathSalt == "" {
+		return b, errors.New("path hash salt is empty")
 	}
 	root := filepath.Join(claudeDir, "projects")
 	if _, err := os.Stat(root); errors.Is(err, os.ErrNotExist) {
@@ -90,7 +94,7 @@ func ScanTranscripts(claudeDir, developerID string, since time.Time) (Batch, err
 	files := append(main, subs...)
 	sort.Strings(files)
 
-	sc := newScanner(developerID)
+	sc := newScanner(developerID, pathSalt)
 	for _, f := range files {
 		if strings.Contains(filepath.Base(f), ".orphaned-") {
 			continue // set-aside copies; the live file has the same lines
@@ -112,6 +116,7 @@ func ScanTranscripts(claudeDir, developerID string, since time.Time) (Batch, err
 // scanner accumulates sessions and actions across transcript files.
 type scanner struct {
 	developerID string
+	pathSalt    string
 	sessions    map[string]*sessionAcc
 	order       []string
 	pending     map[string]*pendingUse // tool_use id -> call, until its result arrives
@@ -122,9 +127,10 @@ type scanner struct {
 	seq         int
 }
 
-func newScanner(developerID string) *scanner {
+func newScanner(developerID, pathSalt string) *scanner {
 	return &scanner{
 		developerID: developerID,
+		pathSalt:    pathSalt,
 		sessions:    map[string]*sessionAcc{},
 		pending:     map[string]*pendingUse{},
 		actions:     map[string]RawAction{},
@@ -423,7 +429,7 @@ func parseTime(s string) time.Time {
 
 func (s *scanner) batch() Batch {
 	var b Batch
-	repos := newRepoCache()
+	repos := newRepoCache(s.pathSalt)
 	for _, id := range s.order {
 		a := s.sessions[id]
 		if a.started.IsZero() {
