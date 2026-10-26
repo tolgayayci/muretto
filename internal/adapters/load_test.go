@@ -117,6 +117,28 @@ kinds:
 kinds:
   - kind: thing
     sources: [{ endpoint: orgs, id: "{id|shout}" }]`,
+		"unknown preprocess step": base + `endpoints:
+  orgs: { path: /orgs }
+kinds:
+  - kind: thing
+    sources: [{ endpoint: orgs, id: "{id}" }]
+signatures:
+  - id: x.sql
+    kind: thing
+    role: created
+    when: { tool: ^Bash$ }
+    extract: [{ from: command, preprocess: [shell_args, mysql], pattern: 'create (?P<n>\w+)', value: "{n}" }]`,
+		"referenced_if names no group": base + `endpoints:
+  orgs: { path: /orgs }
+kinds:
+  - kind: thing
+    sources: [{ endpoint: orgs, id: "{id}" }]
+signatures:
+  - id: x.sql
+    kind: thing
+    role: created
+    when: { tool: ^Bash$ }
+    extract: [{ from: command, preprocess: sql, pattern: 'create (?P<n>\w+)', referenced_if: ine, value: "{n}" }]`,
 	}
 	for name, src := range cases {
 		if _, err := parseAdapter([]byte(src), name); err == nil {

@@ -135,7 +135,9 @@ kinds:
         name: "{slug}"
         status: "{status|lower}"
         url: "https://supabase.com/dashboard/project/{parent.ref}/functions"
-        created_at: { value: "{created_at}", format: auto } # int64; unit unverified (ms assumed)
+        # int64; unit unverified. auto reads ms or s by magnitude, so either
+        # unit gives the right time and the created_at veto covers redeploys.
+        created_at: { value: "{created_at}", format: auto }
         attributes:
           - slug
           - version
@@ -306,21 +308,30 @@ signatures:
         value: "{item}"
         container: "{result.project_ref}"
 
+  # SQL signatures run on lexed SQL (preprocess: comments dropped, string
+  # constants and quoted identifiers encoded), so CREATE TABLE in a comment or
+  # a string never counts. Statements that succeed whether or not the thing
+  # already existed (IF NOT EXISTS, ON CONFLICT) only reference it
+  # (docs/decisions/0406-proof-of-creation.md).
   - id: supabase.cli.db_query
     kind: table
     role: created
-    when: { tool: ^Bash$, command: ['\bsupabase\s+db\s+query\b'] }
+    when: { tool: ^Bash$, command: ['\bsupabase\s+db\s+query\b'], result_lacks: [error] }
     extract:
       - &sql_create_table
         from: command
-        pattern: '(?i)\bcreate\s+(?:unlogged\s+)?table\s+(?:if\s+not\s+exists\s+)?(?:(?P<schema>"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*)\s*\.\s*)?(?P<name>"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*)'
+        preprocess: [shell_args, sql]
+        pattern: '(?i)\bcreate\s+(?:unlogged\s+)?table\s+(?P<ine>if\s+not\s+exists\s+)?(?:(?P<schema>"[^"%]+"|[A-Za-z_][A-Za-z0-9_$]*)\s*\.\s*)?(?P<name>"[^"%]+"|[A-Za-z_][A-Za-z0-9_$]*)'
+        referenced_if: ine
         capture: [{ from: command, pattern: '--project-ref[= ](?P<ref>[a-z]{20})\b' }]
         value: "{schema|pg_ident|default:public}.{name|pg_ident}"
         container: "{ref}"
       - &sql_insert_bucket
         kind: bucket
         from: command
-        pattern: '(?i)\binsert\s+into\s+"?storage"?\s*\.\s*"?buckets"?\s*\(\s*"?id"?\s*,[^)]*\)\s*values\s*\(\s*''(?P<id>[^'']+)'''
+        preprocess: [shell_args, sql]
+        pattern: '(?i)\binsert\s+into\s+"?storage"?\s*\.\s*"?buckets"?\s*\(\s*"?id"?\s*,[^)]*\)\s*values\s*\(\s*''(?P<id>[A-Za-z0-9_.-]+)''(?:[^;]*?(?P<upsert>\bon\s+conflict\b))?'
+        referenced_if: upsert
         capture: [{ from: command, pattern: '--project-ref[= ](?P<ref>[a-z]{20})\b' }]
         value: "{id}"
         container: "{ref}"
@@ -354,6 +365,7 @@ signatures:
     extract:
       - <<: *sql_create_table
         from: input.content
+        preprocess: sql
         capture: []
         container: "{ref}"
 
@@ -416,17 +428,21 @@ signatures:
     extract:
       - { from: result, value: "{result.slug|or:input.name}", container: "{input.project_id}" }
 
+  # apply_migration returns {"success": true} and execute_sql {"result": ...};
+  # errors are {"error": ...} and a pending confirmation is neither.
   - id: supabase.mcp.sql
     kind: table
     role: created
-    when: { mcp_tools: [apply_migration, execute_sql], result_lacks: [error] }
+    when: { mcp_tools: [apply_migration, execute_sql], result_lacks: [error], result_has: [success, result] }
     extract:
       - <<: *sql_create_table
         from: input.query
+        preprocess: sql
         capture: []
         container: "{input.project_id}"
       - <<: *sql_insert_bucket
         from: input.query
+        preprocess: sql
         capture: []
         container: "{input.project_id}"
 

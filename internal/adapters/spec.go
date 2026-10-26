@@ -191,6 +191,9 @@ type whenSpec struct {
 	Output      *rx            `yaml:"output"`
 	Status      string         `yaml:"status"`
 	ResultLacks []string       `yaml:"result_lacks"`
+	// ResultHas: the output must parse as a JSON object with at least one of
+	// these top-level keys (a positive sign of success, e.g. success/result).
+	ResultHas []string `yaml:"result_has"`
 }
 
 type extractSpec struct {
@@ -203,6 +206,13 @@ type extractSpec struct {
 	Container tmpl           `yaml:"container"`
 	Match     *matchSpec     `yaml:"match"`
 	Capture   []*captureSpec `yaml:"capture"`
+	// Preprocess rewrites the text the pattern runs on (preprocess.go):
+	// shell_args, sql.
+	Preprocess stringList `yaml:"preprocess"`
+	// ReferencedIf names a pattern group: a match where it is non-empty
+	// yields role referenced, whatever the signature's role (e.g. CREATE TABLE
+	// IF NOT EXISTS does not prove the table was created).
+	ReferencedIf string `yaml:"referenced_if"`
 }
 
 // captureSpec adds the named groups of the first match of Pattern in From
@@ -540,10 +550,17 @@ func (a *adapterSpec) validate() error {
 			case e.From == "output" || e.From == "command" || strings.HasPrefix(e.From, "input."):
 				if e.Pattern == nil {
 					bad("%s: from %s needs a pattern", where, e.From)
+					break
+				}
+				if err := checkPreprocess(e.Preprocess); err != nil {
+					bad("%s: %v", where, err)
+				}
+				if e.ReferencedIf != "" && e.Pattern.SubexpIndex(e.ReferencedIf) < 0 {
+					bad("%s: referenced_if %q is not a group of the pattern", where, e.ReferencedIf)
 				}
 			case e.From == "result" || e.From == "input":
-				if e.Pattern != nil {
-					bad("%s: from %s takes no pattern (use templates)", where, e.From)
+				if e.Pattern != nil || len(e.Preprocess) > 0 || e.ReferencedIf != "" {
+					bad("%s: from %s takes no pattern, preprocess or referenced_if (use templates)", where, e.From)
 				}
 			default:
 				bad("%s: from must be output, command, input.<path>, result or input", where)

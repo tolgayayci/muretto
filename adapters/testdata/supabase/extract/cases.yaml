@@ -79,11 +79,71 @@
 
 - name: CLI db query with --project-ref creates a table and a bucket
   tool: Bash
-  input: { command: "supabase db query \"CREATE TABLE IF NOT EXISTS public.customers (id int); insert into storage.buckets (id, name, public) values ('customer-files', 'customer-files', true);\" --project-ref abcdefghijklmnopqrst" }
+  input: { command: "supabase db query \"CREATE TABLE public.customers (id int); insert into storage.buckets (id, name, public) values ('customer-files', 'customer-files', true);\" --project-ref abcdefghijklmnopqrst" }
   output: "INSERT 0 1"
   expect:
     - { kind: supabase.table, value: public.customers, container: abcdefghijklmnopqrst, role: created }
     - { kind: supabase.bucket, value: customer-files, container: abcdefghijklmnopqrst, role: created }
+
+# Proof of creation (docs/decisions/0406-proof-of-creation.md): the SQL is
+# lexed first, and statements that succeed whether or not the thing existed
+# only reference it.
+- name: CLI db query CREATE TABLE IF NOT EXISTS only references the table
+  tool: Bash
+  input: { command: "supabase db query \"CREATE TABLE IF NOT EXISTS public.users (id int)\" --project-ref abcdefghijklmnopqrst" }
+  output: '{"boundary":"x","rows":[]}'
+  expect:
+    - { kind: supabase.table, value: public.users, container: abcdefghijklmnopqrst, role: referenced }
+
+- name: CLI db query with create table only in a line comment
+  tool: Bash
+  input: { command: "supabase db query \"select count(*) from users -- create table users later\" --project-ref abcdefghijklmnopqrst" }
+  output: "count\n42\n"
+  expect: []
+
+- name: CLI db query with create table only in a string constant
+  tool: Bash
+  input: { command: "supabase db query \"select 'create table users'\" --project-ref abcdefghijklmnopqrst" }
+  output: "?column?\ncreate table users\n"
+  expect: []
+
+- name: CLI db query with create table in a block comment, E-string and dollar quote
+  tool: Bash
+  input: { command: 'supabase db query "select /* create table a */ 1, E''x\\'' create table b'', \$\$ create table c \$\$, \$f\$ create table d \$f\$" --project-ref abcdefghijklmnopqrst' }
+  output: "ok"
+  expect: []
+
+- name: CLI db query with create table in a quoted identifier
+  tool: Bash
+  input: { command: "supabase db query 'select 1 as \"create table users\"' --project-ref abcdefghijklmnopqrst" }
+  output: "ok"
+  expect: []
+
+- name: CLI db query with doubled quotes hiding a create table
+  tool: Bash
+  input: { command: "supabase db query \"select 'it''s; create table users'\" --project-ref abcdefghijklmnopqrst" }
+  output: "ok"
+  expect: []
+
+- name: CLI db query bucket upsert only references the bucket
+  tool: Bash
+  input: { command: "supabase db query \"insert into storage.buckets (id, name) values ('avatars', 'avatars') on conflict (id) do nothing\" --project-ref abcdefghijklmnopqrst" }
+  output: "INSERT 0 0"
+  expect:
+    - { kind: supabase.bucket, value: avatars, container: abcdefghijklmnopqrst, role: referenced }
+
+- name: CLI db query bucket insert in a string constant is not a creation
+  tool: Bash
+  input: { command: "supabase db query \"select 'insert into storage.buckets (id) values (''x'')'\" --project-ref abcdefghijklmnopqrst" }
+  output: "ok"
+  expect: []
+
+- name: CLI db query that failed creates nothing
+  tool: Bash
+  status: error
+  input: { command: "supabase db query \"create table public.users (id int)\" --project-ref abcdefghijklmnopqrst" }
+  output: 'ERROR: relation "users" already exists (SQLSTATE 42P07)'
+  expect: []
 
 - name: CLI db query that only reads
   tool: Bash
@@ -201,7 +261,7 @@
       insert into storage.buckets (id, name, public) values ('customer-files', 'customer-files', false);
   output: '{"success":true}'
   expect:
-    - { kind: supabase.table, value: public.customers, container: abcdefghijklmnopqrst, role: created }
+    - { kind: supabase.table, value: public.customers, container: abcdefghijklmnopqrst, role: referenced }
     - { kind: supabase.table, value: public.Orders, container: abcdefghijklmnopqrst, role: created }
     - { kind: supabase.table, value: private.audit_log, container: abcdefghijklmnopqrst, role: created }
     - { kind: supabase.bucket, value: customer-files, container: abcdefghijklmnopqrst, role: created }
@@ -216,6 +276,43 @@
   tool: mcp__supabase__execute_sql
   input: { project_id: abcdefghijklmnopqrst, query: "create table public.customers (id int)" }
   output: '{"error":{"message":"cannot execute CREATE TABLE in a read-only transaction"}}'
+  expect: []
+
+- name: MCP execute_sql create table inside a function body is not a creation
+  tool: mcp__supabase__execute_sql
+  input:
+    project_id: abcdefghijklmnopqrst
+    query: "create function mk() returns void language plpgsql as $$ begin create table public.later (id int); end $$;"
+  output: '{"result":"Below is the result of the SQL query. <untrusted-data-00000000>[]</untrusted-data-00000000>"}'
+  expect: []
+
+- name: MCP execute_sql bucket upsert only references the bucket
+  tool: mcp__supabase__execute_sql
+  input:
+    project_id: abcdefghijklmnopqrst
+    query: "insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) ON CONFLICT (id) DO UPDATE SET public = true;"
+  output: '{"result":"Below is the result of the SQL query. <untrusted-data-00000000>[]</untrusted-data-00000000>"}'
+  expect:
+    - { kind: supabase.bucket, value: avatars, container: abcdefghijklmnopqrst, role: referenced }
+
+- name: MCP execute_sql error result as plain text creates nothing
+  tool: mcp__supabase__execute_sql
+  input: { project_id: abcdefghijklmnopqrst, query: "create table public.customers (id int)" }
+  output: 'relation "customers" already exists'
+  expect: []
+
+- name: MCP apply_migration waiting for confirmation creates nothing
+  tool: mcp__supabase__apply_migration
+  input: { project_id: abcdefghijklmnopqrst, name: create_customers, query: "create table public.customers (id int)" }
+  output: '{"inputRequired":true}'
+  expect: []
+
+- name: Writing a migration file with create table only in a comment references nothing
+  tool: Write
+  input:
+    file_path: /home/dev/acme-app/supabase/migrations/20261026100000_note.sql
+    content: "-- create table public.customers later\nselect 1;\n"
+  output: "File created successfully"
   expect: []
 
 - name: MCP list_projects references only

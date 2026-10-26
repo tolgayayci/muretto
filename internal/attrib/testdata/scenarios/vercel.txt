@@ -144,3 +144,11 @@ action toolu_a2 session=s1 at=14:12 tool=Bash
   referenced vercel.deployment value=dpl_FAKEdeploy0000000000000005
 resource vercel.deployment:dpl_FAKEdeploy0000000000000005 name=site-jkl012-example-team.vercel.app created=14:09
 expect vercel.deployment:dpl_FAKEdeploy0000000000000005 exact s1 id_in_result
+
+=== deployment id Muretto listed before the "creating" call: first-seen veto
+# The first-seen veto is general: it applies to id matches too.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:30 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000040
+resource vercel.deployment:dpl_FAKEdeploy0000000000000040 name=site-old-example-team.vercel.app first_seen=13:00
+expect vercel.deployment:dpl_FAKEdeploy0000000000000040 unknown
