@@ -1,0 +1,99 @@
+# Builds and publishes a release from a v* tag. Nothing else triggers it, so
+# pull requests (including from forks) never run this workflow or see its secrets.
+#
+# Publishes: GitHub release (archives + checksums.txt), Homebrew cask in
+# tolgayayci/homebrew-tap, and 5 npm packages via trusted publishing (OIDC).
+# One-time maintainer setup: docs/INSTALL.md ("Maintainers").
+#
+# TODO(signing): add cosign keyless signing of checksums.txt and SLSA build
+# provenance (actions/attest-build-provenance) before 1.0.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}          # every job opts in to exactly what it needs
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GO_VERSION: "1.27.3"
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    # Protected environment: limited to v* tags, holds HOMEBREW_TAP_GITHUB_TOKEN.
+    environment: release
+    permissions:
+      contents: write      # create the GitHub release and upload assets
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0       # goreleaser needs full history for the changelog
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false         # no build cache from other refs in a release build
+      - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          distribution: goreleaser
+          version: "v2.18.3"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fine-grained PAT (or GitHub App token): contents:write on
+          # tolgayayci/homebrew-tap only.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+
+  npm:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read       # download release assets
+      id-token: write      # npm trusted publishing (OIDC) + automatic provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - name: trusted publishing needs npm >= 11.5.1
+        run: |
+          v=$(npm --version)
+          echo "npm $v"
+          printf '%s\n' 11.5.1 "$v" | sort -V -C || { echo "npm $v is too old for trusted publishing"; exit 1; }
+      - name: download and verify release archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p npm/.dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir npm/.dist \
+            --pattern 'muretto_*.tar.gz' --pattern 'checksums.txt'
+          (cd npm/.dist && sha256sum --strict -c checksums.txt)
+      - name: assemble platform packages
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node npm/scripts/assemble.mjs "${TAG#v}" --dist npm/.dist
+      - name: publish platform packages first, then the launcher
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          dist_tag=latest
+          case "$version" in *-*) dist_tag=next ;; esac
+          for p in muretto-darwin-arm64 muretto-darwin-x64 muretto-linux-arm64 muretto-linux-x64 muretto; do
+            if npm view "$p@$version" version >/dev/null 2>&1; then
+              echo "$p@$version already published; skipping (re-run)"
+              continue
+            fi
+            npm publish "./npm/$p" --access public --provenance --tag "$dist_tag" --ignore-scripts
+          done
