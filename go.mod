@@ -7,6 +7,7 @@ toolchain go1.27.3
 require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/zalando/go-keyring v0.2.8
+	golang.org/x/term v0.47.0
 	modernc.org/sqlite v1.61.0
 )
 
