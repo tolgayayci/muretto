@@ -1,0 +1,21 @@
+{
+  "deployments": [
+    {
+      "uid": "dpl_EXAMPLEALICEPREVIEW00000001",
+      "name": "acme-web",
+      "url": "acme-web-a81f2c3d4-example-team.vercel.app",
+      "projectId": "prj_EXAMPLEACMEWEB00000000001",
+      "created": {{ms:-161m}},
+      "createdAt": {{ms:-161m}},
+      "ready": {{ms:-160m}},
+      "state": "READY",
+      "readyState": "READY",
+      "target": null,
+      "source": "cli",
+      "type": "LAMBDAS",
+      "creator": { "uid": "usrEXAMPLE000000000000", "username": "example-dev", "type": "user" },
+      "inspectorUrl": "https://vercel.com/example-team/acme-web/EXAMPLEalicedeployment0001"
+    }
+  ],
+  "pagination": { "count": 1, "next": null, "prev": null }
+}

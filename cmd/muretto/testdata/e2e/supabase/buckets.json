@@ -1,0 +1,18 @@
+[
+  {
+    "id": "customer-files",
+    "name": "customer-files",
+    "owner": "",
+    "created_at": "{{ts:-116m}}",
+    "updated_at": "{{ts:-116m}}",
+    "public": true
+  },
+  {
+    "id": "legacy-assets",
+    "name": "legacy-assets",
+    "owner": "",
+    "created_at": "{{ts:-240h}}",
+    "updated_at": "{{ts:-240h}}",
+    "public": false
+  }
+]

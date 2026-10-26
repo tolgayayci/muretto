@@ -1,0 +1,20 @@
+{
+  "deployments": [
+    {
+      "uid": "dpl_EXAMPLEMARKETINGPREVIEW001",
+      "name": "marketing-site",
+      "url": "marketing-site-q7r8s9t0u-example-team.vercel.app",
+      "projectId": "prj_EXAMPLEMARKETING00000001",
+      "created": {{ms:-180m}},
+      "createdAt": {{ms:-180m}},
+      "ready": {{ms:-179m}},
+      "state": "READY",
+      "readyState": "READY",
+      "target": null,
+      "source": "git",
+      "creator": { "uid": "usrEXAMPLE000000000000", "username": "example-dev", "type": "user" },
+      "meta": { "githubCommitRef": "spring-campaign" }
+    }
+  ],
+  "pagination": { "count": 1, "next": null, "prev": null }
+}

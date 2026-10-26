@@ -1,0 +1,37 @@
+{
+  "projects": [
+    {
+      "id": "prj_EXAMPLEACMEWEB00000000001",
+      "name": "acme-web",
+      "accountId": "team_EXAMPLE00000000000000",
+      "createdAt": {{ms:-720h}},
+      "updatedAt": {{ms:-160m}},
+      "framework": "nextjs",
+      "creator": { "type": "user", "user": { "id": "usr_EXAMPLE", "username": "example-dev" }, "via": "cli" },
+      "link": { "type": "github", "org": "acme", "repo": "web", "repoId": 100000001, "productionBranch": "main" },
+      "ssoProtection": { "deploymentType": "all_except_custom_domains" },
+      "passwordProtection": null,
+      "trustedIps": null,
+      "optionsAllowlist": null,
+      "paused": false,
+      "latestDeployments": [
+        { "id": "dpl_EXAMPLEALICEPREVIEW00000001", "url": "acme-web-a81f2c3d4-example-team.vercel.app", "target": null, "createdAt": {{ms:-161m}} }
+      ]
+    },
+    {
+      "id": "prj_EXAMPLEMARKETING00000001",
+      "name": "marketing-site",
+      "accountId": "team_EXAMPLE00000000000000",
+      "createdAt": {{ms:-480h}},
+      "updatedAt": {{ms:-180m}},
+      "framework": "astro",
+      "creator": { "type": "user", "user": { "id": "usr_EXAMPLE", "username": "example-dev" }, "via": "web" },
+      "ssoProtection": null,
+      "passwordProtection": null,
+      "trustedIps": null,
+      "optionsAllowlist": null,
+      "paused": false
+    }
+  ],
+  "pagination": { "count": 2, "next": null, "prev": {{ms:-160m}} }
+}
