@@ -67,6 +67,12 @@ var tokenRules = []anchored{
 		re: regexp.MustCompile(`^AIza[0-9A-Za-z_-]{30,}`)},
 	{name: "muretto", triggers: []string{"mrt_"}, window: 256,
 		re: regexp.MustCompile(`^mrt_[A-Za-z0-9_-]{16,}`)},
+	// The same prefixed tokens percent-encoded, e.g. in a query string:
+	// sbp%5F… (the "_" encoded as %5F).
+	{name: "encoded_token", window: 512,
+		triggers: []string{"sbp%5f", "sb%5fsecret%5f", "sb%5fpublishable%5f", "ghp%5f", "gho%5f", "ghu%5f", "ghs%5f", "ghr%5f",
+			"github%5fpat%5f", "vcp%5f", "npm%5f", "mrt%5f", "sk%5flive%5f", "sk%5ftest%5f", "rk%5flive%5f", "rk%5ftest%5f"},
+		re: regexp.MustCompile(`^(?i)(?:sbp|sb%5fsecret|sb%5fpublishable|gh[pousr]|github%5fpat|vcp|npm|mrt|[sr]k%5f(?:live|test))%5f[A-Za-z0-9_%-]{16,}`)},
 }
 
 // contextRules keep the surrounding structure (header name, auth scheme,

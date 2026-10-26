@@ -356,3 +356,29 @@ func BenchmarkStringShort(b *testing.B) {
 		_ = String(s)
 	}
 }
+
+func TestStringPercentEncodedTokens(t *testing.T) {
+	hex40 := strings.Repeat("a1", 20)
+	cases := []string{
+		"https://api.example.com/x?token=sbp" + "%5F" + hex40,
+		"curl 'https://x.example/?key=sb" + "%5fsecret%5f" + strings.Repeat("Z", 24) + "'",
+		"next=ghp" + "%5F" + strings.Repeat("A", 36) + "&page=2",
+		// No secret-looking key in front: only the encoded-token rule can catch these.
+		"/callback/sbp" + "%5F" + hex40 + "/done",
+		"ref=sb" + "%5Fsecret%5F" + strings.Repeat("Z", 24),
+	}
+	for _, in := range cases {
+		out := String(in)
+		if strings.Contains(out, hex40) || strings.Contains(out, strings.Repeat("Z", 24)) || strings.Contains(out, strings.Repeat("A", 36)) {
+			t.Errorf("String(%q) = %q, token survived", in, out)
+		}
+		if !strings.Contains(out, Placeholder) {
+			t.Errorf("String(%q) = %q, want a placeholder", in, out)
+		}
+	}
+	// Ordinary percent-encoding is left alone.
+	keep := "https://example.com/search?q=snake%5Fcase%20names"
+	if got := String(keep); got != keep {
+		t.Errorf("String(%q) = %q, want unchanged", keep, got)
+	}
+}
