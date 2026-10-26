@@ -172,6 +172,10 @@ func build(event string, head, tail []byte, overflow bool, now time.Time) (*cont
 		s := truncateRunes(redact.String(*t), 200)
 		rec.SessionTitle = &s
 	}
+	if m := str("model"); m != nil {
+		s := truncateRunes(*m, 100)
+		rec.Model = &s
+	}
 	if pr := str("prompt"); pr != nil {
 		if title, ok := TitleCandidate(*pr); ok {
 			rec.TitleCandidate = &title

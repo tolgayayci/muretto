@@ -665,6 +665,9 @@ type SpoolRecord struct {
 	// McpServer corresponds to the JSON schema field "mcp_server".
 	McpServer *string `json:"mcp_server,omitempty,omitzero"`
 
+	// SessionStart only, when Claude Code sends it.
+	Model *string `json:"model,omitempty,omitzero"`
+
 	// PromptID corresponds to the JSON schema field "prompt_id".
 	PromptID *string `json:"prompt_id,omitempty,omitzero"`
 

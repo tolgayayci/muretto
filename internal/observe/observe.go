@@ -197,6 +197,9 @@ func IngestSpool(p paths.Paths, developerID string) (Batch, error) {
 		if r.SessionTitle != nil && *r.SessionTitle != "" {
 			acc.customTitle = *r.SessionTitle // the latest rename wins
 		}
+		if r.Model != nil && *r.Model != "" && acc.model == "" {
+			acc.model = *r.Model
+		}
 		switch r.Event {
 		case "UserPromptSubmit":
 			if r.TitleCandidate != nil && acc.firstPrompt == "" && !strings.HasPrefix(*r.TitleCandidate, "<task-notification>") {
