@@ -1,0 +1,12 @@
+{
+  "name": "muretto",
+  "version": "0.1.0",
+  "description": "Records what Claude Code sessions create outside the repo, for the read-only Muretto CLI. Hooks write one small redacted file per event to ~/.muretto/spool and never block or alter the agent. Requires the muretto binary on PATH.",
+  "author": {
+    "name": "Muretto contributors"
+  },
+  "homepage": "https://github.com/tolgayayci/muretto",
+  "repository": "https://github.com/tolgayayci/muretto",
+  "license": "Apache-2.0",
+  "keywords": ["infrastructure", "audit", "supabase", "vercel", "hooks"]
+}

@@ -1,0 +1,49 @@
+{
+  "description": "Muretto: record session, prompt-title and tool-call evidence to ~/.muretto/spool. Exit 0, no output, 5 s timeout.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "muretto", "args": ["hook", "SessionStart"], "timeout": 5 }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "muretto", "args": ["hook", "UserPromptSubmit"], "timeout": 5 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "muretto", "args": ["hook", "PostToolUse"], "timeout": 5 }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "muretto", "args": ["hook", "PostToolUseFailure"], "timeout": 5 }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "muretto", "args": ["hook", "SubagentStart"], "timeout": 5 }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          { "type": "command", "command": "muretto", "args": ["hook", "SessionEnd"], "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}
