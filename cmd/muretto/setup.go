@@ -143,7 +143,7 @@ func (a *app) connectProvider(ctx context.Context, s *state, reg Registry, p ada
 		}
 	}
 
-	b := broker.New(a.httpClient, reg.Allowlist())
+	b := broker.New(nil, reg.Allowlist())
 	actx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	accounts, err := reg.Accounts(actx, b, p.Name, token)
 	cancel()
@@ -475,7 +475,7 @@ func (a *app) cmdDoctor(ctx context.Context, args []string) error {
 		detail := "from " + string(src)
 		if s.reg != nil {
 			cctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-			accts, err := s.reg.Accounts(cctx, broker.New(a.httpClient, s.reg.Allowlist()), acct.Provider, token)
+			accts, err := s.reg.Accounts(cctx, broker.New(nil, s.reg.Allowlist()), acct.Provider, token)
 			cancel()
 			valid := false
 			for _, x := range accts {

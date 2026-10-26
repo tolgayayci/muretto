@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -83,7 +82,6 @@ type app struct {
 	hooks           Hooks
 	sync            Sync
 	secrets         *secrets.Store
-	httpClient      *http.Client
 	readPassword    func() (string, error)
 	executable      func() (string, error)
 
@@ -141,7 +139,6 @@ func newApp() *app {
 		hooks:           realHooks{},
 		sync:            realSync{},
 		secrets:         secrets.New(),
-		httpClient:      &http.Client{Timeout: 30 * time.Second},
 		readPassword: func() (string, error) {
 			b, err := term.ReadPassword(int(os.Stdin.Fd())) // #nosec G115 -- fd fits in int
 			return string(b), err
@@ -410,7 +407,7 @@ func (a *app) scan(ctx context.Context, s *state, refresh bool) {
 			_ = s.st.RecordCheckFailure(ctx, acct.Provider, acct.ID, now, contract.ProviderCheckErrorCodeAuth, "no token available")
 			continue
 		}
-		b := broker.New(a.httpClient, s.reg.Allowlist())
+		b := broker.New(nil, s.reg.Allowlist())
 		sctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		res, err := s.reg.Scan(sctx, b, acct.Provider, adapters.Credentials{Token: token, AccountID: acct.ID})
 		cancel()
