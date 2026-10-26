@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/session.schema.json",
+  "title": "Session",
+  "description": "One Claude Code session: the 'commit' in git log for infrastructure.",
+  "type": "object",
+  "required": [
+    "id",
+    "agent",
+    "developer_id",
+    "started_at",
+    "title_source",
+    "sources"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The Claude Code session id (a UUID)."
+    },
+    "agent": {
+      "enum": [
+        "claude-code"
+      ]
+    },
+    "agent_version": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "model": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "developer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Local developer id: a hash of the machine id, or the linked account id once logged in."
+    },
+    "repo": {
+      "type": "object",
+      "required": [
+        "path_hash"
+      ],
+      "properties": {
+        "path_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16,64}$",
+          "description": "Hash of the working directory. The local path itself is never synced."
+        },
+        "remote_url": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Git remote URL with any credentials removed."
+        },
+        "display_name": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "owner/repo from the remote, or the directory name."
+        }
+      },
+      "additionalProperties": false
+    },
+    "git_branch": {
+      "type": "string",
+      "maxLength": 250
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "last_activity_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "task_title": {
+      "type": "string",
+      "maxLength": 120,
+      "description": "Short, redacted title. Never the full prompt."
+    },
+    "title_source": {
+      "type": "string",
+      "enum": [
+        "custom_title",
+        "first_prompt",
+        "ai_title",
+        "none"
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "hook",
+          "transcript"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "Where this session was observed. transcript-only means hooks didn't run (not installed, untrusted folder, or before install)."
+    },
+    "end_reason": {
+      "type": "string",
+      "maxLength": 50
+    }
+  },
+  "additionalProperties": false
+}

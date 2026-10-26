@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/answer.schema.json",
+  "title": "Answer",
+  "description": "The one computed model. CLI text output, --json output and sync payloads are all rendered from it, so they can never disagree.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "developer",
+    "summary",
+    "sessions",
+    "resources",
+    "attributions",
+    "findings",
+    "costs",
+    "reviews",
+    "checks",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "developer": {
+      "$ref": "developer.schema.json"
+    },
+    "summary": {
+      "$ref": "#/$defs/Summary"
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/SessionView"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "resource.schema.json"
+      }
+    },
+    "attributions": {
+      "type": "array",
+      "items": {
+        "$ref": "attribution.schema.json"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "exposure-finding.schema.json"
+      }
+    },
+    "costs": {
+      "type": "array",
+      "items": {
+        "$ref": "cost-record.schema.json"
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "$ref": "review-item.schema.json"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "provider-check.schema.json"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Warning"
+      },
+      "description": "Things the user should know about the data itself: stale checks, hooks not installed, transcript-only sessions, unsupported Claude Code version."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Summary": {
+      "type": "object",
+      "required": [
+        "sessions",
+        "agent_created",
+        "still_existing",
+        "exposed",
+        "needs_review",
+        "unknown_creator",
+        "checks_ok",
+        "checks_failed"
+      ],
+      "properties": {
+        "sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "agent_created": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Resources with an exact attribution."
+        },
+        "still_existing": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Agent-created resources whose existence is confirmed."
+        },
+        "exposed": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Findings in state exposed."
+        },
+        "needs_review": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Review items pending and past due."
+        },
+        "unknown_creator": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checks_ok": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checks_failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "oldest_check_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Age of the stalest successful check, so output can label stale data."
+        }
+      },
+      "additionalProperties": false
+    },
+    "SessionView": {
+      "type": "object",
+      "description": "A session plus the resources it created (by exact attribution).",
+      "required": [
+        "session",
+        "developer_name",
+        "resource_ids",
+        "exposed_count",
+        "review_due_count"
+      ],
+      "properties": {
+        "session": {
+          "$ref": "session.schema.json"
+        },
+        "developer_name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "resource_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 512,
+            "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+          }
+        },
+        "exposed_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "review_due_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "Warning": {
+      "type": "object",
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "fix": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

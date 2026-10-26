@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/spool-record.schema.json",
+  "title": "SpoolRecord",
+  "description": "One Claude Code hook event, written by `muretto hook <event>` to ~/.muretto/spool/ and nothing else. Already capped and redacted when written. Local only: never synced.",
+  "type": "object",
+  "required": [
+    "spool_version",
+    "received_at",
+    "event",
+    "session_id"
+  ],
+  "properties": {
+    "spool_version": {
+      "enum": [
+        1
+      ]
+    },
+    "received_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "event": {
+      "type": "string",
+      "description": "Hook event name, e.g. SessionStart, UserPromptSubmit, PostToolUse, PostToolUseFailure, SubagentStart, SessionEnd."
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The Claude Code session id (a UUID)."
+    },
+    "transcript_path": {
+      "type": "string"
+    },
+    "cwd": {
+      "type": "string"
+    },
+    "prompt_id": {
+      "type": "string"
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Set when the event fired inside a subagent."
+    },
+    "agent_type": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "description": "SessionStart source: startup, resume, clear, compact, fork."
+    },
+    "reason": {
+      "type": "string",
+      "description": "SessionEnd reason."
+    },
+    "session_title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "title_candidate": {
+      "type": "string",
+      "maxLength": 120,
+      "description": "UserPromptSubmit only: the first line of the prompt, redacted and truncated. The full prompt is never stored."
+    },
+    "tool_name": {
+      "type": "string"
+    },
+    "tool_use_id": {
+      "type": "string"
+    },
+    "mcp_server": {
+      "type": "string"
+    },
+    "tool_input": {
+      "description": "Redacted, size-capped copy of the tool input."
+    },
+    "tool_response": {
+      "description": "Redacted, size-capped copy of the tool response."
+    },
+    "error": {
+      "type": "string",
+      "description": "PostToolUseFailure error text, redacted and capped."
+    },
+    "duration_ms": {
+      "type": "integer"
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "True when any field was cut to fit the size cap."
+    },
+    "child_session": {
+      "type": "boolean",
+      "description": "CLAUDE_CODE_CHILD_SESSION was set in the hook environment."
+    },
+    "extra_keys": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Names (not values) of top-level stdin keys this version didn't recognise, so schema drift is visible."
+    }
+  },
+  "additionalProperties": false
+}

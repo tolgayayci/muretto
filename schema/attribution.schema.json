@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/attribution.schema.json",
+  "title": "Attribution",
+  "description": "Which session created a resource, with the evidence `muretto why` shows.",
+  "type": "object",
+  "required": [
+    "resource_id",
+    "label",
+    "reason",
+    "evidence",
+    "computed_at"
+  ],
+  "properties": {
+    "resource_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+    },
+    "label": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "unknown"
+      ],
+      "description": "exact needs stored evidence. There is no 'likely' label: Muretto never shows a guess."
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Set only when label is exact."
+    },
+    "rule_id": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "The attribution rule that fired, e.g. id_in_result or name_in_container."
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Plain-language reason, e.g. 'no agent session created this' or 'two sessions created a table with this name'."
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "description": "Non-empty when label is exact. For unknown, may list conflicting evidence."
+    },
+    "computed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Evidence": {
+      "type": "object",
+      "required": [
+        "action_id",
+        "session_id",
+        "occurred_at",
+        "tool_name",
+        "signature_id",
+        "matched_value",
+        "excerpt"
+      ],
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The Claude Code tool_use_id of the action."
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "The Claude Code session id (a UUID)."
+        },
+        "occurred_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+        },
+        "tool_name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "signature_id": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "matched_value": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "excerpt": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Redacted text excerpt. Never contains secrets: redacted at record time and again at output."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

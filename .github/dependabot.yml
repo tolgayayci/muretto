@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directories: ["/", "/tools"]
+    schedule: { interval: weekly }
+    cooldown: { default-days: 14 }   # matches the "at least 2 weeks old" dependency rule
+    groups: { go-minor: { patterns: ["*"], update-types: [minor, patch] } }
+  - package-ecosystem: npm
+    directories: ["/web"]
+    schedule: { interval: weekly }
+    cooldown: { default-days: 14 }
+    groups: { npm-minor: { patterns: ["*"], update-types: [minor, patch] } }
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule: { interval: weekly }
+    cooldown: { default-days: 14 }

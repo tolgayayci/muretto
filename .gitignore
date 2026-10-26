@@ -1,0 +1,38 @@
+# Secrets: never commit these
+.env
+.env.*
+!.env.example
+demo/.env
+*.pem
+*.key
+
+# Muretto local state (normally in ~/.muretto, but never commit it if it lands here)
+.muretto/
+spool/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Build output
+/bin/
+/dist/
+/muretto
+*.test
+*.out
+coverage.*
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+npm-debug.log*
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

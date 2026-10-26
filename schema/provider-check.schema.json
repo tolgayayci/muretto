@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/provider-check.schema.json",
+  "title": "ProviderCheck",
+  "description": "The result of one read-only scan of one kind in one account. 'Nothing found' is only shown when a check succeeded; stale data is shown with its age.",
+  "type": "object",
+  "required": [
+    "provider",
+    "account_id",
+    "kind",
+    "status",
+    "attempted_at"
+  ],
+  "properties": {
+    "provider": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$",
+      "description": "Provider slug from the adapter file, e.g. supabase or vercel. Not an enum: new adapters add providers without schema changes."
+    },
+    "account_id": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_]*$",
+      "description": "Resource kind as <provider>.<kind>, e.g. supabase.table or vercel.deployment."
+    },
+    "scope": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Narrower scope when the kind is listed per parent, e.g. a project ref."
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error",
+        "skipped"
+      ]
+    },
+    "attempted_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "last_success_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "items": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "error_code": {
+      "type": "string",
+      "enum": [
+        "auth",
+        "permission",
+        "not_found",
+        "rate_limit",
+        "network",
+        "provider",
+        "unsupported"
+      ]
+    },
+    "error": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Redacted error message."
+    }
+  },
+  "additionalProperties": false
+}

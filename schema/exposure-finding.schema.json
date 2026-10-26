@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/exposure-finding.schema.json",
+  "title": "ExposureFinding",
+  "type": "object",
+  "required": [
+    "id",
+    "resource_id",
+    "rule_id",
+    "state",
+    "severity",
+    "title",
+    "explanation",
+    "fix",
+    "signal"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "maxLength": 600,
+      "description": "<rule_id>:<resource_id>"
+    },
+    "resource_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+    },
+    "rule_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "e.g. rls_disabled, public_bucket, public_preview, client_exposed_env."
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "exposed",
+        "not_exposed",
+        "unknown"
+      ],
+      "description": "Tri-state. not_exposed is only used after a successful check."
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "explanation": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "caveat": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "What the check cannot see, e.g. 'protection exceptions are not visible to the API'."
+    },
+    "fix": {
+      "$ref": "#/$defs/Fix"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the underlying check last succeeded; null if it never has (state must then be unknown)."
+    },
+    "signal": {
+      "type": "string",
+      "enum": [
+        "official_advisor",
+        "api_field",
+        "catalog_query",
+        "name_pattern"
+      ],
+      "description": "What the finding is based on."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Fix": {
+      "type": "object",
+      "description": "Printed for a human to run. Muretto never runs it.",
+      "required": [
+        "kind",
+        "text"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "sql",
+            "command",
+            "steps"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "docs_url": {
+          "type": "string",
+          "maxLength": 500
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

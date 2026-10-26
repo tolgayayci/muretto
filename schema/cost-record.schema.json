@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/cost-record.schema.json",
+  "title": "CostRecord",
+  "description": "Reported and estimated cost are separate records. Unknown is never shown as $0: amount_micros is null when source is unknown.",
+  "type": "object",
+  "required": [
+    "resource_id",
+    "source",
+    "as_of",
+    "basis"
+  ],
+  "properties": {
+    "resource_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "reported",
+        "estimated",
+        "unknown"
+      ]
+    },
+    "amount_micros": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "interval": {
+      "type": "string",
+      "enum": [
+        "hourly",
+        "monthly",
+        "period"
+      ],
+      "description": "What amount_micros covers: a rate (hourly, monthly) or the total for period."
+    },
+    "period_start": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "period_end": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "basis": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "How the number was obtained, e.g. 'Supabase add-on price: Micro compute' or 'no cost data available'."
+    }
+  },
+  "additionalProperties": false
+}

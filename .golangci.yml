@@ -1,0 +1,53 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused
+  default: standard
+  enable:
+    - bodyclose        # unclosed HTTP response bodies (broker + sync client)
+    - errorlint        # correct use of errors.Is/As and %w
+    - gosec            # security smells (file perms, weak crypto, ...)
+    - misspell
+    - nilerr
+    - noctx            # HTTP/SQL calls without context
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - copyloopvar
+    - errname
+    - exhaustive       # switch over enums (attribution label, exposure state)
+    - sqlclosecheck    # rows/stmt Close (SQLite + pgx)
+    - rowserrcheck
+  settings:
+    gosec:
+      excludes:
+        - G104 # duplicates errcheck
+    revive:
+      rules:
+        - name: exported
+          disabled: true # mostly internal/ packages; re-enable for public APIs later
+  exclusions:
+    generated: lax     # skip files with "Code generated ... DO NOT EDIT."
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/tolgayayci/muretto

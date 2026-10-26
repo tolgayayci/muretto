@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/developer.schema.json",
+  "title": "Developer",
+  "type": "object",
+  "required": [
+    "id",
+    "display_name",
+    "machine_id_hash"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Local developer id: a hash of the machine id, or the linked account id once logged in."
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "machine_id_hash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16,64}$",
+      "description": "Salted hash of the machine id. The raw machine id never leaves the machine."
+    },
+    "account_login": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Linked account (GitHub login) after `muretto login`; null when local-only."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/agent-action.schema.json",
+  "title": "AgentAction",
+  "description": "One tool call by an agent session, with identifiers extracted by adapter signatures. Local only; synced only as redacted evidence inside an Attribution.",
+  "type": "object",
+  "required": [
+    "id",
+    "session_id",
+    "occurred_at",
+    "tool_name",
+    "status",
+    "source",
+    "identifiers"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The Claude Code tool_use_id of the action."
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The Claude Code session id (a UUID)."
+    },
+    "agent_id": {
+      "type": "string",
+      "description": "Subagent id when the call ran inside a subagent."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "tool_name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "mcp_server": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error"
+      ]
+    },
+    "input_excerpt": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Redacted text excerpt. Never contains secrets: redacted at record time and again at output."
+    },
+    "result_excerpt": {
+      "type": "string",
+      "maxLength": 4000,
+      "description": "Redacted text excerpt. Never contains secrets: redacted at record time and again at output."
+    },
+    "provider_guess": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$",
+      "description": "Provider slug from the adapter file, e.g. supabase or vercel. Not an enum: new adapters add providers without schema changes."
+    },
+    "identifiers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Identifier"
+      }
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "hook",
+        "transcript"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Identifier": {
+      "type": "object",
+      "description": "A resource identifier found in this action by an adapter signature.",
+      "required": [
+        "provider",
+        "kind",
+        "value",
+        "signature_id",
+        "role"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{1,31}$",
+          "description": "Provider slug from the adapter file, e.g. supabase or vercel. Not an enum: new adapters add providers without schema changes."
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_]*$",
+          "description": "Resource kind as <provider>.<kind>, e.g. supabase.table or vercel.deployment."
+        },
+        "value": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "The provider id or natural key (e.g. a project ref, dpl_ id, or schema.table)."
+        },
+        "container": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "The container the value is unique within, e.g. a project ref for a table or bucket, or team/project for a Vercel env var."
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "created",
+            "referenced"
+          ],
+          "description": "created: the signature matches a creating call. referenced: the id merely appeared (e.g. a list or read call). Only 'created' can produce an exact label."
+        },
+        "signature_id": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "excerpt": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Redacted text excerpt. Never contains secrets: redacted at record time and again at output."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

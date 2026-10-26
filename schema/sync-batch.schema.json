@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/sync-batch.schema.json",
+  "title": "SyncBatch",
+  "description": "What `muretto sync` uploads: a projection of the Answer. Never tokens, raw transcripts, full prompts, local paths or secret values. Documented field by field in docs/SYNC_PAYLOAD.md. Idempotent: the server upserts each entity by its key and ignores a record whose rev it already has.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "batch_id",
+    "sent_at",
+    "client_version",
+    "developer",
+    "sessions",
+    "resources",
+    "attributions",
+    "findings",
+    "costs",
+    "reviews",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [
+        1
+      ]
+    },
+    "batch_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "sent_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "client_version": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "developer": {
+      "$ref": "developer.schema.json"
+    },
+    "sessions": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "$ref": "#/$defs/SyncSession"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "$ref": "#/$defs/SyncResource"
+      }
+    },
+    "attributions": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "$ref": "#/$defs/SyncAttribution"
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "$ref": "#/$defs/SyncFinding"
+      }
+    },
+    "costs": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "$ref": "#/$defs/SyncCost"
+      }
+    },
+    "reviews": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "$ref": "#/$defs/SyncReview"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 20000,
+      "items": {
+        "$ref": "#/$defs/SyncCheck"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Rev": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16,64}$",
+      "description": "Content hash of the entity. Same rev means no change."
+    },
+    "SyncSession": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "session.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncResource": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "resource.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncAttribution": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "attribution.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncFinding": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "exposure-finding.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncCost": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "cost-record.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncReview": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "review-item.schema.json"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SyncCheck": {
+      "type": "object",
+      "required": [
+        "rev",
+        "entity"
+      ],
+      "properties": {
+        "rev": {
+          "$ref": "#/$defs/Rev"
+        },
+        "entity": {
+          "$ref": "provider-check.schema.json"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

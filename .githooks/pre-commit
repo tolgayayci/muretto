@@ -1,0 +1,27 @@
+#!/bin/sh
+# Muretto pre-commit: refuse commits that contain secrets or unformatted Go.
+# Installed with `make setup`. CI runs the same secret scan on every push.
+set -eu
+
+if command -v gitleaks >/dev/null 2>&1; then
+  GITLEAKS="gitleaks"
+else
+  GITLEAKS="go tool -modfile=tools/go.mod gitleaks"
+fi
+
+# shellcheck disable=SC2086
+if ! $GITLEAKS git --pre-commit --staged --redact --no-banner; then
+  echo "pre-commit: possible secret in staged changes (see above). Commit refused." >&2
+  exit 1
+fi
+
+staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go')
+if [ -n "$staged_go" ]; then
+  # shellcheck disable=SC2086
+  unformatted=$(gofmt -l $staged_go)
+  if [ -n "$unformatted" ]; then
+    echo "pre-commit: run gofmt on:" >&2
+    echo "$unformatted" >&2
+    exit 1
+  fi
+fi

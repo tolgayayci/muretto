@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/org.schema.json",
+  "title": "Org",
+  "description": "Server only: a team on the hosted dashboard. Invite tokens are never part of this contract (only their hashes are stored server-side).",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "created_at",
+    "members"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "members": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Member"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Member": {
+      "type": "object",
+      "required": [
+        "developer_id",
+        "account_login",
+        "role",
+        "joined_at"
+      ],
+      "properties": {
+        "developer_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Local developer id: a hash of the machine id, or the linked account id once logged in."
+        },
+        "account_login": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "display_name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "owner",
+            "member"
+          ]
+        },
+        "joined_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

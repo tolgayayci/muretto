@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/resource.schema.json",
+  "title": "Resource",
+  "description": "Something that exists (or existed) in a connected provider account: the truth side of the join.",
+  "type": "object",
+  "required": [
+    "id",
+    "provider",
+    "account_id",
+    "kind",
+    "provider_id",
+    "name",
+    "existence",
+    "seen_via",
+    "first_seen_at",
+    "last_seen_at",
+    "attributes"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+    },
+    "provider": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{1,31}$",
+      "description": "Provider slug from the adapter file, e.g. supabase or vercel. Not an enum: new adapters add providers without schema changes."
+    },
+    "account_id": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Provider org/team id the resource belongs to."
+    },
+    "account_name": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*\\.[a-z][a-z0-9_]*$",
+      "description": "Resource kind as <provider>.<kind>, e.g. supabase.table or vercel.deployment."
+    },
+    "provider_id": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Provider id or natural key, unique within the kind (e.g. project ref, dpl_ id, <ref>/<schema>.<table>)."
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "parent_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+    },
+    "url": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "status": {
+      "type": "string",
+      "maxLength": 50,
+      "description": "Provider status, lightly normalized (e.g. active, paused, building, ready, error)."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation time reported by the provider; null when the provider doesn't report it."
+    },
+    "first_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "last_seen_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "existence": {
+      "type": "string",
+      "enum": [
+        "confirmed",
+        "unconfirmed",
+        "gone"
+      ],
+      "description": "confirmed: seen by the last successful check. unconfirmed: known only from session evidence (e.g. a table without the opt-in catalog read). gone: missing from a successful check after being seen."
+    },
+    "gone_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "seen_via": {
+      "type": "string",
+      "enum": [
+        "list",
+        "advisor",
+        "evidence"
+      ],
+      "description": "How Muretto knows about it: a provider list call, a provider advisor/lint, or only agent evidence."
+    },
+    "attributes": {
+      "type": "object",
+      "description": "Kind-specific scalar attributes from the adapter field mapping (e.g. public, target, region). Never secret values.",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean",
+          "null"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

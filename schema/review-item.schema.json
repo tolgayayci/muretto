@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tolgayayci/muretto/schema/review-item.schema.json",
+  "title": "ReviewItem",
+  "description": "A 'still need this?' decision recorded by a human. Muretto never acts on it.",
+  "type": "object",
+  "required": [
+    "resource_id",
+    "due_at",
+    "state"
+  ],
+  "properties": {
+    "resource_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 512,
+      "description": "Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two machines that see the same resource produce the same id."
+    },
+    "owner_developer_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "The developer whose session created it; null when the creator is unknown."
+    },
+    "due_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "keep",
+        "not_needed"
+      ]
+    },
+    "decided_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Local developer id: a hash of the machine id, or the linked account id once logged in."
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC RFC3339 timestamp, e.g. 2026-10-26T14:02:00Z."
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 500
+    }
+  },
+  "additionalProperties": false
+}

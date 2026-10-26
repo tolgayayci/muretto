@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  pull_request:          # fork PRs get a read-only GITHUB_TOKEN and no secrets; never use pull_request_target
+  push:
+    branches: [main]
+
+permissions:
+  contents: read         # least privilege; jobs never need more
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GO_VERSION: "1.27.3"
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: gofmt
+        run: test -z "$(gofmt -l $(git ls-files '*.go'))"
+      - name: go mod tidy is clean
+        run: go mod tidy -diff
+      - name: generated Go code is up to date
+        run: |
+          go tool -modfile=tools/go.mod go-jsonschema --only-models -t --capitalization ID --tags json \
+            -p contract -o internal/contract/zz_generated.go schema/*.schema.json
+          git diff --exit-code -- internal/contract
+      - name: vet
+        run: go vet ./...
+      - name: test (no network, no accounts)
+        run: go test -race -count=1 ./...
+      - name: build without cgo for all release targets
+        run: |
+          for t in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
+            CGO_ENABLED=0 GOOS=${t%/*} GOARCH=${t#*/} go build -o /dev/null ./cmd/muretto
+          done
+      - name: govulncheck (pinned in tools/go.mod)
+        run: go tool -modfile=tools/go.mod govulncheck ./...
+
+  golangci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.14.0
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0               # scan full history, not just the tip
+          persist-credentials: false
+      - name: install gitleaks v8.30.1 (checksum-pinned, no license key needed)
+        run: |
+          curl -sSfL -o /tmp/gitleaks.tgz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  /tmp/gitleaks.tgz" | sha256sum -c -
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+      - name: gitleaks (full history)
+        run: /tmp/gitleaks git --redact --no-banner --verbose .
+      - name: gitleaks (working tree)
+        run: /tmp/gitleaks dir --redact --no-banner --verbose .
+
+  web:
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('web/package-lock.json') != '' }}
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run lint
+      - run: npx --no-install tsc --noEmit
+      - run: npm run build
