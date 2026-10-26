@@ -153,6 +153,21 @@ func TestStaleAndHooksWarnings(t *testing.T) {
 	}
 }
 
+func TestAmbiguousOwnerGivesUnknown(t *testing.T) {
+	in := input()
+	in.AmbiguousActions = map[string]bool{"toolu_01FAKEaaaaaaaaaaaaaaaaa5": true} // the vercel deploy
+	a := Compute(in, tf.Now)
+	for _, at := range a.Attributions {
+		if at.ResourceID == "vercel.deployment:"+tf.DeployID {
+			if at.Label != contract.AttributionLabelUnknown || at.SessionID != nil || len(at.Evidence) == 0 {
+				t.Fatalf("want unknown with evidence kept: %+v", at)
+			}
+			return
+		}
+	}
+	t.Fatal("deployment attribution missing")
+}
+
 func TestSubsetRecomputesSummary(t *testing.T) {
 	a := Compute(input(), tf.Now)
 	sub := Subset(a, func(r contract.Resource) bool { return r.Provider == "vercel" }, func(contract.SessionView) bool { return false })

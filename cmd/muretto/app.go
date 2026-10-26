@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -331,35 +332,59 @@ func (a *app) toStoreActions(s *state, raws []observe.RawAction) []store.Action 
 	return out
 }
 
+// ambiguousActions pulls the tool_use_ids out of observe.Merge's
+// action_owner_ambiguous warnings. (Compiled here, not at package init, to
+// keep `muretto hook` start-up minimal.)
+func ambiguousActions(ws []contract.Warning) []string {
+	var out []string
+	var re *regexp.Regexp
+	for _, w := range ws {
+		if w.Code != "action_owner_ambiguous" {
+			continue
+		}
+		if re == nil {
+			re = regexp.MustCompile(`tool call (\S+) appears in`)
+		}
+		if m := re.FindStringSubmatch(w.Message); m != nil {
+			out = append(out, m[1])
+		}
+	}
+	return out
+}
+
 func (a *app) ingest(ctx context.Context, s *state) {
 	dev := s.cfg.DeveloperID()
-	b, err := a.ingestSpool(s.p, dev)
-	if err != nil {
+	var batches []observe.Batch
+	if b, err := a.ingestSpool(s.p, dev); err != nil {
 		a.warn(s, "spool_unreadable", "Could not read the hook spool: "+err.Error(), "muretto doctor")
 	} else {
-		s.warnings = append(s.warnings, b.Warnings...)
-		if err := s.st.SaveBatch(ctx, b.Sessions, a.toStoreActions(s, b.Actions)); err != nil {
-			a.warn(s, "store_error", "Could not store hook events: "+err.Error(), "")
-		} else if len(b.Files) > 0 {
-			if err := a.ack(b.Files); err != nil {
+		batches = append(batches, b)
+	}
+	scannedTranscripts := false
+	started := a.now()
+	if dir, err := a.claudeDir(); err == nil {
+		since, _ := s.st.MetaTime(ctx, store.MetaTranscriptsScannedAt)
+		if tb, err := a.scanTranscripts(dir, dev, since); err != nil {
+			a.warn(s, "transcripts_unreadable", "Could not read Claude Code transcripts: "+err.Error(), "")
+		} else {
+			batches = append(batches, tb)
+			scannedTranscripts = true
+		}
+	}
+	// One merged batch, one transaction. Spool files are acked only after
+	// the commit; a crash in between re-ingests them (SaveBatch is idempotent).
+	m := observe.Merge(batches...)
+	s.warnings = append(s.warnings, m.Warnings...)
+	if err := s.st.SaveBatch(ctx, m.Sessions, a.toStoreActions(s, m.Actions), ambiguousActions(m.Warnings)...); err != nil {
+		a.warn(s, "store_error", "Could not store hook and transcript data: "+err.Error(), "")
+	} else {
+		if len(m.Files) > 0 {
+			if err := a.ack(m.Files); err != nil {
 				a.warn(s, "spool_ack_failed", "Could not remove processed spool files: "+err.Error(), "")
 			}
 		}
-	}
-
-	if dir, err := a.claudeDir(); err == nil {
-		since, _ := s.st.MetaTime(ctx, store.MetaTranscriptsScannedAt)
-		started := a.now()
-		tb, err := a.scanTranscripts(dir, dev, since)
-		if err != nil {
-			a.warn(s, "transcripts_unreadable", "Could not read Claude Code transcripts: "+err.Error(), "")
-		} else {
-			s.warnings = append(s.warnings, tb.Warnings...)
-			if err := s.st.SaveBatch(ctx, tb.Sessions, a.toStoreActions(s, tb.Actions)); err != nil {
-				a.warn(s, "store_error", "Could not store transcript data: "+err.Error(), "")
-			} else {
-				_ = s.st.SetMeta(ctx, store.MetaTranscriptsScannedAt, started.Format(time.RFC3339Nano))
-			}
+		if scannedTranscripts {
+			_ = s.st.SetMeta(ctx, store.MetaTranscriptsScannedAt, started.Format(time.RFC3339Nano))
 		}
 	}
 
@@ -468,6 +493,9 @@ func (a *app) compute(ctx context.Context, s *state) error {
 		return err
 	}
 	if in.Reviews, err = s.st.Reviews(ctx); err != nil {
+		return err
+	}
+	if in.AmbiguousActions, err = s.st.AmbiguousActions(ctx); err != nil {
 		return err
 	}
 	if exe, err := a.executable(); err == nil {

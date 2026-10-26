@@ -142,18 +142,20 @@ func (s *fakeSync) Payload() []syncclient.FieldDoc {
 // ---- harness ----
 
 type harness struct {
-	t     *testing.T
-	p     paths.Paths
-	reg   *fakeRegistry
-	hooks *fakeHooks
-	sync  *fakeSync
-	sec   *secrets.Store
-	env   map[string]string
-	now   time.Time
-	spool observe.Batch
-	acked []string
-	devID string
-	stdin string
+	t           *testing.T
+	p           paths.Paths
+	reg         *fakeRegistry
+	hooks       *fakeHooks
+	sync        *fakeSync
+	sec         *secrets.Store
+	env         map[string]string
+	now         time.Time
+	spool       observe.Batch
+	transcripts observe.Batch
+	ackErr      error
+	acked       []string
+	devID       string
+	stdin       string
 }
 
 func newHarness(t *testing.T) *harness {
@@ -225,17 +227,22 @@ func (h *harness) app(stdout, stderr io.Writer) *app {
 		now:            func() time.Time { return h.now },
 		isTTY:          func(any) bool { return false },
 		resolvePaths:   func() (paths.Paths, error) { return h.p, nil },
-		claudeDir:      func() (string, error) { return "", errors.New("no claude dir in tests") },
+		claudeDir:      func() (string, error) { return "/fake/.claude", nil },
 		loadRegistry:   func() (Registry, error) { return h.reg, nil },
 		extractVersion: "test",
-		ingestSpool: func(paths.Paths, string) (observe.Batch, error) {
-			b := h.spool
-			h.spool = observe.Batch{}
+		// Like the real spool, files stay until they are acked.
+		ingestSpool: func(paths.Paths, string) (observe.Batch, error) { return h.spool, nil },
+		scanTranscripts: func(string, string, time.Time) (observe.Batch, error) {
+			b := h.transcripts
+			h.transcripts = observe.Batch{}
 			return b, nil
 		},
-		scanTranscripts: func(string, string, time.Time) (observe.Batch, error) { return observe.Batch{}, nil },
 		ack: func(files []string) error {
+			if h.ackErr != nil {
+				return h.ackErr
+			}
 			h.acked = append(h.acked, files...)
+			h.spool = observe.Batch{}
 			return nil
 		},
 		hooks: h.hooks, sync: h.sync, secrets: h.sec,
@@ -331,6 +338,80 @@ func TestIngestAckAndScanCache(t *testing.T) {
 	out := h.mustRun("why", "customers")
 	if !strings.Contains(out, "table customers: exact") || !strings.Contains(out, "toolu_01FAKEaaaaaaaaaaaaaaaaa1") {
 		t.Fatalf("why:\n%s", out)
+	}
+}
+
+// A crash (here: a failed Ack) after the store commits must re-ingest the
+// same spool files next time without changing anything.
+func TestReingestAfterFailedAckIsIdempotent(t *testing.T) {
+	h := newHarness(t)
+	h.ackErr = errors.New("simulated crash before ack")
+	first := h.mustRun("--json")
+	if len(h.acked) != 0 || len(h.spool.Files) != 1 {
+		t.Fatal("spool must stay when ack fails")
+	}
+	h.ackErr = nil
+	h.now = h.now.Add(time.Second)
+	second := h.mustRun("--json")
+	if len(h.acked) != 1 {
+		t.Fatal("second run should ack")
+	}
+	var a, b contract.Answer
+	_ = json.Unmarshal([]byte(first), &a)
+	_ = json.Unmarshal([]byte(second), &b)
+	if len(a.Attributions) != len(b.Attributions) || a.Summary.AgentCreated != b.Summary.AgentCreated || a.Summary.Sessions != b.Summary.Sessions {
+		t.Fatalf("re-ingest changed the answer: %+v vs %+v", a.Summary, b.Summary)
+	}
+}
+
+// observe.Merge reports a tool call held by two sessions with identical
+// timing; the resource it created must be unknown and the warning shown.
+func TestMergeAmbiguityMakesResourceUnknown(t *testing.T) {
+	h := newHarness(t)
+	var deploy observe.RawAction
+	for _, ra := range h.spool.Actions {
+		if ra.Action.ID == "toolu_01FAKEaaaaaaaaaaaaaaaaa5" {
+			deploy = ra
+		}
+	}
+	twin := tf.Sessions()[0]
+	twin.ID = "8f2a1c3e-0000-4000-8000-0000000000ff"
+	twin.DeveloperID = h.devID
+	copyAct := deploy
+	copyAct.Action.SessionID = twin.ID
+	// Make both copies equal in source, time and session start.
+	for i := range h.spool.Actions {
+		if h.spool.Actions[i].Action.ID == deploy.Action.ID {
+			h.spool.Actions[i].Action.Source = contract.AgentActionSourceTranscript
+		}
+	}
+	copyAct.Action.Source = contract.AgentActionSourceTranscript
+	h.transcripts = observe.Batch{Sessions: []contract.Session{twin}, Actions: []observe.RawAction{copyAct}}
+
+	raw := h.mustRun("--json")
+	var an contract.Answer
+	if err := json.Unmarshal([]byte(raw), &an); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, w := range an.Warnings {
+		found = found || w.Code == "action_owner_ambiguous"
+	}
+	if !found {
+		t.Fatalf("warning not surfaced: %+v", an.Warnings)
+	}
+	for _, at := range an.Attributions {
+		if at.ResourceID == "vercel.deployment:"+tf.DeployID && at.Label != contract.AttributionLabelUnknown {
+			t.Fatalf("ambiguous owner must give unknown: %+v", at)
+		}
+	}
+	// Stays unknown on later runs (the flag is stored, not just warned once).
+	h.now = h.now.Add(2 * time.Minute)
+	_ = json.Unmarshal([]byte(h.mustRun("--json")), &an)
+	for _, at := range an.Attributions {
+		if at.ResourceID == "vercel.deployment:"+tf.DeployID && at.Label != contract.AttributionLabelUnknown {
+			t.Fatal("ambiguity forgotten on the next run")
+		}
 	}
 }
 

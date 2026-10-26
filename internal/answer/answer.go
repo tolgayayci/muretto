@@ -40,6 +40,10 @@ type Input struct {
 	Hooks          *HookState            // nil when unknown
 	Accounts       int                   // connected provider accounts
 	Warnings       []contract.Warning    // from this run's ingest and scan
+	// AmbiguousActions are tool calls held by two sessions with identical
+	// timing (observe.Merge warning action_owner_ambiguous). Resources they
+	// created are labelled unknown.
+	AmbiguousActions map[string]bool
 }
 
 // Compute builds the Answer.
@@ -52,6 +56,9 @@ func Compute(in Input, now time.Time) contract.Answer {
 		in.StaleAfter = 15 * time.Minute
 	}
 	atts, evOnly := attrib.Compute(in.Sessions, in.Actions, in.Resources, now)
+	for i := range atts {
+		atts[i] = downgradeAmbiguous(atts[i], in.AmbiguousActions)
+	}
 	checks := append([]contract.ProviderCheck{}, in.Checks...)
 
 	resources := append([]contract.Resource{}, in.Resources...)
@@ -95,6 +102,22 @@ func Compute(in Input, now time.Time) contract.Answer {
 	a.Warnings = warnings(in, a, now)
 	a.Summary = Summarize(a, now)
 	return Redact(a)
+}
+
+// downgradeAmbiguous turns an exact label into unknown when any creating
+// action behind it is held by two sessions that cannot be told apart.
+func downgradeAmbiguous(at contract.Attribution, ambiguous map[string]bool) contract.Attribution {
+	if at.Label != contract.AttributionLabelExact {
+		return at
+	}
+	for _, e := range at.Evidence {
+		if ambiguous[e.ActionID] {
+			at.Label, at.SessionID, at.RuleID = contract.AttributionLabelUnknown, nil, nil
+			at.Reason = "the tool call that created it (" + e.ActionID + ") appears in two sessions with identical timing, so the creating session is unknown"
+			return at
+		}
+	}
+	return at
 }
 
 func resourceLess(a, b contract.Resource) bool {
