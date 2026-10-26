@@ -119,7 +119,7 @@ func TestMatches(t *testing.T) {
 	env := contract.Resource{
 		ID: "vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_SUPABASE_URL/preview", Provider: "vercel", Kind: "vercel.env_var",
 		ProviderID: "prj_EXAMPLE000000000000000001/NEXT_PUBLIC_SUPABASE_URL/preview", AccountName: strp("example-team"),
-		Attributes: contract.ResourceAttributes{"key": "NEXT_PUBLIC_SUPABASE_URL", "env_id": "EXAMPLEenvid0000", "project_name": "example-waitlist"},
+		Attributes: contract.ResourceAttributes{"key": "NEXT_PUBLIC_SUPABASE_URL", "env_id": "EXAMPLEenvid0000", "project_name": "example-waitlist", "project_id": "prj_EXAMPLE000000000000000001"},
 	}
 	dep := contract.Resource{
 		ID: "vercel.deployment:dpl_EXAMPLE1", Provider: "vercel", Kind: "vercel.deployment", ProviderID: "dpl_EXAMPLE1",
@@ -134,9 +134,9 @@ func TestMatches(t *testing.T) {
 		{"table with project", contract.Identifier{Provider: "supabase", Kind: "supabase.table", Value: "public.customers", Container: strp("abcdefghijklmnopqrst"), SignatureID: "supabase.mcp.sql"}, table, true},
 		{"table other project", contract.Identifier{Provider: "supabase", Kind: "supabase.table", Value: "public.customers", Container: strp("bcdefghijklmnopqrstu"), SignatureID: "supabase.mcp.sql"}, table, false},
 		{"table without project never matches", contract.Identifier{Provider: "supabase", Kind: "supabase.table", Value: "public.customers", SignatureID: "supabase.cli.db_query"}, table, false},
-		{"env by MCP id", contract.Identifier{Provider: "vercel", Kind: "vercel.env_var", Value: "EXAMPLEenvid0000", SignatureID: "vercel.mcp.create_project_env"}, env, true},
-		{"env by CLI name", contract.Identifier{Provider: "vercel", Kind: "vercel.env_var", Value: "NEXT_PUBLIC_SUPABASE_URL", Container: strp("example-team/example-waitlist"), SignatureID: "vercel.cli.env_add"}, env, true},
-		{"env by CLI name, other project", contract.Identifier{Provider: "vercel", Kind: "vercel.env_var", Value: "NEXT_PUBLIC_SUPABASE_URL", Container: strp("example-team/other"), SignatureID: "vercel.cli.env_add"}, env, false},
+		{"env by MCP key in project", contract.Identifier{Provider: "vercel", Kind: "vercel.env_var", Value: "NEXT_PUBLIC_SUPABASE_URL", Container: strp("prj_EXAMPLE000000000000000001"), SignatureID: "vercel.mcp.create_project_env"}, env, true},
+		{"env by CLI name", contract.Identifier{Provider: "vercel", Kind: "vercel.env_var", Value: "NEXT_PUBLIC_SUPABASE_URL", Container: strp("example-waitlist"), SignatureID: "vercel.cli.env_add"}, env, true},
+		{"env by CLI name, other project", contract.Identifier{Provider: "vercel", Kind: "vercel.env_var", Value: "NEXT_PUBLIC_SUPABASE_URL", Container: strp("other"), SignatureID: "vercel.cli.env_add"}, env, false},
 		{"deployment by id", contract.Identifier{Provider: "vercel", Kind: "vercel.deployment", Value: "dpl_EXAMPLE1", SignatureID: "vercel.cli.deploy"}, dep, true},
 		{"deployment by host", contract.Identifier{Provider: "vercel", Kind: "vercel.deployment", Value: "example-waitlist-abc-example-team.vercel.app", SignatureID: "vercel.cli.deploy"}, dep, true},
 		{"kind mismatch", contract.Identifier{Provider: "vercel", Kind: "vercel.project", Value: "dpl_EXAMPLE1", SignatureID: "vercel.cli.deploy"}, dep, false},

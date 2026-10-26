@@ -53,7 +53,8 @@ accounts:
   endpoint: teams
   items: teams
   id: "{id}"
-  name: "{slug}"
+  name: "{name}"
+  slug: "{slug}" # pass as Credentials.AccountSlug; the CLI prints team slugs
 
 kinds:
   - kind: project
@@ -113,7 +114,7 @@ kinds:
         attributes:
           - verified
           - { name: service_type, field: serviceType }
-    match: { value: "{provider_id}", container: "{account_name}" }
+    match: { value: "{provider_id}", container: "{account_slug}" }
     remove:
       kind: command
       text: 'curl -X DELETE "https://api.vercel.com/v6/domains/{provider_id}?teamId={account_id}" -H "Authorization: Bearer $VERCEL_TOKEN"'
@@ -252,7 +253,7 @@ signatures:
         pattern: 'Success!\s+Project\s+(?P<name>\S+)\s+added\s+\((?P<team>[^)\s]+)\)'
         value: "{name}"
         container: "{team}"
-        match: { value: "{name}", container: "{account_name}" }
+        match: { value: "{name}", container: "{account_slug}" }
 
   - id: vercel.cli.env_add
     kind: env_var
@@ -263,8 +264,8 @@ signatures:
         pattern: '(?m)^(?:✓\s+)?\s*(?:Added|Overrode)\s+(?P<key>[A-Z_][A-Z0-9_]*)\s*$'
         capture: [{ from: output, pattern: '(?m)^\s+Project\s+(?P<team>[a-z0-9-]+)/(?P<project>[a-z0-9._-]+)\s*$' }]
         value: "{key}"
-        container: "{team}/{project}"
-        match: { value: "{key}", container: "{account_name}/{project_name}" }
+        container: "{project}" # project name; the team is not part of the match
+        match: { value: "{key}", container: "{project_name}" }
 
   - id: vercel.cli.domains_add
     kind: domain
@@ -331,7 +332,13 @@ signatures:
     role: created
     when: { mcp_tools: [create_project_env], result_lacks: [error] }
     extract:
-      - { from: result, each: result.created, value: "{item.id}" }
+      # Value = key, container = the project the call named (input idOrName,
+      # mirroring the REST path parameter; unverified for MCP).
+      - from: result
+        each: result.created
+        value: "{item.key}"
+        container: "{input.idOrName|or:input.projectId}"
+        match: { value: "{key}", container: "{project_id}" }
 
   - id: vercel.mcp.add_project_domain
     kind: project_domain
@@ -371,3 +378,4 @@ coverage:
 
 recorder:
   pseudonymize: [id, uid, name, url, host, accountId, projectId, teamId, userId, username, email, githubLogin, org, repo, repoId, createdBy, updatedBy, inspectorUrl, apexName, slug, githubCommitSha, githubCommitRef, configurationId, storeId]
+  keep: [vercel.app, production, preview, development]

@@ -34,14 +34,14 @@ type route struct {
 }
 
 type expectation struct {
-	Account   struct{ ID, Name string } `yaml:"account"`
-	Options   []string                  `yaml:"options"`
-	Resources []string                  `yaml:"resources"`
-	Fields    map[string]map[string]any `yaml:"fields"`
-	Findings  map[string]string         `yaml:"findings"`
-	Fixes     map[string]string         `yaml:"fixes"`
-	Checks    []string                  `yaml:"checks"`
-	Forbidden []string                  `yaml:"forbidden"`
+	Account   struct{ ID, Name, Slug string } `yaml:"account"`
+	Options   []string                        `yaml:"options"`
+	Resources []string                        `yaml:"resources"`
+	Fields    map[string]map[string]any       `yaml:"fields"`
+	Findings  map[string]string               `yaml:"findings"`
+	Fixes     map[string]string               `yaml:"fixes"`
+	Checks    []string                        `yaml:"checks"`
+	Forbidden []string                        `yaml:"forbidden"`
 }
 
 // fixtureServer serves a scenario's routes. Every request it sees has
@@ -180,6 +180,7 @@ func runScenario(t *testing.T, r *Registry, sc scenario) (ScanResult, expectatio
 		Token:       "fake-test-token",
 		AccountID:   exp.Account.ID,
 		AccountName: exp.Account.Name,
+		AccountSlug: exp.Account.Slug,
 		Options:     opts,
 	})
 	if err != nil {

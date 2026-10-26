@@ -28,6 +28,7 @@ type adapterSpec struct {
 	Options     []optionSpec             `yaml:"options"`
 	Endpoints   map[string]*endpointSpec `yaml:"endpoints"`
 	Accounts    accountsSpec             `yaml:"accounts"`
+	AccountSlug tmpl                     `yaml:"account_slug"` // fallback when Credentials.AccountSlug is empty
 	Kinds       []*kindSpec              `yaml:"kinds"`
 	Rules       []*ruleSpec              `yaml:"rules"`
 	Signatures  []*signatureSpec         `yaml:"signatures"`
@@ -74,6 +75,7 @@ type accountsSpec struct {
 	Items    stringList `yaml:"items"`
 	ID       tmpl       `yaml:"id"`
 	Name     tmpl       `yaml:"name"`
+	Slug     tmpl       `yaml:"slug"`
 }
 
 type kindSpec struct {
@@ -230,7 +232,8 @@ type coverageSpec struct {
 }
 
 type recorderSpec struct {
-	Pseudonymize []string `yaml:"pseudonymize"`
+	Pseudonymize []string `yaml:"pseudonymize"` // keys ("name") or parent.key ("metadata.name")
+	Keep         []string `yaml:"keep"`         // values never replaced (e.g. lint names)
 }
 
 // stringList accepts a scalar or a list of scalars.
@@ -287,7 +290,7 @@ var (
 var reservedAttrs = map[string]bool{
 	"id": true, "provider_id": true, "name": true, "kind": true, "account_id": true,
 	"account_name": true, "url": true, "status": true, "parent_id": true, "parent": true,
-	"created_at": true,
+	"created_at": true, "account_slug": true,
 }
 
 // parseAdapter decodes and validates one adapter file.

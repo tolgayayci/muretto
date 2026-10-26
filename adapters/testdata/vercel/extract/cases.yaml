@@ -61,7 +61,7 @@
       Environments    Production, Preview
       Type            Config
   expect:
-    - { kind: vercel.env_var, value: NEXT_PUBLIC_SUPABASE_URL, container: example-team/example-waitlist, role: created }
+    - { kind: vercel.env_var, value: NEXT_PUBLIC_SUPABASE_URL, container: example-waitlist, role: created }
 
 - name: vercel domains add in agent mode
   tool: Bash
@@ -111,7 +111,7 @@
   input: { idOrName: prj_EXAMPLE000000000000000000 }
   output: '{"created":[{"id":"EXAMPLEenvid0001","key":"NEXT_PUBLIC_SUPABASE_URL","target":["production"]}],"failed":[]}'
   expect:
-    - { kind: vercel.env_var, value: EXAMPLEenvid0001, role: created }
+    - { kind: vercel.env_var, value: NEXT_PUBLIC_SUPABASE_URL, container: prj_EXAMPLE000000000000000000, role: created }
 
 - name: MCP add_project_domain
   tool: mcp__vercel__add_project_domain

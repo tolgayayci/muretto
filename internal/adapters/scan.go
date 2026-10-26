@@ -70,11 +70,19 @@ func (s *scanner) scanKind(k *kindSpec) {
 }
 
 func (s *scanner) baseCtx(parent *scanned) map[string]any {
-	ctx := map[string]any{"account": s.creds.AccountID, "account_name": s.creds.AccountName}
+	ctx := map[string]any{"account": s.creds.AccountID, "account_name": s.creds.AccountName, "account_slug": s.accountSlug()}
 	if parent != nil {
 		ctx["parent"] = parent.childCtx
 	}
 	return ctx
+}
+
+func (s *scanner) accountSlug() string {
+	if s.creds.AccountSlug != "" {
+		return s.creds.AccountSlug
+	}
+	v, _ := s.a.AccountSlug.render(map[string]any{"account": s.creds.AccountID, "account_name": s.creds.AccountName})
+	return v
 }
 
 func (s *scanner) scanSource(k *kindSpec, src *sourceSpec, parent *scanned) {
@@ -227,6 +235,9 @@ func (s *scanner) addItem(k *kindSpec, src *sourceSpec, item, ictx map[string]an
 		}
 	}
 	applyAttrs(res.Attributes, src.Attributes, ictx)
+	if slug := s.accountSlug(); slug != "" {
+		res.Attributes["account_slug"] = slug
+	}
 
 	if prev := s.byID[res.ID]; prev != nil {
 		// Same resource from a second source: keep the first values, add new

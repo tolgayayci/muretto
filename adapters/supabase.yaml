@@ -71,6 +71,11 @@ accounts:
   items: $
   id: "{slug}"
   name: "{name}"
+  slug: "{slug}"
+
+# Stamped on every resource as attributes.account_slug (the account id is the
+# org slug here).
+account_slug: "{account}"
 
 kinds:
   - kind: project
@@ -402,7 +407,7 @@ signatures:
     role: created
     when: { mcp_tools: [create_branch], result_lacks: [error] }
     extract:
-      - { from: result, value: "{result.project_ref}", container: "{result.parent_project_ref|or:input.project_id}" }
+      - { from: result, value: "{result.project_ref}", container: "{input.project_id}" }
 
   - id: supabase.mcp.deploy_edge_function
     kind: function
@@ -476,4 +481,5 @@ coverage:
   - { kind: vector_bucket, status: planned, note: "Storage API only; no Management API list" }
 
 recorder:
-  pseudonymize: [ref, id, project_ref, parent_project_ref, organization_id, organization_slug, slug, name, git_branch, owner, host, entrypoint_path, import_map_path, schema, cache_key, detail]
+  pseudonymize: [ref, id, project_ref, parent_project_ref, organization_id, organization_slug, slug, name, git_branch, owner, host, entrypoint_path, import_map_path, cache_key, detail, metadata.schema, metadata.name, schema]
+  keep: [rls_disabled_in_public, advisor_check_unavailable, db_not_reachable, project_not_active, public, main, develop]

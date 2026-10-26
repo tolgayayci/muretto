@@ -24,11 +24,17 @@ import (
 type Credentials struct {
 	Token     string
 	AccountID string
-	// AccountName is optional; it is copied onto resources and used to match
-	// name-based identifiers (e.g. a Vercel team slug printed by the CLI).
+	// AccountName is optional display name, copied onto resources.
 	AccountName string
-	// Options turns on opt-in adapter features by name (see ProviderInfo.Options),
-	// e.g. "catalog_rls" for the Supabase read-only catalog query.
+	// AccountSlug is optional (Account.Slug from Accounts). It is stamped on
+	// every resource as attributes.account_slug, which name-based identifiers
+	// (e.g. the Vercel team slug the CLI prints) are matched against. When
+	// empty, the adapter's account_slug template is used (Supabase: the org
+	// slug, which is the account id).
+	AccountSlug string
+	// Options turns on opt-in adapter features by name (see ProviderInfo.Options).
+	// Keys in use: "catalog_rls" (Supabase: list every table and its RLS state
+	// with the pinned read-only catalog query; needs Database Read).
 	Options map[string]bool
 }
 
@@ -36,6 +42,7 @@ type Credentials struct {
 type Account struct {
 	ID   string
 	Name string
+	Slug string // URL/CLI slug when the provider has one (Vercel team slug, Supabase org slug)
 }
 
 // ScanResult is everything one read-only scan of one account found.
@@ -149,7 +156,8 @@ func (r *Registry) Accounts(ctx context.Context, b *broker.Broker, provider, tok
 			if !ok {
 				name = id
 			}
-			out = append(out, Account{ID: id, Name: name})
+			slug, _ := a.Accounts.Slug.render(item)
+			out = append(out, Account{ID: id, Name: name, Slug: slug})
 		}
 	}
 	return out, nil

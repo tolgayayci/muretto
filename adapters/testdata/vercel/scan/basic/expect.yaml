@@ -1,4 +1,4 @@
-account: { id: team_EXAMPLE00000000000000, name: example-team }
+account: { id: team_EXAMPLE00000000000000, name: Example Team, slug: example-team }
 
 resources:
   - vercel.project:prj_EXAMPLE000000000000000001
