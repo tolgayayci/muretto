@@ -316,6 +316,160 @@ func TestReinstallWithNewBinaryReplacesOld(t *testing.T) {
 	}
 }
 
+// sameJSON reports whether two settings files hold the same data in the same
+// order (whitespace aside).
+func sameJSON(t *testing.T, a, b string) bool {
+	t.Helper()
+	x, err := parseJSON([]byte(a))
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := parseJSON([]byte(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(x.encode("  ")) == string(y.encode("  "))
+}
+
+func readManifestFile(t *testing.T, e env) Manifest {
+	t.Helper()
+	b, err := os.ReadFile(e.p.Manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m Manifest
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+// Uninstall removes only containers Install created: a user's own empty
+// "hooks" object, event array or matcher group survives install + uninstall.
+func TestUninstallKeepsPreexistingContainers(t *testing.T) {
+	for name, pre := range map[string]string{
+		"empty hooks":       `{"hooks": {}}`,
+		"empty event":       `{"hooks": {"PostToolUse": []}}`,
+		"two empty events":  `{"hooks": {"SessionEnd": [], "PostToolUse": []}, "x": 1}`,
+		"empty group":       `{"hooks": {"PostToolUse": [{"matcher": "Bash", "hooks": []}]}}`,
+		"user group":        `{"hooks": {"SessionStart": [{"hooks": [{"type": "command", "command": "echo hi"}]}]}}`,
+		"empty event other": `{"hooks": {"Stop": []}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := setup(t, pre)
+			if _, err := Install(e.p, bin); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Uninstall(e.p); err != nil {
+				t.Fatal(err)
+			}
+			if got := e.read(t); !sameJSON(t, pre, got) {
+				t.Errorf("not restored:\nwant %s\ngot  %s", pre, got)
+			}
+		})
+	}
+}
+
+func TestManifestRecordsCreatedContainers(t *testing.T) {
+	e := setup(t, `{"hooks": {"PostToolUse": []}}`)
+	if _, err := Install(e.p, bin); err != nil {
+		t.Fatal(err)
+	}
+	m := readManifestFile(t, e)
+	if m.Created == nil || m.Created.Hooks || slices.Contains(m.Created.Events, "PostToolUse") || len(m.Created.Events) != len(Events)-1 {
+		t.Errorf("created: %+v", m.Created)
+	}
+	// Re-installing (here with a new binary path) keeps the record: the
+	// arrays it created are still Muretto's, the user's still the user's.
+	if _, err := Install(e.p, "/new/muretto"); err != nil {
+		t.Fatal(err)
+	}
+	if m2 := readManifestFile(t, e); m2.Created == nil || m2.Created.Hooks || len(m2.Created.Events) != len(Events)-1 ||
+		slices.Contains(m2.Created.Events, "PostToolUse") {
+		t.Errorf("created after re-install: %+v", m2.Created)
+	}
+	if _, err := Uninstall(e.p); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.read(t); !sameJSON(t, `{"hooks": {"PostToolUse": []}}`, got) {
+		t.Errorf("after re-install + uninstall: %s", got)
+	}
+	// From nothing, everything is Muretto's and goes away.
+	e = setup(t, `{}`)
+	if _, err := Install(e.p, bin); err != nil {
+		t.Fatal(err)
+	}
+	if m := readManifestFile(t, e); m.Created == nil || !m.Created.Hooks || len(m.Created.Events) != len(Events) {
+		t.Errorf("created from empty: %+v", m.Created)
+	}
+}
+
+// A manifest written before Created existed says nothing about which
+// containers were there before: Uninstall keeps "hooks" and every event
+// array, removing only the handlers (and the groups Install appended for
+// them, which never pre-exist).
+func TestUninstallLegacyManifestIsConservative(t *testing.T) {
+	for name, pre := range map[string]string{
+		"from nothing": `{}`,
+		"empty event":  `{"hooks": {"PostToolUse": []}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := setup(t, pre)
+			if _, err := Install(e.p, bin); err != nil {
+				t.Fatal(err)
+			}
+			// Rewrite the manifest as an old version would have: no "created".
+			b, _ := os.ReadFile(e.p.Manifest)
+			var raw map[string]any
+			_ = json.Unmarshal(b, &raw)
+			if _, ok := raw["created"]; !ok {
+				t.Fatal("new manifest has no created field")
+			}
+			delete(raw, "created")
+			b, _ = json.Marshal(raw)
+			if err := os.WriteFile(e.p.Manifest, b, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Uninstall(e.p); err != nil {
+				t.Fatal(err)
+			}
+			got := e.read(t)
+			if strings.Contains(got, bin) || strings.Contains(got, `"matcher"`) || strings.Contains(got, `"args"`) {
+				t.Errorf("handlers or their groups left:\n%s", got)
+			}
+			var doc struct{ Hooks map[string][]any }
+			_ = json.Unmarshal([]byte(got), &doc)
+			if doc.Hooks == nil || len(doc.Hooks) < len(Events) {
+				t.Errorf("legacy uninstall removed containers:\n%s", got)
+			}
+			for _, ev := range Events {
+				if arr, ok := doc.Hooks[ev.Name]; !ok || len(arr) != 0 {
+					t.Errorf("event %s: %v", ev.Name, arr)
+				}
+			}
+		})
+	}
+	// Re-installing over a legacy manifest doesn't claim existing containers.
+	e := setup(t, `{}`)
+	if _, err := Install(e.p, bin); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(e.p.Manifest)
+	var raw map[string]any
+	_ = json.Unmarshal(b, &raw)
+	delete(raw, "created")
+	b, _ = json.Marshal(raw)
+	if err := os.WriteFile(e.p.Manifest, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(e.p, "/new/muretto"); err != nil {
+		t.Fatal(err)
+	}
+	if m := readManifestFile(t, e); m.Created == nil || m.Created.Hooks || len(m.Created.Events) != 0 {
+		t.Errorf("legacy re-install claimed containers: %+v", m.Created)
+	}
+}
+
 func TestRefusesBadFiles(t *testing.T) {
 	for name, content := range map[string]string{
 		"comment":         "{\n  // comment\n  \"a\": 1\n}",

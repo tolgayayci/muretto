@@ -76,7 +76,23 @@ type Manifest struct {
 	InstalledAt  time.Time `json:"installed_at"`
 	Backup       string    `json:"backup,omitempty"`
 	Handlers     []Handler `json:"handlers"`
+	// Created lists the containers Install created. Nil in manifests written
+	// before it existed: nothing is known, so Uninstall keeps them all.
+	Created *Created `json:"created,omitempty"`
 }
+
+// Created records which containers in the settings file did not exist before
+// Install, so Uninstall removes only those, and only once they are empty. A
+// user's own "hooks": {} or "PostToolUse": [] survives install + uninstall.
+//
+// Matcher groups need no record: Install never adds a handler to an existing
+// group, so a group holding a manifest handler is always one Install appended.
+type Created struct {
+	Hooks  bool     `json:"hooks,omitempty"`  // the "hooks" object
+	Events []string `json:"events,omitempty"` // event arrays under "hooks"
+}
+
+func (c *Created) event(name string) bool { return c != nil && slices.Contains(c.Events, name) }
 
 func handlerFor(event, matcher, bin string) Handler {
 	return Handler{Event: event, Matcher: matcher, Type: "command", Command: bin, Args: []string{"hook", event}, Timeout: Timeout}
@@ -306,16 +322,26 @@ func Install(p paths.Paths, binaryPath string) (Status, error) {
 		return Status{}, fmt.Errorf("muretto is already installed in %s; run uninstall first", man.SettingsPath)
 	}
 	if man == nil {
-		man = &Manifest{Version: 1}
+		man = &Manifest{Version: 1, Created: &Created{}}
 	}
+	// What exists before this install. A manifest from before Created existed
+	// can't tell its containers from the user's: they count as the user's.
+	cr := man.Created
+	if cr == nil {
+		cr = &Created{}
+	}
+	hadHooks := f.root.get("hooks") != nil
 	hooks, err := hooksObj(f.root, true)
 	if err != nil {
 		return Status{}, err
 	}
+	hadEvent := map[string]bool{}
 	for _, e := range Events {
-		if arr := hooks.get(e.Name); arr != nil && arr.kind != 'a' {
+		arr := hooks.get(e.Name)
+		if arr != nil && arr.kind != 'a' {
 			return Status{}, fmt.Errorf(`settings "hooks.%s" is not an array; Muretto won't touch it`, e.Name)
 		}
+		hadEvent[e.Name] = arr != nil
 	}
 
 	changed := false
@@ -326,7 +352,7 @@ func Install(p paths.Paths, binaryPath string) (Status, error) {
 			keep = append(keep, h)
 			continue
 		}
-		if removeHandler(hooks, h) {
+		if removeHandler(hooks, h, man.Created) {
 			changed = true
 		}
 	}
@@ -358,6 +384,16 @@ func Install(p paths.Paths, binaryPath string) (Status, error) {
 			man.Handlers = append(man.Handlers, h)
 		}
 	}
+	// Containers created now join those an earlier install created.
+	if !hadHooks {
+		cr.Hooks = true
+	}
+	for _, e := range Events {
+		if !hadEvent[e.Name] && hooks.get(e.Name) != nil && !cr.event(e.Name) {
+			cr.Events = append(cr.Events, e.Name)
+		}
+	}
+	man.Created = cr
 	now := time.Now()
 	if changed {
 		bk, err := f.backup(p, now)
@@ -395,8 +431,9 @@ func Install(p paths.Paths, binaryPath string) (Status, error) {
 
 // removeHandler deletes every copy of h from settings.hooks[h.Event], then any
 // matcher group that removal left empty, then the event key if it became
-// empty. Groups and keys that were already empty are left alone.
-func removeHandler(hooks *node, h Handler) bool {
+// empty and Install created it (per created). Groups and keys that were
+// already empty are left alone.
+func removeHandler(hooks *node, h Handler, created *Created) bool {
 	arr := hooks.get(h.Event)
 	if arr == nil || arr.kind != 'a' {
 		return false
@@ -420,7 +457,7 @@ func removeHandler(hooks *node, h Handler) bool {
 		groups = append(groups, g)
 	}
 	arr.vals = groups
-	if removed && len(arr.vals) == 0 {
+	if removed && len(arr.vals) == 0 && created.event(h.Event) {
 		hooks.del(h.Event)
 	}
 	return removed
@@ -454,11 +491,11 @@ func Uninstall(p paths.Paths) (Status, error) {
 		changed := false
 		for _, h := range man.Handlers {
 			bin = h.Command
-			if removeHandler(hooks, h) {
+			if removeHandler(hooks, h, man.Created) {
 				changed = true
 			}
 		}
-		if changed && len(hooks.keys) == 0 {
+		if changed && len(hooks.keys) == 0 && man.Created != nil && man.Created.Hooks {
 			f.root.del("hooks")
 		}
 		if changed {
