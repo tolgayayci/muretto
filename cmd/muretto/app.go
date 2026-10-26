@@ -409,7 +409,11 @@ func (a *app) scan(ctx context.Context, s *state, refresh bool) {
 		}
 		b := broker.New(nil, s.reg.Allowlist())
 		sctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-		res, err := s.reg.Scan(sctx, b, acct.Provider, adapters.Credentials{Token: token, AccountID: acct.ID})
+		res, err := s.reg.Scan(sctx, b, acct.Provider, adapters.Credentials{
+			Token: token, AccountID: acct.ID, AccountName: acct.Name, AccountSlug: acct.Slug,
+			// Opt-ins chosen in `muretto init`; adapters ignore keys they don't declare.
+			Options: map[string]bool{"catalog_rls": s.cfg.Options.SupabaseCatalogRead},
+		})
 		cancel()
 		if err != nil {
 			a.warn(s, "scan_failed", "Scan of "+label+" failed: "+err.Error()+". Showing the last data Muretto has, with its age.", "muretto doctor")

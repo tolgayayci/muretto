@@ -47,6 +47,7 @@ type Account struct {
 	Provider    string    `json:"provider"`
 	ID          string    `json:"id"`
 	Name        string    `json:"name,omitempty"`
+	Slug        string    `json:"slug,omitempty"` // Vercel team slug / Supabase org slug, for name-based attribution
 	ConnectedAt time.Time `json:"connected_at"`
 }
 

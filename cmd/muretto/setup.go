@@ -179,7 +179,7 @@ func (a *app) connectProvider(ctx context.Context, s *state, reg Registry, p ada
 				return fmt.Errorf("could not store the token in the keychain: %w", err)
 			}
 		}
-		s.cfg.AddAccount(config.Account{Provider: p.Name, ID: acct.ID, Name: acct.Name, ConnectedAt: a.now()})
+		s.cfg.AddAccount(config.Account{Provider: p.Name, ID: acct.ID, Name: acct.Name, Slug: acct.Slug, ConnectedAt: a.now()})
 		where := "keychain"
 		if fromEnv {
 			where = envName
