@@ -1,0 +1,75 @@
+account: { id: team_EXAMPLE00000000000000, name: example-team }
+
+resources:
+  - vercel.project:prj_EXAMPLE000000000000000001
+  - vercel.project:prj_EXAMPLE000000000000000002
+  - vercel.project:prj_EXAMPLE000000000000000003
+  - vercel.deployment:dpl_EXAMPLEPREVIEW000000000001
+  - vercel.deployment:dpl_EXAMPLEPROD00000000000000001
+  - vercel.deployment:dpl_EXAMPLEADMINPREVIEW00000001
+  - vercel.deployment:dpl_EXAMPLELEGACYPREVIEW000001
+  - vercel.domain:example-waitlist.dev
+  - vercel.project_domain:prj_EXAMPLE000000000000000001/example-waitlist.vercel.app
+  - vercel.project_domain:prj_EXAMPLE000000000000000001/waitlist.example-waitlist.dev
+  - vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_SUPABASE_URL/development,preview,production
+  - vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_STRIPE_SECRET_KEY/production
+  - vercel.env_var:prj_EXAMPLE000000000000000001/DATABASE_URL/preview,production
+  - vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_SUPABASE_ANON_KEY/preview
+  - vercel.env_var:prj_EXAMPLE000000000000000003/VITE_API_TOKEN/preview,production
+
+fields:
+  vercel.project:prj_EXAMPLE000000000000000001:
+    _name: example-waitlist
+    _created_at: "2026-10-26T07:33:20Z"
+    sso_protection: null
+    password_protection: null
+    trusted_ips: null
+    link_repo: example-waitlist
+  vercel.project:prj_EXAMPLE000000000000000002:
+    sso_protection: all_except_custom_domains
+  vercel.project:prj_EXAMPLE000000000000000003:
+    sso_protection: <absent>
+  vercel.deployment:dpl_EXAMPLEPREVIEW000000000001:
+    _name: example-waitlist-abc123def-example-team.vercel.app
+    _url: https://example-waitlist-abc123def-example-team.vercel.app
+    _status: ready
+    _parent_id: vercel.project:prj_EXAMPLE000000000000000001
+    target: null
+    host: example-waitlist-abc123def-example-team.vercel.app
+  vercel.env_var:prj_EXAMPLE000000000000000001/DATABASE_URL/preview,production:
+    _name: DATABASE_URL
+    env_id: EXAMPLEenvid0002
+    type: sensitive
+    content_hint: postgres-url
+    project_name: example-waitlist
+
+findings:
+  public_preview:vercel.deployment:dpl_EXAMPLEPREVIEW000000000001: exposed
+  public_preview:vercel.deployment:dpl_EXAMPLEADMINPREVIEW00000001: not_exposed
+  public_preview:vercel.deployment:dpl_EXAMPLELEGACYPREVIEW000001: unknown
+  client_exposed_env:vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_SUPABASE_URL/development,preview,production: not_exposed
+  client_exposed_env:vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_STRIPE_SECRET_KEY/production: exposed
+  client_exposed_env:vercel.env_var:prj_EXAMPLE000000000000000001/DATABASE_URL/preview,production: not_exposed
+  client_exposed_env:vercel.env_var:prj_EXAMPLE000000000000000001/NEXT_PUBLIC_SUPABASE_ANON_KEY/preview: not_exposed
+  client_exposed_env:vercel.env_var:prj_EXAMPLE000000000000000003/VITE_API_TOKEN/preview,production: exposed
+
+checks:
+  - vercel.project|||ok
+  - vercel.deployment|prj_EXAMPLE000000000000000001||ok
+  - vercel.deployment|prj_EXAMPLE000000000000000001|public_preview|ok
+  - vercel.deployment|prj_EXAMPLE000000000000000002||ok
+  - vercel.deployment|prj_EXAMPLE000000000000000002|public_preview|ok
+  - vercel.deployment|prj_EXAMPLE000000000000000003||ok
+  - vercel.deployment|prj_EXAMPLE000000000000000003|public_preview|ok
+  - vercel.domain|||ok
+  - vercel.project_domain|prj_EXAMPLE000000000000000001||ok
+  - vercel.project_domain|prj_EXAMPLE000000000000000002||ok
+  - vercel.project_domain|prj_EXAMPLE000000000000000003||ok
+  - vercel.env_var|prj_EXAMPLE000000000000000001||ok
+  - vercel.env_var|prj_EXAMPLE000000000000000001|client_exposed_env|ok
+  - vercel.env_var|prj_EXAMPLE000000000000000002||error:permission
+  - vercel.env_var|prj_EXAMPLE000000000000000002|client_exposed_env|error:permission
+  - vercel.env_var|prj_EXAMPLE000000000000000003||ok
+  - vercel.env_var|prj_EXAMPLE000000000000000003|client_exposed_env|ok
+
+forbidden: ["MURETTO_FAKE_SECRET", "dev@example.com", "deployHooks", "protectionBypass"]

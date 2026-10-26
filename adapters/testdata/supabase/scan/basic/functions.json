@@ -1,0 +1,15 @@
+[
+  {
+    "id": "00000000-0000-4000-8000-000000000002",
+    "slug": "stripe-webhook",
+    "name": "stripe-webhook",
+    "status": "ACTIVE",
+    "version": 3,
+    "created_at": 1761300000000,
+    "updated_at": 1761303600000,
+    "verify_jwt": false,
+    "import_map": false,
+    "entrypoint_path": "file:///tmp/source/index.ts",
+    "ezbr_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+]

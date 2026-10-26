@@ -1,0 +1,8 @@
+# Opt-in catalog_rls: the pinned read-only catalog query plus exposed schemas.
+- { method: GET, path: /v1/projects, file: ../basic/projects.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/postgrest, file: postgrest.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/branches, status: 422, body: "{}" }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/functions, body: "[]" }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/storage/buckets, body: "[]" }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/advisors/security, query: { lint_type: sql }, file: ../basic/advisors.json }
+- { method: POST, path: /v1/projects/abcdefghijklmnopqrst/database/query/read-only, status: 201, file: catalog.json }

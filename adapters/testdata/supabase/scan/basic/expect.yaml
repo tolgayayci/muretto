@@ -1,0 +1,54 @@
+account: { id: example-org, name: Example Org }
+
+resources:
+  - supabase.project:abcdefghijklmnopqrst
+  - supabase.branch:tsrqponmlkjihgfedcba
+  - supabase.function:abcdefghijklmnopqrst/stripe-webhook
+  - supabase.bucket:abcdefghijklmnopqrst/avatars
+  - supabase.bucket:abcdefghijklmnopqrst/customer-files
+  - supabase.table:abcdefghijklmnopqrst/public.customers
+
+# Selected fields per resource (attributes by name; core fields with a leading _).
+fields:
+  supabase.project:abcdefghijklmnopqrst:
+    _name: waitlist-demo
+    _status: active_healthy
+    _url: https://supabase.com/dashboard/project/abcdefghijklmnopqrst
+    _created_at: "2026-10-20T09:15:00Z"
+    region: eu-central-1
+    postgres_engine: "17"
+  supabase.branch:tsrqponmlkjihgfedcba:
+    _parent_id: supabase.project:abcdefghijklmnopqrst
+    _status: active_healthy
+    git_branch: feature/waitlist
+  supabase.function:abcdefghijklmnopqrst/stripe-webhook:
+    _created_at: "2025-10-24T10:00:00Z"
+    verify_jwt: false
+    project_ref: abcdefghijklmnopqrst
+  supabase.bucket:abcdefghijklmnopqrst/avatars:
+    public: true
+    bucket_id: avatars
+  supabase.table:abcdefghijklmnopqrst/public.customers:
+    _seen_via: advisor
+    schema: public
+    table: customers
+
+findings:
+  rls_disabled:supabase.table:abcdefghijklmnopqrst/public.customers: exposed
+  public_bucket:supabase.bucket:abcdefghijklmnopqrst/avatars: exposed
+  public_bucket:supabase.bucket:abcdefghijklmnopqrst/customer-files: not_exposed
+
+fixes:
+  rls_disabled:supabase.table:abcdefghijklmnopqrst/public.customers: ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;
+
+# kind | scope | rule | status
+checks:
+  - supabase.project|||ok
+  - supabase.branch|abcdefghijklmnopqrst||ok
+  - supabase.function|abcdefghijklmnopqrst||ok
+  - supabase.bucket|abcdefghijklmnopqrst||ok
+  - supabase.bucket|abcdefghijklmnopqrst|public_bucket|ok
+  - supabase.table|abcdefghijklmnopqrst|rls_disabled|ok
+
+# Never allowed anywhere in the scan result.
+forbidden: ["db.abcdefghijklmnopqrst.supabase.co", "other-example-org", "MURETTO_FAKE_SECRET"]

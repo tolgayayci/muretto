@@ -1,0 +1,16 @@
+account: { id: example-org }
+
+resources:
+  - supabase.project:abcdefghijklmnopqrst
+
+findings: {}
+
+checks:
+  - supabase.project|||ok
+  - supabase.branch|abcdefghijklmnopqrst||ok # 422 = branching disabled = zero branches
+  - supabase.function|abcdefghijklmnopqrst||error:permission
+  - supabase.bucket|abcdefghijklmnopqrst||error:provider
+  - supabase.bucket|abcdefghijklmnopqrst|public_bucket|error:provider
+  - supabase.table|abcdefghijklmnopqrst|rls_disabled|error:provider # advisor_check_unavailable
+
+forbidden: ["MURETTO_FAKE_SECRET"]

@@ -1,0 +1,7 @@
+# One project in example-org with a branch, a function, a public and a private
+# bucket, and an RLS-exposed table flagged by the security advisor.
+- { method: GET, path: /v1/projects, file: projects.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/branches, file: branches.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/functions, file: functions.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/storage/buckets, file: buckets.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/advisors/security, query: { lint_type: sql }, file: advisors.json }

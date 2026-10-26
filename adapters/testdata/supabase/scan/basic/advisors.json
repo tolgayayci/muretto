@@ -1,0 +1,28 @@
+{
+  "lints": [
+    {
+      "name": "rls_disabled_in_public",
+      "title": "RLS Disabled in Public",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "Detects cases where row level security (RLS) has not been enabled on tables in schemas exposed to PostgREST",
+      "detail": "Table `public.customers` is public, but RLS has not been enabled.",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public",
+      "metadata": { "schema": "public", "name": "customers", "type": "table" },
+      "cache_key": "rls_disabled_in_public_public_customers"
+    },
+    {
+      "name": "security_definer_view",
+      "title": "Security Definer View",
+      "level": "ERROR",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "Detects views defined with the SECURITY DEFINER property.",
+      "detail": "View `public.customer_stats` is defined with the SECURITY DEFINER property",
+      "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0010_security_definer_view",
+      "metadata": { "schema": "public", "name": "customer_stats", "type": "view" },
+      "cache_key": "security_definer_view_public_customer_stats"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+# Failed and partial calls must become error checks (so answers say unknown),
+# never "nothing found".
+- { method: GET, path: /v1/projects, file: ../basic/projects.json }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/branches, status: 422, body: '{"message":"Branching is not enabled for this project"}' }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/functions, status: 403, body: '{"message":"Forbidden"}' }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/storage/buckets, status: 500, body: '{"message":"Internal error"}' }
+- { method: GET, path: /v1/projects/abcdefghijklmnopqrst/advisors/security, query: { lint_type: sql }, file: advisors-unavailable.json }

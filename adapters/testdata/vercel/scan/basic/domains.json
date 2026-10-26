@@ -1,0 +1,20 @@
+{
+  "domains": [
+    {
+      "id": "domain_EXAMPLE0000000000000",
+      "name": "example-waitlist.dev",
+      "createdAt": 1793000400000,
+      "boughtAt": null,
+      "expiresAt": null,
+      "creator": { "id": "usrEXAMPLE000000000000", "username": "example-dev", "email": "dev@example.com" },
+      "teamId": "team_EXAMPLE00000000000000",
+      "userId": "usrEXAMPLE000000000000",
+      "serviceType": "external",
+      "verified": false,
+      "nameservers": [],
+      "intendedNameservers": ["ns1.vercel-dns.com", "ns2.vercel-dns.com"],
+      "echMode": "auto"
+    }
+  ],
+  "pagination": { "count": 1, "next": null, "prev": null }
+}

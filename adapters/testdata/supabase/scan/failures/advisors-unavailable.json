@@ -1,0 +1,16 @@
+{
+  "lints": [
+    {
+      "name": "advisor_check_unavailable",
+      "title": "Advisor check unavailable",
+      "level": "INFO",
+      "facing": "EXTERNAL",
+      "categories": ["SECURITY"],
+      "description": "Fake fixture: the advisor could not run.",
+      "detail": "Fake fixture detail.",
+      "remediation": "",
+      "metadata": {},
+      "cache_key": "advisor_check_unavailable"
+    }
+  ]
+}

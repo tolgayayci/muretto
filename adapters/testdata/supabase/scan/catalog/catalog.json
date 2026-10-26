@@ -1,0 +1,6 @@
+[
+  { "schema": "private", "name": "audit", "rls_enabled": false, "rls_forced": false, "anon_schema_usage": false, "anon_select": true, "authenticated_select": true },
+  { "schema": "public", "name": "customers", "rls_enabled": false, "rls_forced": false, "anon_schema_usage": true, "anon_select": true, "authenticated_select": true },
+  { "schema": "public", "name": "drafts", "rls_enabled": false, "rls_forced": false, "anon_schema_usage": true, "anon_select": false, "authenticated_select": false },
+  { "schema": "public", "name": "notes", "rls_enabled": true, "rls_forced": false, "anon_schema_usage": true, "anon_select": true, "authenticated_select": true }
+]

@@ -1,0 +1,15 @@
+# Three projects over two pages: example-waitlist (protection off: public
+# previews), example-admin (Standard Protection), example-legacy (protection
+# fields absent: unknown). Env vars include values that the broker must strip.
+- { path: /v10/projects, query: { teamId: team_EXAMPLE00000000000000, limit: "100" }, file: projects-1.json }
+- { path: /v10/projects, query: { teamId: team_EXAMPLE00000000000000, limit: "100", until: "1792999999999" }, file: projects-2.json }
+- { path: /v7/deployments, query: { projectId: prj_EXAMPLE000000000000000001 }, file: deployments-waitlist.json }
+- { path: /v7/deployments, query: { projectId: prj_EXAMPLE000000000000000002 }, file: deployments-admin.json }
+- { path: /v7/deployments, query: { projectId: prj_EXAMPLE000000000000000003 }, file: deployments-legacy.json }
+- { path: /v5/domains, file: domains.json }
+- { path: /v9/projects/prj_EXAMPLE000000000000000001/domains, file: project-domains-waitlist.json }
+- { path: /v9/projects/prj_EXAMPLE000000000000000002/domains, body: '{"domains":[],"pagination":{"count":0,"next":null,"prev":null}}' }
+- { path: /v9/projects/prj_EXAMPLE000000000000000003/domains, body: '{"domains":[],"pagination":{"count":0,"next":null,"prev":null}}' }
+- { path: /v10/projects/prj_EXAMPLE000000000000000001/env, file: env-waitlist.json }
+- { path: /v10/projects/prj_EXAMPLE000000000000000002/env, status: 403, body: '{"error":{"code":"forbidden","message":"Not authorized"}}' }
+- { path: /v10/projects/prj_EXAMPLE000000000000000003/env, file: env-legacy.json }

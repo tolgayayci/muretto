@@ -1,0 +1,8 @@
+{
+  "id": "EXAMPLEenvid0009",
+  "key": "VITE_API_TOKEN",
+  "value": "MURETTO_FAKE_SECRET_value9",
+  "type": "plain",
+  "target": ["production", "preview"],
+  "createdAt": 1792000150000
+}

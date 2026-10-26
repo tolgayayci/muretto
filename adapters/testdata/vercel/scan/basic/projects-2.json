@@ -1,0 +1,13 @@
+{
+  "projects": [
+    {
+      "id": "prj_EXAMPLE000000000000000003",
+      "name": "example-legacy",
+      "accountId": "team_EXAMPLE00000000000000",
+      "createdAt": 1792000000000,
+      "updatedAt": 1792000300000,
+      "framework": null
+    }
+  ],
+  "pagination": { "count": 1, "next": null, "prev": 1792000300000 }
+}
