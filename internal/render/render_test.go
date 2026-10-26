@@ -174,6 +174,64 @@ func TestNothingFoundOnlyAfterSuccessfulCheck(t *testing.T) {
 	}
 }
 
+// Adapter titles name the resource ("RLS off: public.customers is publicly
+// readable"); the session row already does, so it shows the short label.
+func TestSessionShortExposureLabels(t *testing.T) {
+	in := answer.Input{
+		Developer: tf.Developer(), DeveloperNames: tf.Names(), Sessions: tf.Sessions(), Actions: tf.Actions(),
+		Resources: tf.Resources(), Findings: tf.Findings(), Checks: tf.Checks(), Accounts: 2,
+	}
+	adapterTitles := map[string]string{
+		"rls_disabled": "RLS off: public.customers is publicly readable", "public_bucket": "Public bucket: customer-files",
+		"public_preview": "Public preview: preview-a81f.vercel.app",
+	}
+	for i, f := range in.Findings {
+		in.Findings[i].Title = adapterTitles[f.RuleID]
+	}
+	var b bytes.Buffer
+	if err := Session(&b, answer.Compute(in, tf.Now), tf.AliceSession, opts()); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"exact   ⚠ RLS off: publicly readable ·", "exact   ⚠ public ·", "exact   ⚠ public preview ·"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, b.String())
+		}
+	}
+	for _, long := range adapterTitles {
+		if strings.Contains(b.String(), long) {
+			t.Errorf("session row repeats the adapter title %q", long)
+		}
+	}
+	if got := ShortFinding(contract.ExposureFinding{RuleID: "new_rule", Title: "Something"}); got != "Something" {
+		t.Errorf("unknown rule keeps its title, got %q", got)
+	}
+}
+
+// A failed rule check: the not-confirmed row says exposure is unknown and
+// the footer says a check failed, instead of looking clean.
+func TestSessionShowsFailedChecks(t *testing.T) {
+	checks := tf.Checks()
+	for i, c := range checks {
+		if c.RuleID != nil && *c.RuleID == "rls_disabled" {
+			code, msg := contract.ProviderCheckErrorCodeProvider, "HTTP 500"
+			checks[i].Status, checks[i].ErrorCode, checks[i].Error, checks[i].LastSuccessAt = contract.ProviderCheckStatusError, &code, &msg, nil
+		}
+	}
+	a := answer.Compute(answer.Input{
+		Developer: tf.Developer(), DeveloperNames: tf.Names(), Sessions: tf.Sessions(), Actions: tf.Actions(),
+		Resources: tf.Resources(), Checks: checks, Accounts: 2,
+	}, tf.Now)
+	var b bytes.Buffer
+	if err := Session(&b, a, tf.BobSession, opts()); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"? table      orders           unknown in acme-dev · exposure unknown\n", "  1 check failed · checked"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, b.String())
+		}
+	}
+}
+
 func TestUnknownCostIsNeverZero(t *testing.T) {
 	var b bytes.Buffer
 	_ = Show(&b, fixtureAnswer(), "supabase.function:"+tf.DevRef+"/process-import", opts())

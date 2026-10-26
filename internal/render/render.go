@@ -178,6 +178,24 @@ func DisplayName(r contract.Resource) string {
 	return r.ProviderID
 }
 
+// ShortFinding is the brief label for an exposed finding on a row that
+// already names the resource (the session view, brief §10). Adapter titles
+// repeat the resource name, e.g. "RLS off: public.customers is publicly
+// readable"; unknown rules keep their title.
+func ShortFinding(f contract.ExposureFinding) string {
+	switch f.RuleID {
+	case "rls_disabled":
+		return "RLS off: publicly readable"
+	case "public_bucket":
+		return "public"
+	case "public_preview":
+		return "public preview"
+	case "client_exposed_env":
+		return "exposed to the browser"
+	}
+	return f.Title
+}
+
 // ShortSession is the 4-character session label used in text output.
 func ShortSession(id string) string {
 	if len(id) > 4 {
@@ -516,7 +534,7 @@ func Session(w io.Writer, a contract.Answer, sessionID string, o Options) error 
 				notes = append(notes, p.dim("gone"))
 			}
 			for _, f := range ix.exposed(id) {
-				notes = append(notes, p.red("⚠ "+f.Title))
+				notes = append(notes, p.red("⚠ "+ShortFinding(f)))
 				exposedN++
 				if firstExposed == "" {
 					firstExposed = DisplayName(r)
@@ -543,7 +561,15 @@ func Session(w io.Writer, a contract.Answer, sessionID string, o Options) error 
 			} else {
 				where = "target unknown"
 			}
-			p.line("%s", strings.TrimRight(fmt.Sprintf("  ? %s %s %s %s", pad(ShortKind(r.Kind), 10), pad(DisplayName(r), nameW), pad(string(ix.att[id].Label), 7), p.dim(where)), " "))
+			notes := []string{p.dim(where)}
+			for _, f := range ix.exposed(id) {
+				notes = append(notes, p.red("⚠ "+ShortFinding(f)))
+				exposedN++
+			}
+			if len(ix.exposed(id)) == 0 && ix.unknownExposure(id) {
+				notes = append(notes, p.dim("exposure unknown"))
+			}
+			p.line("%s", strings.TrimRight(fmt.Sprintf("  ? %s %s %s %s", pad(ShortKind(r.Kind), 10), pad(DisplayName(r), nameW), pad(string(ix.att[id].Label), 7), strings.Join(notes, " · ")), " "))
 		}
 	}
 	p.line("")
@@ -553,6 +579,9 @@ func Session(w io.Writer, a contract.Answer, sessionID string, o Options) error 
 	}
 	if reviewN > 0 {
 		foot = append(foot, fmt.Sprintf("%d needs review", reviewN))
+	}
+	if n := a.Summary.ChecksFailed; n > 0 {
+		foot = append(foot, fmt.Sprintf("%d %s failed", n, plural(n, "check", "checks")))
 	}
 	foot = append(foot, p.dim(p.checked(a)))
 	p.line("  %s", strings.Join(foot, " · "))
