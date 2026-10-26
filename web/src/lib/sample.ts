@@ -501,7 +501,7 @@ const findings: ExposureFinding[] = [
     title: "Preview protection not checked",
     explanation: "The last check of acme-web's deployment protection failed, so Muretto can't say whether this preview is public.",
     fix: { kind: "steps", text: "Run `muretto doctor` to see why the Vercel check failed." },
-    checked_at: "2026-10-26T13:52:00Z",
+    checked_at: "2026-10-26T14:31:00Z",
     signal: "api_field",
   }),
   notExposed(R.waitlist, "rls_disabled", "RLS on", "official_advisor"),
@@ -590,7 +590,7 @@ const checks: ProviderCheck[] = [
     status: "error",
     error_code: "rate_limit",
     error: "Vercel API rate limit reached; Muretto retries on the next command.",
-    last_success_at: "2026-10-26T13:52:00Z",
+    last_success_at: "2026-10-26T14:31:00Z",
   }),
 ];
 

@@ -185,6 +185,7 @@ dialog.drawer {
   border: 0;
   border-left: 1px solid var(--line);
   padding: 0;
+  overflow: hidden;
   background: var(--panel);
   color: var(--fg);
 }

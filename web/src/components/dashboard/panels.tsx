@@ -60,6 +60,23 @@ export function SummaryStrip() {
   );
 }
 
+/** Renders `backticked` spans of server-provided text as inline code. Plain text otherwise. */
+export function Inline({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(`[^`]+`)/g).map((part, i) =>
+        part.startsWith("`") && part.endsWith("`") && part.length > 2 ? (
+          <code key={i} className="font-mono text-[0.92em] text-fg">
+            {part.slice(1, -1)}
+          </code>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 export function Warnings() {
   const { view } = useDash();
   if (view.answer.warnings.length === 0) return null;
@@ -68,8 +85,14 @@ export function Warnings() {
       {view.answer.warnings.map((w) => (
         <li key={w.code} className="flex flex-wrap items-baseline gap-x-2 px-1 text-xs text-muted">
           <Icon name="question" className="size-3.5 translate-y-[2px] text-faint" />
-          <span>{w.message}</span>
-          {w.fix ? <span className="text-faint">{w.fix}</span> : null}
+          <span>
+            <Inline text={w.message} />
+          </span>
+          {w.fix ? (
+            <span className="text-faint">
+              <Inline text={w.fix} />
+            </span>
+          ) : null}
         </li>
       ))}
     </ul>

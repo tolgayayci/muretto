@@ -6,6 +6,7 @@ import { daysUntil, kindLabel, providerLabel, sessionSpan, shortId, stamp, timeA
 import { summarizeCosts } from "@/lib/model";
 import { useClock } from "../clock";
 import { AttributionLabel, CopyButton, Icon } from "../ui";
+import { Inline } from "./panels";
 import { CostAmounts, UnknownCost, useDash } from "./parts";
 
 function Step({
@@ -35,16 +36,15 @@ function Step({
   );
 }
 
-function Code({ children, copy }: { children: string; copy?: boolean }) {
+function Code({ children, wrap = false }: { children: string; wrap?: boolean }) {
   return (
-    <div className="group relative mt-1 rounded-lg border border-line bg-sunken">
-      <pre className="scroll-thin overflow-x-auto px-3 py-2.5 font-mono text-[12px] leading-[1.6] whitespace-pre text-fg">{children}</pre>
-      {copy ? (
-        <div className="absolute top-1.5 right-1.5">
-          <CopyButton text={children} variant="solid" />
-        </div>
-      ) : null}
-    </div>
+    <pre
+      className={`scroll-thin mt-1 max-h-48 overflow-auto rounded-lg border border-line bg-sunken px-3 py-2 font-mono text-[12px] leading-[1.6] text-fg ${
+        wrap ? "break-words whitespace-pre-wrap" : "whitespace-pre"
+      }`}
+    >
+      {children}
+    </pre>
   );
 }
 
@@ -101,8 +101,9 @@ function FindingBlock({ f }: { f: ExposureFinding }) {
             <span className="font-medium text-fg">
               Fix <span className="font-normal text-faint">({f.fix.kind}) · run it yourself</span>
             </span>
+            <CopyButton text={f.fix.text} label="Copy fix" variant="solid" className="[&>span:first-of-type]:w-[56px]" />
           </div>
-          <Code copy>{f.fix.text}</Code>
+          <Code wrap>{f.fix.text}</Code>
           {f.fix.note ? <p className="mt-1.5 text-xs text-muted">{f.fix.note}</p> : null}
           {f.fix.docs_url ? (
             <a
@@ -120,7 +121,9 @@ function FindingBlock({ f }: { f: ExposureFinding }) {
           </p>
         </div>
       ) : (
-        <p className="mt-2 text-xs text-muted">{f.fix.text}</p>
+        <p className="mt-2 text-xs text-muted">
+          <Inline text={f.fix.text} />
+        </p>
       )}
     </div>
   );
@@ -336,10 +339,11 @@ export function ResourceDrawer({
       returnFocus.current = document.activeElement as HTMLElement | null;
       d.showModal();
       d.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+      // Open at the top of the timeline; when opened from an exposure, scroll
+      // just enough to bring the fix into view on short screens.
+      d.querySelector(".drawer-body")?.scrollTo({ top: 0 });
       if (focus === "exposure") {
-        requestAnimationFrame(() => d.querySelector("#drawer-exposure")?.scrollIntoView({ block: "start" }));
-      } else {
-        d.querySelector(".drawer-body")?.scrollTo({ top: 0 });
+        requestAnimationFrame(() => d.querySelector("#drawer-exposure")?.scrollIntoView({ block: "nearest" }));
       }
     } else if (!r && d.open) {
       d.close();

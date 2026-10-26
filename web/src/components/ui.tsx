@@ -20,11 +20,11 @@ export function Mark({ className = "size-5" }: { className?: string }) {
   );
 }
 
-export function Wordmark({ className = "" }: { className?: string }) {
+export function Wordmark({ className = "", compact = false }: { className?: string; compact?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
       <Mark className="size-5 text-accent" />
-      <span className="text-[15px] font-semibold tracking-[-0.01em]">muretto</span>
+      <span className={`text-[15px] font-semibold tracking-[-0.01em] ${compact ? "hidden sm:inline" : ""}`}>muretto</span>
     </span>
   );
 }
@@ -204,7 +204,7 @@ export function AttributionLabel({ label, className = "" }: { label?: "exact" | 
 export function SampleBadge({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex h-6 items-center gap-1.5 rounded-full border border-dashed border-accent-line bg-accent-wash px-2.5 text-xs font-medium text-accent ${className}`}
+      className={`inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full whitespace-nowrap border border-dashed border-accent-line bg-accent-wash px-2.5 text-xs font-medium text-accent ${className}`}
       title="Fake data built into the app (acme, alice, bob…). Nothing here comes from a real account."
     >
       <span className="size-1.5 rounded-full bg-accent" aria-hidden="true" />
