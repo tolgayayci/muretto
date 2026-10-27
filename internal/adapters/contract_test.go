@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -127,8 +128,12 @@ func TestIdentifiersFitAttributionContract(t *testing.T) {
 				}
 			}
 		}
+		// The contract is the set of resources an action claims; one output
+		// may name the same deployment twice (its id and its host).
 		sort.Strings(gotD)
+		gotD = slices.Compact(gotD)
 		sort.Strings(gotM)
+		gotM = slices.Compact(gotM)
 		want := append([]string(nil), a.want...)
 		sort.Strings(want)
 		if strings.Join(gotD, ",") != strings.Join(want, ",") {

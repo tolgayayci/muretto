@@ -27,6 +27,7 @@
     }
   expect:
     - { kind: vercel.deployment, value: dpl_EXAMPLE00000000000000000000, role: created }
+    - { kind: vercel.deployment, value: example-waitlist-abc123def-example-team.vercel.app, role: created }
 
 - name: first vercel deploy creates the project (CLI 65 non-TTY, live shape)
   tool: Bash
@@ -56,6 +57,28 @@
     - { kind: vercel.deployment, value: dpl_EXAMPLE00000000000000000009, role: created }
     - { kind: vercel.deployment, value: example-landing-abc123def-example-team.vercel.app, role: created }
     - { kind: vercel.project, value: example-landing, container: example-team, role: created }
+
+- name: vercel deploy piped through tail keeps only the next hints (live shape)
+  tool: Bash
+  input: { command: "cd example-waitlist && vercel deploy --yes --scope example-team 2>&1 | tail -15" }
+  output: |2
+      "next": [
+        {
+          "command": "vercel curl https://example-waitlist-abc123def-example-team.vercel.app",
+          "when": "Verify deployment, including when Deployment Protection is enabled"
+        },
+        {
+          "command": "vercel inspect example-waitlist-abc123def-example-team.vercel.app --scope example-team",
+          "when": "Inspect deployment"
+        },
+        {
+          "command": "vercel deploy --prod --scope example-team",
+          "when": "Promote to production"
+        }
+      ]
+    }
+  expect:
+    - { kind: vercel.deployment, value: example-waitlist-abc123def-example-team.vercel.app, role: created }
 
 - name: vercel deploy into a linked project creates no project
   tool: Bash
