@@ -18,6 +18,12 @@
 //     did not create it (docs/decisions/0406-proof-of-creation.md); so may a
 //     recorded disappearance after the last creating action (the resource
 //     was recreated). Timing never creates one.
+//   - Provider created_at more than VetoTolerance after a creating action
+//     drops that action's claim: it created an earlier resource with the same
+//     name, deleted since (docs/decisions/0906-recreated-resources.md). A
+//     dropped claim is no conflict; the claims left are judged by the rules
+//     above and below, and the reason names the dropped ones. Resources
+//     without created_at keep every claim.
 //   - Two sessions claiming the same resource give unknown, with the
 //     conflicting evidence listed.
 //   - Referenced identifiers never attribute.
@@ -332,11 +338,96 @@ func (eo *evidenceOnly) resource(ix *index) contract.Resource {
 	return r
 }
 
+// decide drops the claims of actions that finished before the provider
+// created this resource (they created an earlier one with the same name), then
+// labels the resource from the claims that are left. Dropped claims never
+// count as a conflict, but the reason always names them, and an unknown label
+// lists them with its evidence.
 func decide(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time) contract.Attribution {
-	att := contract.Attribution{ResourceID: r.ID, ComputedAt: now, Label: contract.AttributionLabelUnknown, Evidence: []contract.Evidence{}}
 	if rc == nil {
 		rc = &resClaims{}
 	}
+	live, stale := splitStale(r, rc.claims)
+	if len(stale) == 0 {
+		return decideLive(r, rc, unscoped, now)
+	}
+	if len(live) == 0 {
+		att := contract.Attribution{ResourceID: r.ID, ComputedAt: now, Label: contract.AttributionLabelUnknown}
+		att.Reason = "creator unknown: " + staleReason(r, stale)
+		if len(rc.refs) > 0 {
+			att.Reason += fmt.Sprintf("; session %s only read or referenced it", shortID(rc.refs[0].action.SessionID))
+		}
+		att.Evidence = evidence(append(append([]claim{}, stale...), rc.ambiguous...))
+		return att
+	}
+	att := decideLive(r, &resClaims{claims: live, ambiguous: rc.ambiguous, refs: rc.refs}, unscoped, now)
+	att.Reason += "; " + staleReason(r, stale)
+	if att.Label != contract.AttributionLabelExact {
+		// Exact keeps only the evidence that proves it; unknown lists all.
+		att.Evidence = mergeEvidence(att.Evidence, evidence(stale))
+	}
+	return att
+}
+
+// splitStale separates the claims of actions that finished more than
+// VetoTolerance before the provider's created_at: such an action cannot have
+// created this instance, only an earlier resource with the same name or id
+// (deleted and created again since). Resources without created_at keep all
+// claims. The tolerance absorbs clock skew between this machine and the
+// provider; created_at is stamped when creation starts, so a creating action
+// always finishes after it.
+func splitStale(r contract.Resource, claims []claim) (live, stale []claim) {
+	if r.CreatedAt == nil {
+		return claims, nil
+	}
+	cutoff := r.CreatedAt.Add(-VetoTolerance)
+	for _, c := range claims {
+		if c.action.OccurredAt.Before(cutoff) {
+			stale = append(stale, c)
+		} else {
+			live = append(live, c)
+		}
+	}
+	return live, stale
+}
+
+func staleReason(r contract.Resource, stale []claim) string {
+	last := stale[0].action
+	for _, c := range stale {
+		if c.action.OccurredAt.After(last.OccurredAt) {
+			last = c.action
+		}
+	}
+	who := "session " + shortID(last.SessionID)
+	if n := len(groupBySession(stale)); n > 1 {
+		who = fmt.Sprintf("%d sessions (last %s)", n, who)
+	}
+	return fmt.Sprintf("%s created an earlier resource with this name at %s; the provider says this one was created at %s, after it", who, last.OccurredAt.UTC().Format(time.RFC3339), r.CreatedAt.UTC().Format(time.RFC3339))
+}
+
+// mergeEvidence joins two evidence lists, without duplicates, in time order.
+func mergeEvidence(a, b []contract.Evidence) []contract.Evidence {
+	out := append([]contract.Evidence{}, a...)
+	seen := map[string]bool{}
+	for _, e := range a {
+		seen[e.ActionID+"\x00"+e.SignatureID+"\x00"+e.MatchedValue] = true
+	}
+	for _, e := range b {
+		if !seen[e.ActionID+"\x00"+e.SignatureID+"\x00"+e.MatchedValue] {
+			out = append(out, e)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if !out[i].OccurredAt.Equal(out[j].OccurredAt) {
+			return out[i].OccurredAt.Before(out[j].OccurredAt)
+		}
+		return out[i].ActionID < out[j].ActionID
+	})
+	return out
+}
+
+func decideLive(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time) contract.Attribution {
+	att := contract.Attribution{ResourceID: r.ID, ComputedAt: now, Label: contract.AttributionLabelUnknown, Evidence: []contract.Evidence{}}
 	if len(rc.claims) == 0 {
 		switch {
 		case len(rc.ambiguous) > 0:
