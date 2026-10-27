@@ -4,6 +4,9 @@
 // What it does, in order: read stdin (first 1 MiB kept, the rest drained),
 // parse the top-level keys tolerantly, cap every text field at 64 KiB (head +
 // tail), redact, and write one SpoolRecord as a 0600 file via temp + rename.
+// For a tool call to an MCP server from the project, local or user scope, it
+// also reads that server's entry in Claude Code's MCP config and records its
+// allowlisted identifier URL params (mcpconfig.go).
 // No network, no locks, no stdout/stderr. Errors go to hook-errors.log.
 package hook
 
@@ -182,7 +185,14 @@ func build(event string, head, tail []byte, overflow bool, now time.Time) (*cont
 		}
 	}
 	if raw, ok := fields["mcp_server"]; ok {
-		rec.McpServer = mcpServerName(raw)
+		var scope string
+		rec.McpServer, scope = mcpServerName(raw)
+		if scope != "" {
+			rec.McpServerScope = &scope
+		}
+		if rec.McpServer != nil && rec.Cwd != nil && (event == "PostToolUse" || event == "PostToolUseFailure") {
+			rec.McpParams = mcpServerParams(*rec.McpServer, scope, *rec.Cwd, os.Getenv)
+		}
 	}
 	if raw, ok := fields["duration_ms"]; ok {
 		var f float64
@@ -294,21 +304,29 @@ func recoverScalars(fields map[string]json.RawMessage, tail []byte) {
 	}
 }
 
-// mcpServerName accepts {"name": "..."} (observed) or a plain string.
-func mcpServerName(raw json.RawMessage) *string {
+var scopeRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,32}$`)
+
+// mcpServerName accepts {"name": "...", "source": "..."} (observed) or a
+// plain string. source is the scope the server was loaded from (project,
+// local, user, dynamic, plugin, ...), "" when absent or malformed.
+func mcpServerName(raw json.RawMessage) (*string, string) {
 	var obj struct {
-		Name string `json:"name"`
+		Name   string `json:"name"`
+		Source string `json:"source"`
 	}
 	if json.Unmarshal(raw, &obj) == nil && obj.Name != "" {
 		s := truncateRunes(obj.Name, 200)
-		return &s
+		if !scopeRE.MatchString(obj.Source) {
+			obj.Source = ""
+		}
+		return &s, obj.Source
 	}
 	var s string
 	if json.Unmarshal(raw, &s) == nil && s != "" {
 		s = truncateRunes(s, 200)
-		return &s
+		return &s, ""
 	}
-	return nil
+	return nil, ""
 }
 
 // TitleCandidate returns the redacted first line of a prompt, at most TitleMax
