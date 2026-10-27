@@ -44,7 +44,7 @@ alice)
 	PROMPT="Add a waitlist signup to our landing page in ./demo-waitlist.
 1. Create a Supabase table public.waitlist (id bigint identity primary key, email text unique not null, created_at timestamptz default now()) using the Supabase execute_sql tool. Enable row level security on it and add one policy that lets the anon role insert, nothing else.
 2. Add a small email signup form to demo-waitlist/index.html that inserts into that table with supabase-js from a CDN (get the project URL and publishable key with the Supabase tools).
-3. Deploy a Vercel preview: run exactly \`cd demo-waitlist && vercel deploy --yes --token \"\$VERCEL_TOKEN\" --scope \"\$VERCEL_TEAM_SLUG\"\`. Never print or expand the token.
+3. Deploy a Vercel preview: run exactly \`cd demo-waitlist && vercel deploy --yes --scope $VERCEL_TEAM_SLUG\`. The Vercel CLI reads the token from the environment; never print it.
 Finish with one line: the preview URL."
 	TOOLS="mcp__supabase__execute_sql|mcp__supabase__get_project_url|mcp__supabase__get_publishable_keys|Read|Edit|Write|Bash(cd *)|Bash(vercel *)|Bash(ls *)"
 	;;
@@ -85,7 +85,7 @@ dan)
 	;;
 eve)
 	TITLE="Deploy a staging landing page"
-	PROMPT="Deploy a staging copy of our landing page in ./demo-landing-staging to Vercel. Check that index.html exists, then run exactly \`cd demo-landing-staging && vercel deploy --yes --token \"\$VERCEL_TOKEN\" --scope \"\$VERCEL_TEAM_SLUG\"\`. Never print or expand the token. Finish with one line: the deployment URL."
+	PROMPT="Deploy a staging copy of our landing page in ./demo-landing-staging to Vercel. Check that index.html exists, then run exactly \`cd demo-landing-staging && vercel deploy --yes --scope $VERCEL_TEAM_SLUG\`. The Vercel CLI reads the token from the environment; never print it. Finish with one line: the deployment URL."
 	TOOLS="Read|Bash(cd *)|Bash(vercel *)|Bash(ls *)"
 	;;
 esac
@@ -118,7 +118,11 @@ CMD=(claude -p "$PROMPT"
 # their own Muretto store; Claude Code passes it on to the hook processes.
 export MURETTO_HOME
 MURETTO_HOME=$(dev_home "$DEV")
+# The Vercel CLI reads VERCEL_TOKEN from the environment, so prompts never
+# contain "$VERCEL_TOKEN": Claude Code's dontAsk mode denies any command with a
+# variable expansion even when its prefix is allowed (seen live 2026-10-27).
 export SUPABASE_ACCESS_TOKEN VERCEL_TOKEN VERCEL_TEAM_SLUG
+export VERCEL_TELEMETRY_DISABLED=1
 
 if [ "$DRY_RUN" = 1 ]; then
 	say "# $DEV ($REF): cd $WORK"
