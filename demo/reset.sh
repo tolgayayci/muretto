@@ -159,12 +159,24 @@ for t in $DEMO_TABLES; do
 	DROP="$DROP${DROP:+, }public.$t"
 done
 
+# Storage policies that carol's session adds on storage.objects for the
+# demo bucket. Their names are the agent's choice, so match on the bucket id;
+# a leftover policy makes the next run's CREATE POLICY fail on camera.
+DROP_POLICIES="do \$\$ declare p record; begin
+  for p in select policyname from pg_policies
+    where schemaname = 'storage' and tablename = 'objects'
+      and (coalesce(qual, '') || coalesce(with_check, '')) like '%${DEMO_PREFIX}uploads%'
+  loop execute format('drop policy %I on storage.objects', p.policyname); end loop;
+end \$\$;"
+
 for ref in $(project_refs); do
 	step "Supabase $ref: drop $DROP"
 	sql "$ref" "drop table if exists $DROP cascade;" >/dev/null
+	step "Supabase $ref: drop storage.objects policies on the ${DEMO_PREFIX}uploads bucket"
+	sql "$ref" "$DROP_POLICIES" >/dev/null || FAIL_POLICIES=1
 done
 
-FAIL=0
+FAIL=${FAIL_POLICIES:-0}
 while IFS="$(printf '\t')" read -r kind scope name; do
 	case $kind in
 	table) ;;
