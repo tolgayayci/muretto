@@ -112,8 +112,8 @@ type Attribution struct {
 	// guess.
 	Label AttributionLabel `json:"label"`
 
-	// Plain-language reason, e.g. 'no agent session created this' or 'two sessions
-	// created a table with this name'.
+	// Plain-language reason, e.g. 'no recorded agent session created it' or 'two
+	// sessions created a table with this name'.
 	Reason string `json:"reason"`
 
 	// Stable Muretto resource id: <kind>:<provider_id>. Deterministic, so two

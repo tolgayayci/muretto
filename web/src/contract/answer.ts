@@ -217,7 +217,7 @@ export interface Attribution {
    */
   rule_id?: string;
   /**
-   * Plain-language reason, e.g. 'no agent session created this' or 'two sessions created a table with this name'.
+   * Plain-language reason, e.g. 'no recorded agent session created it' or 'two sessions created a table with this name'.
    */
   reason: string;
   /**
