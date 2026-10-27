@@ -44,12 +44,31 @@ check_tools curl jq
 [ "$DRY_RUN" = 0 ] || say "${C_YEL}Dry run.${C_0} Nothing is sent or deleted. Use --apply to run it."
 
 # ---------------------------------------------------------------- local
+# demo_transcript_dirs prints the Claude Code project directories holding the
+# demo sessions' transcripts: one per developer workdir, in its logical and
+# physical spelling. Every run reuses the same workdirs, so without removing
+# them a fresh Muretto reads earlier runs' sessions as competing evidence
+# (seen live 2026-10-27: "2 sessions claim to have created this").
+demo_transcript_dirs() {
+	local d work phys
+	for d in $DEMO_DEVS; do
+		work=$(dev_workdir "$d")
+		printf '%s/projects/%s\n' "$CLAUDE_SRC_DIR" "$(claude_project_name "$work")"
+		phys=$( (cd "$work" 2>/dev/null && pwd -P) || true)
+		if [ -n "$phys" ] && [ "$phys" != "$work" ]; then
+			printf '%s/projects/%s\n' "$CLAUDE_SRC_DIR" "$(claude_project_name "$phys")"
+		fi
+	done
+}
+
 reset_local() {
-	step "Local: tmux session, sync server, dashboard, demo/.run"
+	step "Local: tmux session, sync server, dashboard, demo/.run, demo transcripts"
+	local t
 	if [ "$DRY_RUN" = 1 ]; then
 		show_cmd tmux kill-session -t "$TMUX_SESSION"
 		show_cmd kill "\$(cat $DEMO_RUN_DIR/server.pid)"
 		show_cmd kill "\$(cat $DEMO_RUN_DIR/web.pid)" "# and its child processes"
+		demo_transcript_dirs | while IFS= read -r t; do show_cmd rm -rf "$t"; done
 		show_cmd rm -rf "$DEMO_RUN_DIR"
 		return 0
 	fi
@@ -58,6 +77,10 @@ reset_local() {
 	fi
 	stop_pidfile "$DEMO_RUN_DIR/web.pid"
 	stop_pidfile "$DEMO_RUN_DIR/server.pid"
+	# Only the demo workdirs' own transcript directories, never anything else.
+	demo_transcript_dirs | while IFS= read -r t; do
+		case $t in "$CLAUDE_SRC_DIR"/projects/*-work-*) [ ! -d "$t" ] || rm -rf "$t" ;; esac
+	done
 	# Only ever remove the demo's own run directory.
 	case $DEMO_RUN_DIR in */.run | */demo-run*) rm -rf "$DEMO_RUN_DIR" ;; *) die "refusing to delete unexpected run dir $DEMO_RUN_DIR" ;; esac
 	say "  local state cleared"

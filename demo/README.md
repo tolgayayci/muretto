@@ -16,7 +16,7 @@ One command runs the real demo behind the 60-second video (`SCRIPT.md`): five he
 | `syncloop.sh` | The sixth pane: start signal, `muretto sync now` per developer, status line. |
 | `pretty.jq` | Turns `stream-json` into readable pane output; masks token-shaped strings. |
 | `prove.sh` | The curl with only the public key, then `muretto why/fix customers` as bob. |
-| `reset.sh` | Deletes what the demo created (dry run by default, `--apply` to run). |
+| `reset.sh` | Deletes what the demo created (dry run by default, `--apply` to run), including the demo workdirs' Claude Code transcript folders, so the next run's Muretto doesn't read earlier runs' sessions. |
 | `selftest.sh` | Offline check of the local plumbing. No accounts, no network beyond 127.0.0.1. |
 | `SCRIPT.md` | Shot list, disclosure, run checklist, recording tips, the 10-run reliability loop. |
 
