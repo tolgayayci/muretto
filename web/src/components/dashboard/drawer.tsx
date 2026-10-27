@@ -164,7 +164,7 @@ function Detail({ r }: { r: Resource }) {
           </>
         ) : (
           <p className="text-muted">
-            <span className="font-medium text-fg">Creator unknown.</span> {a?.reason ?? "No recorded agent session created this."}{" "}
+            <span className="font-medium text-fg">Creator unknown.</span> {a?.reason?.replace(/^creator unknown:\s*/i, "") ?? "No recorded agent session created this."}{" "}
             Muretto never guesses.
           </p>
         )}

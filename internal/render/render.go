@@ -704,7 +704,8 @@ func Show(w io.Writer, a contract.Answer, resourceID string, o Options) error {
 	if at.Label == contract.AttributionLabelExact && at.SessionID != nil {
 		p.line("Creator: session %s · exact", ix.sessionLabel(*at.SessionID))
 	} else {
-		p.line("Creator: unknown · %s", at.Reason)
+		// The reason may itself start with "creator unknown: "; don't say it twice.
+		p.line("Creator: unknown · %s", strings.TrimPrefix(at.Reason, "creator unknown: "))
 	}
 
 	p.line("")

@@ -345,7 +345,7 @@ func decide(r contract.Resource, rc *resClaims, unscoped []claim, now time.Time)
 		case len(rc.refs) > 0:
 			att.Reason = fmt.Sprintf("creator unknown: session %s only read or referenced it", shortID(rc.refs[0].action.SessionID))
 		default:
-			att.Reason = "creator unknown: no agent session created this"
+			att.Reason = "creator unknown: no recorded agent session created it"
 		}
 		return att
 	}
