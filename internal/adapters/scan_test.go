@@ -405,3 +405,94 @@ func assertSameMultiset(t *testing.T, what string, got, want []string) {
 		t.Errorf("%s:\n got:\n  %s\n want:\n  %s", what, strings.Join(g, "\n  "), strings.Join(w, "\n  "))
 	}
 }
+
+// TestFindingTextFollowsState: an adapter's title, explanation and fix are
+// written for the exposed state. A not_exposed or unknown finding must not
+// repeat "is publicly readable" next to a check mark or question mark.
+func TestFindingTextFollowsState(t *testing.T) {
+	r := loadEmbedded(t)
+	a := r.byName["supabase"]
+	var table *kindSpec
+	for _, k := range a.Kinds {
+		if k.Kind == "table" {
+			table = k
+		}
+	}
+	if table == nil {
+		t.Fatal("supabase adapter has no table kind")
+	}
+	parent := &scanned{childCtx: map[string]any{"db_schema": "public"}}
+	mk := func(name string, rls bool, p *scanned) *scanned {
+		return &scanned{
+			res: contract.Resource{
+				ID:   "supabase.table:abcdefghijklmnopqrst/public." + name,
+				Kind: "supabase.table", Name: "public." + name,
+				Attributes: map[string]any{
+					"schema": "public", "table": name,
+					"rls_enabled": rls, "anon_select": true, "authenticated_select": false,
+				},
+			},
+			kind: table, parent: p,
+		}
+	}
+	now := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
+	s := &scanner{a: a, now: now, order: []*scanned{
+		mk("customers", false, parent), // exposed
+		mk("orders", true, parent),     // not exposed
+		mk("events", false, nil),       // no parent: exposed schemas unknown
+	}}
+	s.evaluateRules()
+
+	get := func(name string) contract.ExposureFinding {
+		t.Helper()
+		f, ok := s.findings["rls_disabled:supabase.table:abcdefghijklmnopqrst/public."+name]
+		if !ok {
+			t.Fatalf("no rls_disabled finding for %s; have %v", name, s.findings)
+		}
+		return f
+	}
+
+	exp := get("customers")
+	if exp.State != contract.ExposureFindingStateExposed {
+		t.Fatalf("customers state = %s, want exposed", exp.State)
+	}
+	if exp.Title != "RLS off: public.customers is publicly readable" {
+		t.Errorf("exposed title changed: %q", exp.Title)
+	}
+	if !strings.Contains(exp.Fix.Text, "ENABLE ROW LEVEL SECURITY") {
+		t.Errorf("exposed fix lost the SQL: %q", exp.Fix.Text)
+	}
+
+	ne := get("orders")
+	if ne.State != contract.ExposureFindingStateNotExposed {
+		t.Fatalf("orders state = %s, want not_exposed", ne.State)
+	}
+	if ne.Title != "Row level security: not exposed" {
+		t.Errorf("not_exposed title = %q", ne.Title)
+	}
+	if ne.Explanation != NotExposedExplanation || ne.Fix.Text != "Nothing to fix." {
+		t.Errorf("not_exposed explanation/fix = %q / %q", ne.Explanation, ne.Fix.Text)
+	}
+	if ne.CheckedAt == nil {
+		t.Error("not_exposed finding without checked_at")
+	}
+
+	unk := get("events")
+	if unk.State != contract.ExposureFindingStateUnknown {
+		t.Fatalf("events state = %s, want unknown", unk.State)
+	}
+	if unk.Title != "Row level security: exposure unknown" {
+		t.Errorf("unknown title = %q", unk.Title)
+	}
+	if !strings.Contains(unk.Explanation, "could not decide") {
+		t.Errorf("unknown explanation = %q", unk.Explanation)
+	}
+
+	for _, f := range []contract.ExposureFinding{ne, unk} {
+		for _, claim := range []string{"publicly readable", "Anyone with"} {
+			if strings.Contains(f.Title+" "+f.Explanation, claim) {
+				t.Errorf("%s finding repeats the exposed claim %q: %q / %q", f.State, claim, f.Title, f.Explanation)
+			}
+		}
+	}
+}

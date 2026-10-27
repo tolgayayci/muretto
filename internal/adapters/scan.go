@@ -375,6 +375,18 @@ func (s *scanner) evaluateRules() {
 				Explanation: truncate(rule.Explanation.renderLoose(ctx), 1000),
 				Fix:         renderFix(rule.Fix, ctx),
 			}
+			// The adapter's title, explanation and fix describe the exposed
+			// state; other states must not repeat that claim.
+			switch state {
+			case contract.ExposureFindingStateNotExposed:
+				f.Title = NotExposedTitle(rule.ID)
+				f.Explanation = NotExposedExplanation
+				f.Fix = NothingToFix()
+			case contract.ExposureFindingStateUnknown:
+				f.Title = UnknownTitle(rule.ID)
+				f.Explanation = UnknownExplanation
+			case contract.ExposureFindingStateExposed:
+			}
 			if rule.Caveat != "" {
 				c := truncate(strings.TrimSpace(rule.Caveat), 500)
 				f.Caveat = &c

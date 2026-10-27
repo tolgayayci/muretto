@@ -739,10 +739,10 @@ func TestE2EScenario(t *testing.T) {
 
 	// Everything else: creator unknown, never a guess.
 	x.unknown(idProject, "session e7e5e55e only read or referenced it")
-	x.unknown(idLegacy, "creator unknown: no agent session created this")
+	x.unknown(idLegacy, "creator unknown: no recorded agent session created it")
 	x.unknown(idWebPrj, "creator unknown")
 	x.unknown(idMktPrj, "creator unknown")
-	x.unknown(idMktDp, "creator unknown: no agent session created this")
+	x.unknown(idMktDp, "creator unknown: no recorded agent session created it")
 	for _, v := range x.a.Sessions {
 		if v.Session.ID == sessEve && len(v.ResourceIds) != 0 {
 			t.Errorf("eve only read, but is credited with %v", v.ResourceIds)

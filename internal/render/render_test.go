@@ -56,7 +56,10 @@ func TestGoldenViews(t *testing.T) {
 		"session_bob": func(b *bytes.Buffer) error { return Session(b, a, tf.BobSession, opts()) },
 		"resources":   func(b *bytes.Buffer) error { return Resources(b, a, opts()) },
 		"show":        func(b *bytes.Buffer) error { return Show(b, a, table, opts()) },
-		"why":         func(b *bytes.Buffer) error { return Why(b, a, table, opts()) },
+		"show_unknown": func(b *bytes.Buffer) error {
+			return Show(b, a, "supabase.project:"+tf.ProdRef, opts())
+		},
+		"why": func(b *bytes.Buffer) error { return Why(b, a, table, opts()) },
 		"why_unknown": func(b *bytes.Buffer) error {
 			return Why(b, a, "supabase.project:"+tf.ProdRef, opts())
 		},
@@ -237,5 +240,28 @@ func TestUnknownCostIsNeverZero(t *testing.T) {
 	_ = Show(&b, fixtureAnswer(), "supabase.function:"+tf.DevRef+"/process-import", opts())
 	if strings.Contains(b.String(), "$0") || !strings.Contains(b.String(), "unknown · no cost data available") {
 		t.Fatalf("cost line:\n%s", b.String())
+	}
+}
+
+// TestShowCreatorUnknownOnce: an unknown attribution's reason starts with
+// "creator unknown: ", and Show must not print "unknown · creator unknown".
+func TestShowCreatorUnknownOnce(t *testing.T) {
+	a := fixtureAnswer()
+	sawNoRecord := false
+	for _, at := range a.Attributions {
+		var b bytes.Buffer
+		if err := Show(&b, a, at.ResourceID, opts()); err != nil {
+			t.Fatal(err)
+		}
+		out := b.String()
+		if strings.Contains(out, "unknown · creator unknown") {
+			t.Errorf("%s: creator unknown said twice:\n%s", at.ResourceID, out)
+		}
+		if strings.Contains(out, "Creator: unknown · no recorded agent session created it") {
+			sawNoRecord = true
+		}
+	}
+	if !sawNoRecord {
+		t.Error("no fixture resource showed the no-record reason")
 	}
 }

@@ -1,0 +1,16 @@
+project acme-prod  supabase.project:projpppppppppppppppp
+Provider: supabase · account org-fake-acme
+Status: exists (seen via list, last seen 3 min ago)
+Creator: unknown · session e7e00000 only read or referenced it
+
+Timeline
+  Aug 19 15:00        created (provider)
+  Oct 19 14:40        first seen by Muretto
+
+Exposure
+  no exposure rule applies to this kind
+
+Cost
+  unknown
+
+  → muretto why acme-prod
