@@ -18,7 +18,6 @@
       },
       "ssoProtection": null,
       "passwordProtection": null,
-      "trustedIps": null,
       "optionsAllowlist": null,
       "paused": false,
       "env": [ { "key": "DATABASE_URL", "value": "MURETTO_FAKE_SECRET_project_env", "type": "encrypted" } ],

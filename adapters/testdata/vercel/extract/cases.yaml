@@ -28,6 +28,45 @@
   expect:
     - { kind: vercel.deployment, value: dpl_EXAMPLE00000000000000000000, role: created }
 
+- name: first vercel deploy creates the project (CLI 65 non-TTY, live shape)
+  tool: Bash
+  input: { command: "cd example-landing && vercel deploy --yes --scope example-team" }
+  output: |
+    Vercel CLI 65.4.0
+
+      No framework detected. Default Project Settings:
+      Output Directory: `public` if it exists, or `.`
+
+    ✓ Created         example-team/example-landing
+      Inspect         https://vercel.com/example-team/example-landing/EXAMPLEdeploymentid00000
+      Production      https://example-landing-abc123def-example-team.vercel.app
+    ▲ Aliased         https://example-landing-five.vercel.app
+    {
+      "status": "ok",
+      "deployment": {
+        "id": "dpl_EXAMPLE00000000000000000009",
+        "url": "https://example-landing-abc123def-example-team.vercel.app",
+        "readyState": "READY",
+        "target": "production",
+        "deploymentProtection": []
+      },
+      "hint": "This is the project’s first deployment, so it was assigned to production."
+    }
+  expect:
+    - { kind: vercel.deployment, value: dpl_EXAMPLE00000000000000000009, role: created }
+    - { kind: vercel.deployment, value: example-landing-abc123def-example-team.vercel.app, role: created }
+    - { kind: vercel.project, value: example-landing, container: example-team, role: created }
+
+- name: vercel deploy into a linked project creates no project
+  tool: Bash
+  input: { command: "vercel deploy --yes" }
+  output: |
+    ✓ Linked to example-team/example-landing (created .vercel and added it to .gitignore)
+      Inspect         https://vercel.com/example-team/example-landing/EXAMPLEdeploymentid00000
+    {"status":"ok","deployment":{"id":"dpl_EXAMPLE00000000000000000010","target":null}}
+  expect:
+    - { kind: vercel.deployment, value: dpl_EXAMPLE00000000000000000010, role: created }
+
 - name: bare vercel --prod in human mode (labels on stderr, URL on stdout)
   tool: Bash
   input: { command: "cd web && npx vercel --prod" }

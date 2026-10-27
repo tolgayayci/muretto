@@ -178,6 +178,10 @@ rules:
         - any:
             - { field: parent.trusted_ips, is_null: true }
             - { field: parent.trusted_ips, equals: production }
+            # Vercel omits trustedIps when it is not configured (seen live
+            # 2026-10-27), while the two fields above come back as explicit
+            # nulls, so they prove the protection fields were returned.
+            - { field: parent.trusted_ips, present: false }
     title: "Public preview: {host|or:provider_id}"
     explanation: >-
       This preview deployment's project has Vercel Authentication, Password
@@ -243,6 +247,22 @@ signatures:
         pattern: '(?m)^(?:▲|\s)?\s*(?:(?:Preview|Production)\s+)?https://(?P<host>[a-z0-9-]+\.vercel\.app)\s*$'
         value: "{host}"
         match: { value: "{host}" }
+
+  # The first `vercel deploy --yes` in a directory creates the project and
+  # prints "✓ Created <team>/<project>" (CLI 65, seen live 2026-10-27); linking
+  # an existing project prints "Linked" instead, so this line is proof.
+  - id: vercel.cli.deploy_new_project
+    kind: project
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['(?m)\bvercel(?:@[\w.-]+)?(?:\s+(?:deploy|redeploy)\b|(?:\s+--?[A-Za-z][\w-]*(?:=\S+)?)*\s*(?:$|&&|;|\|))']
+    extract:
+      - from: output
+        pattern: '(?m)^\s*✓\s+Created\s+(?P<team>[a-z0-9-]+)/(?P<name>[a-z0-9._-]+)\s*$'
+        value: "{name}"
+        container: "{team}"
+        match: { value: "{name}", container: "{account_slug}" }
 
   - id: vercel.cli.project_create
     kind: project

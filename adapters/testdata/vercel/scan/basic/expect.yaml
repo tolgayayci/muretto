@@ -23,7 +23,6 @@ fields:
     _created_at: "2026-10-26T07:33:20Z"
     sso_protection: null
     password_protection: null
-    trusted_ips: null
     link_repo: example-waitlist
   vercel.project:prj_EXAMPLE000000000000000002:
     sso_protection: all_except_custom_domains
