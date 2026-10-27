@@ -87,8 +87,11 @@ kinds:
         name: "{name}"
         status: "{status|lower}"
         url: "https://supabase.com/dashboard/project/{ref}"
-        created_at: { value: "{created_at}", format: rfc3339 }
+        # No created_at: Supabase hands out pre-provisioned projects, so a
+        # project an agent creates now can report a created_at hours earlier
+        # (seen live 2026-10-27), which would wrongly veto its attribution.
         attributes:
+          - { name: provisioned_at, field: created_at }
           - region
           - organization_slug
           - { name: postgres_engine, field: database.postgres_engine }
@@ -229,7 +232,7 @@ rules:
         Enabling RLS without policies blocks all access through the Data API.
         Add policies for the access you want (CREATE POLICY ...). If the table
         should not be reachable at all, also run
-        REVOKE SELECT ON "{schema|sql_ident}"."{table|sql_ident}" FROM anon, authenticated;
+        REVOKE ALL ON "{schema|sql_ident}"."{table|sql_ident}" FROM anon, authenticated;
       docs_url: https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public
 
   - id: rls_disabled
