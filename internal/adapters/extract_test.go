@@ -11,12 +11,13 @@ import (
 )
 
 type extractCase struct {
-	Name   string `yaml:"name"`
-	Tool   string `yaml:"tool"`
-	Status string `yaml:"status"`
-	Input  any    `yaml:"input"`
-	Output string `yaml:"output"`
-	Guess  string `yaml:"guess"`
+	Name   string            `yaml:"name"`
+	Tool   string            `yaml:"tool"`
+	Status string            `yaml:"status"`
+	Input  any               `yaml:"input"`
+	Output string            `yaml:"output"`
+	MCP    map[string]string `yaml:"mcp"` // MCP server URL params recorded by the hook
+	Guess  string            `yaml:"guess"`
 	Expect []struct {
 		Kind      string `yaml:"kind"`
 		Value     string `yaml:"value"`
@@ -55,6 +56,7 @@ func TestExtractFixtures(t *testing.T) {
 			total++
 			t.Run(c.Name, func(t *testing.T) {
 				a := rawAction(c.Tool, c.Status, c.Input, c.Output)
+				a.MCP = c.MCP
 				var got, want []string
 				for _, id := range r.Extract(a) {
 					cont := ""

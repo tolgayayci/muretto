@@ -193,6 +193,13 @@ func extract(a *adapterSpec, raw observe.RawAction) []contract.Identifier {
 
 func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []contract.Identifier {
 	base := map[string]any{"input": d.raw.Input}
+	// mcp.<key>: identifier params of the MCP server the call went to (e.g.
+	// mcp.project_ref for a project-pinned Supabase server).
+	mcp := make(map[string]any, len(d.raw.MCP))
+	for k, v := range d.raw.MCP {
+		mcp[k] = v
+	}
+	base["mcp"] = mcp
 	if d.hasResult {
 		base["result"] = d.result
 	}

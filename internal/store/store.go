@@ -109,6 +109,7 @@ type Action struct {
 	Action    contract.AgentAction
 	Input     any
 	Output    string
+	MCP       map[string]string // observe.RawAction.MCP
 	Extracted bool
 }
 
@@ -185,11 +186,18 @@ func (s *Store) SaveBatch(ctx context.Context, sessions []contract.Session, acti
 		if err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO actions(id, session_id, occurred_at, source, body, raw_input, raw_output, extracted)
-			VALUES(?,?,?,?,?,?,?,?)
+		var mcp any // NULL when there are none
+		if len(a.MCP) > 0 {
+			if mcp, err = enc(a.MCP); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO actions(id, session_id, occurred_at, source, body, raw_input, raw_output, mcp_params, extracted)
+			VALUES(?,?,?,?,?,?,?,?,?)
 			ON CONFLICT(id) DO UPDATE SET session_id=excluded.session_id, occurred_at=excluded.occurred_at, source=excluded.source,
-			body=excluded.body, raw_input=excluded.raw_input, raw_output=excluded.raw_output, extracted=excluded.extracted`,
-			a.Action.ID, a.Action.SessionID, ts(a.Action.OccurredAt), string(a.Action.Source), body, in, a.Output, boolInt(a.Extracted)); err != nil {
+			body=excluded.body, raw_input=excluded.raw_input, raw_output=excluded.raw_output, mcp_params=COALESCE(excluded.mcp_params, actions.mcp_params),
+			extracted=excluded.extracted`,
+			a.Action.ID, a.Action.SessionID, ts(a.Action.OccurredAt), string(a.Action.Source), body, in, a.Output, mcp, boolInt(a.Extracted)); err != nil {
 			return err
 		}
 	}
@@ -326,7 +334,7 @@ func (s *Store) Actions(ctx context.Context) ([]contract.AgentAction, error) {
 // RawActions returns stored actions with their raw material. With pending
 // set, only actions adapter signatures have not run on yet.
 func (s *Store) RawActions(ctx context.Context, pending bool) ([]Action, error) {
-	q := "SELECT body, COALESCE(raw_input,'null'), COALESCE(raw_output,''), extracted FROM actions"
+	q := "SELECT body, COALESCE(raw_input,'null'), COALESCE(raw_output,''), COALESCE(mcp_params,''), extracted FROM actions"
 	if pending {
 		q += " WHERE extracted = 0"
 	}
@@ -337,9 +345,9 @@ func (s *Store) RawActions(ctx context.Context, pending bool) ([]Action, error) 
 	defer rows.Close()
 	var out []Action
 	for rows.Next() {
-		var body, in, outText string
+		var body, in, outText, mcp string
 		var ex int
-		if err := rows.Scan(&body, &in, &outText, &ex); err != nil {
+		if err := rows.Scan(&body, &in, &outText, &mcp, &ex); err != nil {
 			return nil, err
 		}
 		var a Action
@@ -347,6 +355,9 @@ func (s *Store) RawActions(ctx context.Context, pending bool) ([]Action, error) 
 			return nil, err
 		}
 		_ = json.Unmarshal([]byte(in), &a.Input)
+		if mcp != "" {
+			_ = json.Unmarshal([]byte(mcp), &a.MCP)
+		}
 		a.Output, a.Extracted = outText, ex == 1
 		out = append(out, a)
 	}

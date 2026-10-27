@@ -542,3 +542,28 @@ func must(t *testing.T, err error) {
 		t.Fatal(err)
 	}
 }
+
+// MCP server params recorded by the hook reach the RawAction; anything the
+// hook would not have recorded is dropped at ingest too.
+func TestIngestSpoolMCPParams(t *testing.T) {
+	p := spoolHome(t)
+	rec := `{"spool_version":1,"received_at":"2026-10-26T12:00:00Z","event":"PostToolUse","session_id":"s1",` +
+		`"tool_name":"mcp__supabase__execute_sql","tool_use_id":"toolu_mcp","mcp_server":"supabase","mcp_server_scope":"project",` +
+		`"mcp_params":{"project_ref":"abcdefghijklmnopqrst","features":"database","team_id":"a/b"}}`
+	must(t, os.WriteFile(filepath.Join(p.Spool, "1-1-0000000000000001.json"), []byte(rec), 0o600))
+	b, err := IngestSpool(p, dev, salt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, acts := byID(b)
+	got := acts["toolu_mcp"].MCP
+	if len(got) != 1 || got["project_ref"] != "abcdefghijklmnopqrst" {
+		t.Errorf("MCP = %v", got)
+	}
+	// Merge keeps them when the transcript copy of the same call has none.
+	tr := Batch{Actions: []RawAction{{Action: contract.AgentAction{ID: "toolu_mcp", SessionID: "s1", Source: contract.AgentActionSourceTranscript}}}}
+	_, acts = byID(Merge(tr, b))
+	if acts["toolu_mcp"].MCP["project_ref"] != "abcdefghijklmnopqrst" {
+		t.Errorf("after merge: %v", acts["toolu_mcp"].MCP)
+	}
+}

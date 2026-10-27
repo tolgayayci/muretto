@@ -322,7 +322,7 @@ func (a *app) load(ctx context.Context, f flags) (*state, error) {
 func (a *app) toStoreActions(s *state, raws []observe.RawAction) []store.Action {
 	out := make([]store.Action, 0, len(raws))
 	for _, r := range raws {
-		act := store.Action{Action: r.Action, Input: r.Input, Output: r.Output}
+		act := store.Action{Action: r.Action, Input: r.Input, Output: r.Output, MCP: r.MCP}
 		if s.reg != nil {
 			act.Action.Identifiers = s.reg.Extract(r)
 			act.Extracted = true
@@ -380,7 +380,7 @@ func (a *app) ingest(ctx context.Context, s *state) {
 	}
 	ids := map[string][]contract.Identifier{}
 	for _, r := range raws {
-		ids[r.Action.ID] = s.reg.Extract(observe.RawAction{Action: r.Action, Input: r.Input, Output: r.Output})
+		ids[r.Action.ID] = s.reg.Extract(observe.RawAction{Action: r.Action, Input: r.Input, Output: r.Output, MCP: observe.MCPParams(r.MCP)})
 	}
 	if len(ids) > 0 {
 		if err := s.st.SetIdentifiers(ctx, ids); err != nil {

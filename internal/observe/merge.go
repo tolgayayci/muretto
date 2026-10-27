@@ -169,6 +169,9 @@ func pickAction(g []RawAction, sessions map[string]*contract.Session) (RawAction
 		if win.Action.AgentID == nil {
 			win.Action.AgentID = o.Action.AgentID
 		}
+		if win.MCP == nil && o.MCP != nil {
+			win.MCP = o.MCP
+		}
 	}
 	// Ambiguous: another session's copy is indistinguishable from the winner.
 	ambiguous := false

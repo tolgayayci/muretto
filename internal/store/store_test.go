@@ -108,6 +108,41 @@ func TestSessionMergeAndActionDedupe(t *testing.T) {
 	}
 }
 
+// MCP server params persist with the action, for re-extraction.
+func TestActionMCPParams(t *testing.T) {
+	ctx := context.Background()
+	s := open(t)
+	sess := session("s1", t0, contract.SessionSourcesElemHook)
+	act := func(id string, mcp map[string]string) Action {
+		return Action{Action: contract.AgentAction{ID: id, SessionID: "s1", OccurredAt: t0, ToolName: "mcp__supabase__execute_sql",
+			Status: contract.AgentActionStatusOk, Source: contract.AgentActionSourceHook}, MCP: mcp}
+	}
+	pin := map[string]string{"project_ref": "abcdefghijklmnopqrst"}
+	if err := s.SaveBatch(ctx, []contract.Session{sess}, []Action{act("toolu_1", pin), act("toolu_2", nil)}); err != nil {
+		t.Fatal(err)
+	}
+	// Re-ingesting the same call without params keeps the stored ones.
+	if err := s.SaveBatch(ctx, nil, []Action{act("toolu_1", nil)}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := s.RawActions(ctx, false)
+	if err != nil || len(raw) != 2 {
+		t.Fatalf("raw = %v, %v", raw, err)
+	}
+	for _, r := range raw {
+		switch r.Action.ID {
+		case "toolu_1":
+			if r.MCP["project_ref"] != "abcdefghijklmnopqrst" || len(r.MCP) != 1 {
+				t.Errorf("toolu_1: %v", r.MCP)
+			}
+		case "toolu_2":
+			if r.MCP != nil {
+				t.Errorf("toolu_2: %v", r.MCP)
+			}
+		}
+	}
+}
+
 func TestActionDedupeMatchesMergeAndFlagsTies(t *testing.T) {
 	ctx := context.Background()
 	s := open(t)

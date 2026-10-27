@@ -33,6 +33,10 @@ type RawAction struct {
 	Action contract.AgentAction
 	Input  any    // redacted tool_input as decoded JSON
 	Output string // redacted result text (Bash stdout+stderr, MCP text content, or error text)
+	// MCP holds the identifier params (e.g. project_ref) of the MCP server
+	// the call went to, from its URL in Claude Code's config. Hook records
+	// only; nil otherwise.
+	MCP map[string]string
 }
 
 // Batch is the result of one ingest pass.
@@ -260,8 +264,25 @@ func spoolAction(r contract.SpoolRecord, file string) RawAction {
 	if mcp == "" {
 		mcp = mcpServerFromTool(tool)
 	}
-	return newRawAction(id, r.SessionID, deref(r.AgentID), r.ReceivedAt, tool, mcp, status,
+	ra := newRawAction(id, r.SessionID, deref(r.AgentID), r.ReceivedAt, tool, mcp, status,
 		contract.AgentActionSourceHook, r.ToolInput, out)
+	ra.MCP = MCPParams(r.McpParams)
+	return ra
+}
+
+// MCPParams returns the params the hook may record (hook.MCPParamAllowed),
+// or nil if none: a spool file or store row is never trusted blindly.
+func MCPParams(m map[string]string) map[string]string {
+	var out map[string]string
+	for k, v := range m {
+		if hook.MCPParamAllowed(k, v) {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func newRawAction(id, sessionID, agentID string, at time.Time, tool, mcp string, status contract.AgentActionStatus,
