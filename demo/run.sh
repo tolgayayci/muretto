@@ -5,7 +5,9 @@
 # dashboard, gives alice, bob, carol, dan and eve each their own MURETTO_HOME
 # and dev token with sync on, joins them into one team, then launches five
 # headless Claude Code sessions in a tmux 2x3 grid. The sixth pane syncs every
-# few seconds and shows a status line.
+# few seconds and shows a status line. When alice or eve run, their Vercel
+# projects first get one placeholder production deploy (a project's first
+# deploy always goes to production; the agents' deploys must be previews).
 #
 #   demo/run.sh --dry-run        print every command, run nothing
 #   demo/run.sh                  the real demo (asks you to type the test ref)
@@ -20,7 +22,7 @@ set -euo pipefail
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 usage() {
-	sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
 	say "flags: --dry-run  --only <dev,dev>  --wait  --no-dashboard  --no-attach  --autostart"
 }
 
@@ -77,6 +79,101 @@ step "Preparing $DEMO_RUN_DIR"
 run mkdir -p "$DEMO_RUN_DIR/logs"
 [ "$DRY_RUN" = 1 ] || chmod 700 "$DEMO_RUN_DIR"
 run rm -f "$DEMO_RUN_DIR/go"
+
+# ---------------------------------------------------------------- Vercel seed
+# A Vercel project's first deployment always goes to production, even with
+# --target preview. alice and eve must produce a PREVIEW, so each of their
+# projects first gets one placeholder production deploy, from a temp dir
+# named like the project (outside the workdirs, so its .vercel/ link never
+# reaches them; the agents' `vercel deploy --yes` links to the project by
+# name). Projects that already have a READY production deployment are left
+# alone.
+
+# has_prod_deploy <name>: true if the test team has a project <name> with a
+# READY production deployment (two reads: the projects list, then one page
+# of that project's production deployments).
+has_prod_deploy() {
+	local name=$1 projects pid deps
+	projects=$(api GET "$VERCEL_API/v10/projects?teamId=$VERCEL_TEAM_ID&search=$name&limit=100" VERCEL_TOKEN) ||
+		die "could not list Vercel projects in $VERCEL_TEAM_SLUG"
+	pid=$(printf '%s' "$projects" | jq -r --arg n "$name" '[.projects[]? | select(.name == $n) | .id][0] // empty')
+	[ -n "$pid" ] || return 1
+	deps=$(api GET "$VERCEL_API/v7/deployments?teamId=$VERCEL_TEAM_ID&projectId=$pid&target=production&state=READY&limit=1" VERCEL_TOKEN) ||
+		die "could not list the deployments of Vercel project $name"
+	[ "$(printf '%s' "$deps" | jq '[.deployments[]? | select(.readyState == "READY" or .state == "READY")] | length')" -gt 0 ]
+}
+
+# seed_html: the placeholder page of a seed deploy.
+seed_html() {
+	cat <<'HTML'
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Placeholder</title></head>
+<body><p>Placeholder production deploy for the Muretto demo (test account).</p></body>
+</html>
+HTML
+}
+
+# seed_project <name> <tmpdir>: one production deploy of the placeholder page
+# into project <name>. The Vercel CLI reads VERCEL_TOKEN from the environment.
+seed_project() {
+	local name=$1 tmp=$2 dir log
+	is_demo_name "$name" || die "refusing to seed '$name': not a $DEMO_PREFIX name"
+	dir=$tmp/$name
+	log=$DEMO_RUN_DIR/logs/seed-$name.log
+	if [ "$DRY_RUN" = 1 ]; then
+		api GET "$VERCEL_API/v10/projects?teamId=$VERCEL_TEAM_ID&search=$name&limit=100" VERCEL_TOKEN
+		api GET "$VERCEL_API/v7/deployments?teamId=$VERCEL_TEAM_ID&projectId=prj_example&target=production&state=READY&limit=1" VERCEL_TOKEN
+		say "    -> skip $name if it already has a READY production deployment; otherwise:"
+		seed_html | write_file "$dir/index.html" 644
+		show_cmd cd "$dir"
+		say "    (VERCEL_TOKEN from the environment, VERCEL_TELEMETRY_DISABLED=1; output -> $log)"
+		show_cmd vercel deploy --yes --prod --scope "$VERCEL_TEAM_SLUG"
+		return 0
+	fi
+	if has_prod_deploy "$name"; then
+		say "  Vercel project $name already has a production deployment ✓"
+		return 0
+	fi
+	mkdir -p "$dir"
+	seed_html >"$dir/index.html"
+	say "  Vercel project $name: placeholder production deploy (log: $log)"
+	(cd "$dir" && vercel deploy --yes --prod --scope "$VERCEL_TEAM_SLUG") >"$log" 2>&1
+}
+
+SEED=''
+case " $ONLY " in *" alice "*) SEED="$SEED demo-waitlist" ;; esac
+case " $ONLY " in *" eve "*) SEED="$SEED demo-landing-staging" ;; esac
+if [ -n "$SEED" ]; then
+	step "Seeding the Vercel projects with a production deploy, so the agents' deploys are previews:$SEED"
+	export VERCEL_TELEMETRY_DISABLED=1
+	# Outside the repo and the workdirs: no .vercel/ link can leak either way.
+	SEED_TMP=${TMPDIR:-/tmp}
+	SEED_TMP=${SEED_TMP%/}/muretto-seed.XXXXXX
+	if [ "$DRY_RUN" = 1 ]; then
+		run mktemp -d "$SEED_TMP"
+	else
+		SEED_TMP=$(mktemp -d "$SEED_TMP")
+	fi
+	seed_pids='' seed_failed=''
+	for p in $SEED; do
+		if [ "$DRY_RUN" = 1 ]; then
+			seed_project "$p" "$SEED_TMP"
+			continue
+		fi
+		seed_project "$p" "$SEED_TMP" &
+		seed_pids="$seed_pids $!:$p"
+	done
+	for e in $seed_pids; do
+		wait "${e%%:*}" || seed_failed="$seed_failed ${e#*:}"
+	done
+	run rm -rf "$SEED_TMP"
+	if [ -n "$seed_failed" ]; then
+		for p in $seed_failed; do
+			[ ! -f "$DEMO_RUN_DIR/logs/seed-$p.log" ] || tail -n 20 "$DEMO_RUN_DIR/logs/seed-$p.log" >&2
+		done
+		die "seeding failed for:$seed_failed (logs above, in $DEMO_RUN_DIR/logs/). Without it, alice's/eve's deploys become Production, not Preview."
+	fi
+fi
 
 start_server
 [ "$NO_WEB" = 1 ] || start_web
