@@ -119,9 +119,8 @@ resource supabase.bucket:projaaaaaaaaaaaaaaaa/exports name=exports gone=12:00 ex
 expect supabase.bucket:projaaaaaaaaaaaaaaaa/exports unknown
 
 === bucket deleted then recreated manually (provider created_at later)
-# Recreated a day later in the dashboard; created_at is after the action, which
-# timing must never turn into a veto or a match on its own, but the scan-recorded
-# disappearance does.
+# Recreated a day later in the dashboard. Both the scan-recorded disappearance
+# and created_at (long after the action, 0906) veto; timing never matches.
 session s1 start=10:00
 action toolu_a1 session=s1 at=10:20 tool=mcp__supabase__execute_sql
   created supabase.bucket value=reports container=projaaaaaaaaaaaaaaaa
@@ -297,3 +296,168 @@ action toolu_a1 session=s1 at=10:00 tool=Bash
   created supabase.function value=sync-users container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
 resource supabase.function:projaaaaaaaaaaaaaaaa/sync-users name=sync-users first_seen=09:00 gone=09:30
 expect supabase.function:projaaaaaaaaaaaaaaaa/sync-users unknown
+
+# ---- Deleted and created again under the same name (docs/decisions/0906-recreated-resources.md) ----
+
+=== function deleted and created again by a later session: the later session
+# Seen live: s1 deployed demo-webhook at 15:07, it was deleted, s2 deployed a
+# new demo-webhook at 15:18. created_at 15:18 is after s1's action by more than
+# the tolerance, so s1 created an earlier function; its claim is dropped.
+session s1 start=15:00
+session s2 start=15:15
+action toolu_a1 session=s1 at=15:07 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_b1 session=s2 at=15:18 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:18
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook exact s2 name_in_container
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s2 created it: a creating call
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created an earlier resource with this name at 2026-10-20T15:07:00Z; the provider says this one was created at 2026-10-20T15:18:00Z, after it
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_b1
+
+=== recreated by a later session via MCP, provider id in the result
+session s1 start=09:00
+session s2 start=d1/09:00
+action toolu_a1 session=s1 at=09:10 tool=mcp__supabase__deploy_edge_function
+  created supabase.function value=projaaaaaaaaaaaaaaaa/demo-webhook
+action toolu_b1 session=s2 at=d1/09:10 tool=mcp__supabase__deploy_edge_function
+  created supabase.function value=projaaaaaaaaaaaaaaaa/demo-webhook
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=d1/09:09
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook exact s2 id_in_result
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s2 created it
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_b1
+
+=== recreated, but the two actions are within the tolerance: cannot tell
+# s1 at 15:10 is only 8 minutes before created_at 15:18: clock skew could
+# explain it, so both claims stand and conflict.
+session s1 start=15:00
+session s2 start=15:15
+action toolu_a1 session=s1 at=15:10 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_b1 session=s2 at=15:18 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:18
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook 2 sessions claim
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_a1 toolu_b1
+
+=== recreated, the later session only referenced it: nobody proven
+# s1's claim is dropped; s2 only invoked the function. Nothing is left.
+session s1 start=15:00
+session s2 start=15:15
+action toolu_a1 session=s1 at=15:07 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_b1 session=s2 at=15:25 tool=Bash
+  referenced supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:18
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created an earlier resource with this name
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s2 only read or referenced it
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_a1
+
+=== recreated outside any session: the earlier creator's claim is dropped
+session s1 start=15:00
+action toolu_a1 session=s1 at=15:07 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=d1/10:00
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook creator unknown: session s1 created an earlier resource with this name at 2026-10-20T15:07:00Z; the provider says this one was created at 2026-10-21T10:00:00Z, after it
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_a1
+
+=== one session deploys, the function is deleted, the same session deploys again
+# Only the second action can have created this instance; it is the same session.
+session s1 start=15:00
+action toolu_a1 session=s1 at=15:07 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_a2 session=s1 at=15:40 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:39
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook exact s1 name_in_container
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created it
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created an earlier resource with this name
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_a2
+
+=== local clock behind the provider within the tolerance: still exact
+# The action is stamped 15:12 by this machine; the provider says 15:18.
+session s1 start=15:00
+action toolu_a1 session=s1 at=15:12 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:18
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook exact s1 name_in_container
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created it
+
+=== recreated, the surviving claim still meets the gone_at veto
+# s1's claim is dropped; s2's survives, but a scan saw the function gone after
+# s2's action, so it was recreated again outside s2.
+session s1 start=15:00
+session s2 start=15:15
+action toolu_a1 session=s1 at=15:07 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_b1 session=s2 at=15:18 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:18 gone=16:00
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook it disappeared at
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created an earlier resource with this name
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_a1 toolu_b1
+
+=== recreated, the surviving claim still meets the first-seen veto
+# A scan listed the name at 15:08 (s1's function) and saw it gone at 15:20;
+# first_seen_at is kept across returns, so s2's 15:30 action stays unknown.
+session s1 start=15:00
+session s2 start=15:15
+action toolu_a1 session=s1 at=15:07 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_b1 session=s2 at=15:30 tool=Bash
+  created supabase.function value=demo-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook name=demo-webhook created=15:30 first_seen=15:08 gone=15:20
+expect supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook Muretto listed it at
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook session s1 created an earlier resource with this name
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/demo-webhook toolu_a1 toolu_b1
+
+=== later session redeploys a function the first session created: never the redeployer
+# created_at (epoch ms) is unchanged by a redeploy, so s2's deploy only updated
+# it. s1's claim is not dropped (it is not before created_at); the two claims
+# conflict and the label stays unknown. s2 never gets exact.
+session s1 start=10:00
+session s2 start=d1/09:00
+action toolu_a1 session=s1 at=10:30 tool=Bash
+  created supabase.function value=stripe-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+action toolu_b1 session=s2 at=d1/09:10 tool=Bash
+  created supabase.function value=stripe-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook name=stripe-webhook created=10:29
+expect supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook 2 sessions claim
+expect-evidence supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook toolu_a1 toolu_b1
+
+=== redeploy by a later session when the creator was not recorded: unknown
+session s2 start=d1/09:00
+action toolu_b1 session=s2 at=d1/09:10 tool=Bash
+  created supabase.function value=stripe-webhook container=projaaaaaaaaaaaaaaaa sig=supabase.cli.functions_deploy
+resource supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook name=stripe-webhook created=10:29
+expect supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook unknown
+expect-reason supabase.function:projaaaaaaaaaaaaaaaa/stripe-webhook before session s2's action
+
+=== kind without created_at: two creating sessions a day apart still conflict
+# Advisor tables carry no created_at, so nothing is dropped.
+session s1 start=10:00
+session s2 start=d1/10:00
+action toolu_a1 session=s1 at=10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+action toolu_b1 session=s2 at=d1/10:10 tool=mcp__supabase__apply_migration
+  created supabase.table value=public.customers container=projaaaaaaaaaaaaaaaa
+resource supabase.table:projaaaaaaaaaaaaaaaa/public.customers name=customers seen=advisor
+expect supabase.table:projaaaaaaaaaaaaaaaa/public.customers unknown
+expect-reason supabase.table:projaaaaaaaaaaaaaaaa/public.customers 2 sessions claim
+
+=== project without created_at: two creating sessions a day apart still conflict
+session s1 start=10:00
+session s2 start=d1/10:00
+action toolu_a1 session=s1 at=10:10 tool=Bash
+  created supabase.project value=staging container=org-fake
+action toolu_b1 session=s2 at=d1/10:10 tool=Bash
+  created supabase.project value=staging container=org-fake
+resource supabase.project:projaaaaaaaaaaaaaaaa name=staging account=org-fake
+expect supabase.project:projaaaaaaaaaaaaaaaa unknown
+expect-reason supabase.project:projaaaaaaaaaaaaaaaa 2 sessions claim

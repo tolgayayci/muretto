@@ -152,3 +152,25 @@ action toolu_a1 session=s1 at=14:30 tool=Bash
   created vercel.deployment value=dpl_FAKEdeploy0000000000000040
 resource vercel.deployment:dpl_FAKEdeploy0000000000000040 name=site-old-example-team.vercel.app first_seen=13:00
 expect vercel.deployment:dpl_FAKEdeploy0000000000000040 unknown
+
+=== project deleted and created again under the same name by a later session
+# s1 created example-waitlist at 14:02; it was deleted; s2 created a new project
+# with the same name (new id) the next day. Only s2 can have created this one.
+session s1 start=14:00
+session s2 start=d1/09:00
+action toolu_a1 session=s1 at=14:02 tool=Bash
+  created vercel.project value=example-waitlist container=example-team
+action toolu_b1 session=s2 at=d1/09:05 tool=Bash
+  created vercel.project value=example-waitlist container=example-team
+resource vercel.project:prj_FAKEproject00000000000007 name=example-waitlist account=team_FAKEteam000000000000 account_slug=example-team created=d1/09:04
+expect vercel.project:prj_FAKEproject00000000000007 exact s2 name_in_container
+expect-reason vercel.project:prj_FAKEproject00000000000007 session s1 created an earlier resource with this name
+expect-evidence vercel.project:prj_FAKEproject00000000000007 toolu_b1
+
+=== long vercel deploy: the action ends well after created_at, still exact
+# created_at is stamped at the deploy request; the hook fires when the CLI ends.
+session s1 start=14:00
+action toolu_a1 session=s1 at=14:09 tool=Bash
+  created vercel.deployment value=dpl_FAKEdeploy0000000000000020
+resource vercel.deployment:dpl_FAKEdeploy0000000000000020 name=slow-abc123-example-team.vercel.app created=14:01
+expect vercel.deployment:dpl_FAKEdeploy0000000000000020 exact s1 id_in_result

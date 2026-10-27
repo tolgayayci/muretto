@@ -27,6 +27,8 @@ import (
 //	expect <resource id> exact <session> <rule>
 //	expect <resource id> unknown
 //	expect-evidence-only <resource id> [session=<id>]
+//	expect-reason <resource id> <text the reason must contain>
+//	expect-evidence <resource id> <action id>...   (exactly these, in time order)
 //
 // Times are HH:MM on 2026-10-20 UTC, or dN/HH:MM for N days later.
 // first_seen (when a Muretto scan first listed the resource) defaults to the
@@ -48,6 +50,8 @@ type scenario struct {
 	resources []contract.Resource
 	expect    map[string]expectation
 	evOnly    map[string]string // id -> session of its evidence ("" = any)
+	reason    map[string][]string
+	evidence  map[string][]string
 }
 
 type expectation struct {
@@ -120,7 +124,7 @@ func loadScenarios(t *testing.T) []*scenario {
 				continue
 			}
 			if strings.HasPrefix(line, "=== ") {
-				cur = &scenario{name: strings.TrimPrefix(line, "=== "), file: file, line: n, expect: map[string]expectation{}, evOnly: map[string]string{}}
+				cur = &scenario{name: strings.TrimPrefix(line, "=== "), file: file, line: n, expect: map[string]expectation{}, evOnly: map[string]string{}, reason: map[string][]string{}, evidence: map[string][]string{}}
 				all = append(all, cur)
 				lastAction = nil
 				continue
@@ -218,6 +222,11 @@ func loadScenarios(t *testing.T) []*scenario {
 					e.session, e.rule = pos[2], pos[3]
 				}
 				cur.expect[pos[0]] = e
+			case "expect-reason":
+				id, text, _ := strings.Cut(strings.TrimSpace(strings.TrimPrefix(line, "expect-reason")), " ")
+				cur.reason[id] = append(cur.reason[id], strings.TrimSpace(text))
+			case "expect-evidence":
+				cur.evidence[pos[0]] = pos[1:]
 			case "expect-evidence-only":
 				cur.evOnly[pos[0]] = opts["session"]
 			default:
@@ -309,6 +318,22 @@ func TestScenarios(t *testing.T) {
 					if want.label != contract.AttributionLabelUnknown {
 						t.Errorf("%s: got unknown (%s), want exact %s", id, a.Reason, want.session)
 					}
+				}
+			}
+			for id, texts := range sc.reason {
+				for _, text := range texts {
+					if !strings.Contains(got[id].Reason, text) {
+						t.Errorf("%s: reason %q lacks %q", id, got[id].Reason, text)
+					}
+				}
+			}
+			for id, want := range sc.evidence {
+				var ids []string
+				for _, e := range got[id].Evidence {
+					ids = append(ids, e.ActionID)
+				}
+				if strings.Join(ids, " ") != strings.Join(want, " ") {
+					t.Errorf("%s: evidence %v, want %v", id, ids, want)
 				}
 			}
 			for id := range sc.expect {
