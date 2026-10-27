@@ -13,9 +13,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/tolgayayci/muretto/internal/claudecfg"
 	"github.com/tolgayayci/muretto/internal/contract"
 )
 
@@ -164,5 +166,27 @@ func TestE2EPinnedMCPServerOtherProject(t *testing.T) {
 	}
 	for _, id := range evidenceOnly(x.a) {
 		x.unknown(id, "not confirmed")
+	}
+}
+
+// Hooks registered with `claude --settings` (as the demo does) are not in
+// settings.json, but their events arrive: no "hooks are not installed"
+// warning, and doctor says where things stand.
+func TestE2EHooksRegisteredElsewhere(t *testing.T) {
+	w := pinnedWorld(t, e2eRef)
+	if _, err := claudecfg.Uninstall(w.p); err != nil {
+		t.Fatal(err)
+	}
+	w.pinnedSession("project")
+	a := w.answer()
+	for _, wn := range a.Warnings {
+		if wn.Code == "hooks_not_installed" {
+			t.Errorf("false warning: %s", wn.Message)
+		}
+	}
+	var out, errb bytes.Buffer
+	w.app(&out, &errb).run(context.Background(), []string{"doctor"})
+	if !strings.Contains(out.String(), "✓ hooks") || !strings.Contains(out.String(), "but hook events arrived") {
+		t.Errorf("doctor:\n%s", out.String())
 	}
 }

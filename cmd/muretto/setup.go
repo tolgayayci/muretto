@@ -15,6 +15,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/tolgayayci/muretto/internal/adapters"
+	"github.com/tolgayayci/muretto/internal/answer"
 	"github.com/tolgayayci/muretto/internal/config"
 	"github.com/tolgayayci/muretto/internal/contract"
 	"github.com/tolgayayci/muretto/internal/render"
@@ -426,6 +427,10 @@ func (a *app) cmdDoctor(ctx context.Context, args []string) error {
 		switch {
 		case err != nil:
 			add(false, "hooks", "could not inspect Claude Code settings: "+err.Error(), "muretto init")
+		case !hs.Installed && answer.HookEventsSeen(s.in.Sessions, a.now()):
+			// Registered another way (claude --settings, a plugin, managed
+			// settings): events arrive, but a plain `claude` may not run them.
+			add(true, "hooks", "not in "+hs.SettingsPath+", but hook events arrived in the last 7 days (registered elsewhere, e.g. claude --settings)", "")
 		case !hs.Installed:
 			add(false, "hooks", "not installed in "+hs.SettingsPath, "muretto init")
 		case hs.HooksDisabled:

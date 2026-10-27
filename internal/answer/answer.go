@@ -4,6 +4,7 @@ package answer
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -22,6 +23,28 @@ type HookState struct {
 	Installed     bool
 	HooksDisabled bool
 	ManagedOnly   bool
+}
+
+// HookWindow is how recent a hook-recorded session must be to show that
+// Muretto's hooks run, even when they are not in Claude Code's settings.json.
+const HookWindow = 7 * 24 * time.Hour
+
+// HookEventsSeen reports whether a session with hook-recorded events was
+// active within HookWindow before now.
+func HookEventsSeen(sessions []contract.Session, now time.Time) bool {
+	for _, s := range sessions {
+		if !slices.Contains(s.Sources, contract.SessionSourcesElemHook) {
+			continue
+		}
+		last := s.StartedAt
+		if s.LastActivityAt != nil && s.LastActivityAt.After(last) {
+			last = *s.LastActivityAt
+		}
+		if now.Sub(last) <= HookWindow {
+			return true
+		}
+	}
+	return false
 }
 
 // Input is everything Compute needs. It does no I/O.
@@ -486,6 +509,9 @@ func warnings(in Input, a contract.Answer, now time.Time) []contract.Warning {
 			add("hooks_disabled", "Claude Code hooks are disabled (disableAllHooks), so new sessions are only seen through transcripts.", "Remove disableAllHooks from your Claude Code settings")
 		case in.Hooks.ManagedOnly:
 			add("hooks_managed_only", "Your Claude Code settings only allow managed hooks, so Muretto's hooks do not run.", "Ask your admin to add Muretto's hooks to managed settings")
+		case !in.Hooks.Installed && HookEventsSeen(in.Sessions, now):
+			// Registered elsewhere (e.g. `claude --settings`, a plugin or
+			// managed settings): hook events are arriving, so say nothing.
 		case !in.Hooks.Installed:
 			add("hooks_not_installed", "Muretto's Claude Code hooks are not installed; sessions are read from transcripts only.", "muretto init")
 		}
