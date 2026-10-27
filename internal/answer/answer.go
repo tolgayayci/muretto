@@ -5,9 +5,9 @@ package answer
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
+	"github.com/tolgayayci/muretto/internal/adapters"
 	"github.com/tolgayayci/muretto/internal/attrib"
 	"github.com/tolgayayci/muretto/internal/contract"
 	"github.com/tolgayayci/muretto/internal/redact"
@@ -210,7 +210,7 @@ func deriveFindings(resources []contract.Resource, stored []contract.ExposureFin
 			f := contract.ExposureFinding{
 				ID: findingKey(r.ID, rule), ResourceID: r.ID, RuleID: rule,
 				State: contract.ExposureFindingStateUnknown, Severity: contract.ExposureFindingSeverityInfo,
-				Signal: contract.ExposureFindingSignalApiField, Title: humanRule(rule),
+				Signal: contract.ExposureFindingSignalApiField, Title: adapters.HumanRule(rule),
 			}
 			if t, ok := template[rule]; ok {
 				f.Signal, f.Caveat = t.Signal, t.Caveat
@@ -222,18 +222,18 @@ func deriveFindings(resources []contract.Resource, stored []contract.ExposureFin
 			switch {
 			case ok && c.Status == contract.ProviderCheckStatusOk:
 				f.State = contract.ExposureFindingStateNotExposed
-				f.Title = humanRule(rule) + ": not exposed"
-				f.Explanation = "The last successful check did not flag this resource."
-				f.Fix = contract.Fix{Kind: contract.FixKindSteps, Text: "Nothing to fix."}
+				f.Title = adapters.NotExposedTitle(rule)
+				f.Explanation = adapters.NotExposedExplanation
+				f.Fix = adapters.NothingToFix()
 			case ok:
-				f.Title = humanRule(rule) + ": not checked"
+				f.Title = adapters.HumanRule(rule) + ": not checked"
 				f.Explanation = "The last check of this rule did not succeed, so exposure is unknown."
 				if c.Error != nil {
 					f.Explanation += " Error: " + *c.Error
 				}
 				f.Fix = contract.Fix{Kind: contract.FixKindSteps, Text: "Run `muretto doctor` to see why the check failed."}
 			default:
-				f.Title = humanRule(rule) + ": not checked"
+				f.Title = adapters.HumanRule(rule) + ": not checked"
 				f.Explanation = "This rule has not been checked for this resource yet, so exposure is unknown."
 				f.Fix = contract.Fix{Kind: contract.FixKindSteps, Text: "Run `muretto --refresh`, or `muretto doctor` if it stays unknown."}
 			}
@@ -279,20 +279,6 @@ func SeverityRank(s contract.ExposureFindingSeverity) int {
 		return 4
 	}
 	return 5
-}
-
-func humanRule(rule string) string {
-	switch rule {
-	case "rls_disabled":
-		return "Row level security"
-	case "public_bucket":
-		return "Public bucket"
-	case "public_preview":
-		return "Public preview"
-	case "client_exposed_env":
-		return "Client-exposed env var"
-	}
-	return strings.ReplaceAll(rule, "_", " ")
 }
 
 // deriveCosts keeps provider costs and adds an explicit unknown record for
