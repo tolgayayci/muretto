@@ -19,8 +19,7 @@ type action struct {
 	command   string // Input.command for Bash-like tools
 	mcpServer string // lower-case server name, "" when not an MCP call
 	mcpTool   string // lower-case tool name
-	result    any    // Output parsed as JSON, or nil
-	hasResult bool
+	results   []any  // JSON objects/arrays in the output (parseJSONResults)
 }
 
 func digest(a observe.RawAction) *action {
@@ -40,42 +39,64 @@ func digest(a observe.RawAction) *action {
 			d.mcpServer = strings.ToLower(*a.Action.McpServer)
 		}
 	}
-	d.result, d.hasResult = parseJSONLoose(d.output)
+	d.results = parseJSONResults(d.output)
 	return d
 }
 
-// parseJSONLoose parses s as JSON, or failing that the first JSON object or
-// array that starts a line (CLI tools print JSON on stdout next to stderr
-// noise in the same Bash result).
-func parseJSONLoose(s string) (any, bool) {
-	try := func(t string) (any, bool) {
+// maxResults caps how many JSON values one output yields.
+const maxResults = 32
+
+// parseJSONResults returns the JSON objects and arrays in s: s itself, or
+// every one that starts a line. CLI tools print JSON on stdout next to
+// stderr noise in the same Bash result, and an agent often chains several
+// commands in one call (`supabase functions new x; supabase functions deploy
+// x`), each printing its own JSON line. Values are returned in output order;
+// a value's own lines are never parsed again as separate values.
+func parseJSONResults(s string) []any {
+	decode := func(t string) (any, int, bool) {
 		dec := json.NewDecoder(strings.NewReader(t))
 		dec.UseNumber()
 		var v any
 		if err := dec.Decode(&v); err != nil {
-			return nil, false
+			return nil, 0, false
 		}
 		switch v.(type) {
 		case map[string]any, []any:
-			return v, true
+			return v, int(dec.InputOffset()), true
 		}
-		return nil, false
+		return nil, 0, false
 	}
-	t := strings.TrimSpace(s)
-	if t == "" {
-		return nil, false
-	}
-	if v, ok := try(t); ok {
-		return v, true
-	}
-	for i := 0; i < len(s); i++ {
-		if (s[i] == '{' || s[i] == '[') && (i == 0 || s[i-1] == '\n') {
-			if v, ok := try(s[i:]); ok {
-				return v, true
+	var out []any
+	i := len(s) - len(strings.TrimLeft(s, " \t\r\n"))
+	for i < len(s) && len(out) < maxResults {
+		if s[i] == '{' || s[i] == '[' {
+			if v, n, ok := decode(s[i:]); ok {
+				out = append(out, v)
+				i += n
+				continue
 			}
 		}
+		nl := strings.IndexByte(s[i:], '\n')
+		if nl < 0 {
+			break
+		}
+		i += nl + 1
 	}
-	return nil, false
+	return out
+}
+
+// resultHas reports whether r is an object with one of keys at top level.
+func resultHas(r any, keys []string) bool {
+	m, ok := r.(map[string]any)
+	if !ok {
+		return false
+	}
+	for _, k := range keys {
+		if _, ok := m[k]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func serverMatches(server string, wanted []string) bool {
@@ -137,31 +158,33 @@ func (w *whenSpec) matches(d *action) bool {
 	if w.Output != nil && !w.Output.MatchString(d.output) {
 		return false
 	}
-	if len(w.ResultLacks) > 0 {
-		if m, ok := d.result.(map[string]any); ok {
-			for _, k := range w.ResultLacks {
-				if _, has := m[k]; has {
-					return false
-				}
-			}
+	// One Bash call may print several JSON values (chained commands). A
+	// lacked key (e.g. error) in any of them rejects the call; a wanted key
+	// must be in at least one, and only those feed `from: result` extracts.
+	for _, r := range d.results {
+		if resultHas(r, w.ResultLacks) {
+			return false
 		}
 	}
-	if len(w.ResultHas) > 0 {
-		m, ok := d.result.(map[string]any)
-		if !ok {
-			return false
-		}
-		has := false
-		for _, k := range w.ResultHas {
-			if _, ok := m[k]; ok {
-				has = true
-			}
-		}
-		if !has {
-			return false
-		}
+	if len(w.ResultHas) > 0 && len(w.results(d)) == 0 {
+		return false
 	}
 	return true
+}
+
+// results returns the JSON values of d's output that `from: result` extracts
+// may read: those with a result_has key, or all of them.
+func (w *whenSpec) results(d *action) []any {
+	if len(w.ResultHas) == 0 {
+		return d.results
+	}
+	var out []any
+	for _, r := range d.results {
+		if resultHas(r, w.ResultHas) {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 func guess(a *adapterSpec, raw observe.RawAction) bool {
@@ -191,7 +214,26 @@ func extract(a *adapterSpec, raw observe.RawAction) []contract.Identifier {
 	return out
 }
 
+// runExtract runs one extract. A `from: result` extract reads each JSON value
+// of the output in turn (a chained Bash call prints one per command), so the
+// value it needs is found wherever it is; any other extract sees the first.
 func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []contract.Identifier {
+	rs := s.When.results(d)
+	if e.From == "result" {
+		var out []contract.Identifier
+		for _, r := range rs {
+			out = append(out, extractWith(a, s, e, d, r)...)
+		}
+		return out
+	}
+	if len(rs) > 0 {
+		return extractWith(a, s, e, d, rs[0])
+	}
+	return extractWith(a, s, e, d, nil)
+}
+
+// extractWith runs extract e with result (nil: none) as {result}.
+func extractWith(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action, result any) []contract.Identifier {
 	base := map[string]any{"input": d.raw.Input}
 	// mcp.<key>: identifier params of the MCP server the call went to (e.g.
 	// mcp.project_ref for a project-pinned Supabase server).
@@ -200,8 +242,8 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 		mcp[k] = v
 	}
 	base["mcp"] = mcp
-	if d.hasResult {
-		base["result"] = d.result
+	if result != nil {
+		base["result"] = result
 	}
 	for _, c := range e.Capture {
 		m := c.Pattern.FindStringSubmatch(textFrom(d, base, c.From))
@@ -220,7 +262,7 @@ func runExtract(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action) []c
 
 	switch {
 	case e.From == "result" || e.From == "input":
-		if e.From == "result" && !d.hasResult {
+		if e.From == "result" && result == nil {
 			return nil
 		}
 		if e.Each == "" {

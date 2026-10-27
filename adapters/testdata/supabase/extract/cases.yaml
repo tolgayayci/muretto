@@ -70,6 +70,41 @@
   expect:
     - { kind: supabase.function, value: stripe-webhook, container: abcdefghijklmnopqrst, role: created }
 
+# Observed shape (CLI v2.118, non-TTY): one Bash call chaining init, new and
+# deploy prints one JSON line per command, between update notices.
+- name: CLI functions new then deploy in one chained call
+  tool: Bash
+  input: { command: "ls supabase 2>&1 | head -1; [ -d supabase ] || supabase init 2>&1 | tail -3; supabase functions new demo-cli-fn 2>&1 | tail -3; supabase functions deploy demo-cli-fn --project-ref abcdefghijklmnopqrst --use-api 2>&1 | tail -15" }
+  output: |
+    ls: supabase: No such file or directory
+    Finished supabase init.
+    A new version of Supabase CLI is available: v2.122.0 (currently installed v2.118.0)
+    We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+    {"path":"supabase/functions/demo-cli-fn","function_name":"demo-cli-fn","auth":"apikey","message":""}
+    A new version of Supabase CLI is available: v2.122.0 (currently installed v2.118.0)
+    Uploading asset (demo-cli-fn): supabase/functions/demo-cli-fn/deno.json
+    Uploading asset (demo-cli-fn): supabase/functions/demo-cli-fn/index.ts
+    {"project_ref":"abcdefghijklmnopqrst","functions":["demo-cli-fn"],"dashboard_url":"https://supabase.com/dashboard/project/abcdefghijklmnopqrst/functions","message":"Deployed Functions."}
+    A new version of Supabase CLI is available: v2.122.0 (currently installed v2.118.0)
+  expect:
+    - { kind: supabase.function, value: demo-cli-fn, container: abcdefghijklmnopqrst, role: created }
+
+- name: CLI functions new with a deploy that printed nothing is no creation
+  tool: Bash
+  input: { command: "supabase functions new demo-cli-fn; supabase functions deploy demo-cli-fn --project-ref abcdefghijklmnopqrst" }
+  output: |
+    {"path":"supabase/functions/demo-cli-fn","function_name":"demo-cli-fn","auth":"apikey","message":""}
+    unexpected deploy status 401: {"message":"Unauthorized"}
+  expect: []
+
+- name: CLI chained deploy with an error JSON creates nothing
+  tool: Bash
+  input: { command: "supabase functions deploy a --project-ref abcdefghijklmnopqrst; supabase functions deploy b --project-ref abcdefghijklmnopqrst" }
+  output: |
+    {"project_ref":"abcdefghijklmnopqrst","functions":["a"],"message":"Deployed Functions."}
+    {"error":"failed to deploy b"}
+  expect: []
+
 - name: CLI db query creates a table (linked; ref not printed)
   tool: Bash
   input: { command: "supabase db query \"create table customers (id bigint primary key, email text)\" --linked" }

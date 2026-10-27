@@ -296,14 +296,17 @@ signatures:
   - id: supabase.cli.functions_deploy
     kind: function
     role: created
-    when: { tool: ^Bash$, command: ['\bsupabase\s+functions\s+deploy\b'] }
+    # A chained call (`functions new x; functions deploy x`) prints one JSON
+    # line per command; `from: result` reads each, and only the deploy's
+    # {project_ref, functions} yields ids. An error JSON anywhere rejects it.
+    when: { tool: ^Bash$, command: ['\bsupabase\s+functions\s+deploy\b'], result_lacks: [error] }
     extract:
-      - from: output
+      - from: output # TTY text mode
         pattern: 'Deployed Functions on project (?P<ref>[a-z]{20}): (?P<slugs>[A-Za-z][A-Za-z0-9_-]*(?:, [A-Za-z][A-Za-z0-9_-]*)*)'
         split: { field: slugs, sep: "," }
         value: "{slugs}"
         container: "{ref}"
-      - from: result # --output-format json: {project_ref, functions:[slugs], dashboard_url}
+      - from: result # non-TTY / --output-format json: {project_ref, functions:[slugs], dashboard_url, message}
         each: result.functions
         value: "{item}"
         container: "{result.project_ref}"

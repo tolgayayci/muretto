@@ -141,13 +141,16 @@ rules:
 #   when:    tool (regex on the tool name) with optional command (regexes that
 #            must all match Bash input.command), not_command, input_matches,
 #            output; or mcp_tools (+ mcp_server, default mcp_servers).
-#            status: ok (default) or any. result_lacks: skip if the JSON result
-#            has these top-level keys (e.g. error). result_has: skip unless
-#            the result is a JSON object with one of these keys (e.g. success).
+#            status: ok (default) or any. result_lacks: skip if any JSON
+#            value in the output has these top-level keys (e.g. error).
+#            result_has: skip unless a JSON value is an object with one of
+#            these keys (e.g. success).
 #   role:    created (the call made it) or referenced (the id only appeared)
 #   extract: from output | command | input.<path> with a regex (named groups
 #            become template fields), or from result | input with templates
-#            (each: path to an array; each element is "item").
+#            (each: path to an array; each element is "item"). A result
+#            extract runs on every JSON value the output holds. mcp.<key>
+#            is an MCP server URL param, e.g. mcp.project_ref.
 #            split: { field, sep } turns one group into several ids.
 #            capture: extra regexes whose groups join the context.
 #            container: where the value is unique (e.g. the project).

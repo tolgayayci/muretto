@@ -164,3 +164,26 @@ func TestRemoveHint(t *testing.T) {
 		t.Fatal("unknown provider must have no hint")
 	}
 }
+
+func TestParseJSONResults(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{"", 0},
+		{"no json here", 0},
+		{`  {"a":1}`, 1},
+		{`[1,2]`, 1},
+		{`"just a string"`, 0},
+		{"noise {\"not\":\"at line start\"}\n", 0},
+		// A pretty-printed value's own lines are not parsed again.
+		{"{\n  \"a\": {\n\"b\": 1\n  },\n  \"c\": [\n{\"d\": 2}\n]\n}\ntrailing", 1},
+		{"{\"a\":1}\nnoise\n{\"b\":2}\n[3]\n{broken\n", 3},
+		{strings.Repeat("{}\n", maxResults+5), maxResults},
+	}
+	for _, c := range cases {
+		if got := parseJSONResults(c.in); len(got) != c.want {
+			t.Errorf("%q: got %d values %v, want %d", c.in, len(got), got, c.want)
+		}
+	}
+}
