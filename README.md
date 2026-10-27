@@ -56,7 +56,7 @@ Every read command takes `--json`.
 
 ## How it works
 
-1. **The story.** A tiny Claude Code hook writes one redacted file per tool call and exits in a few milliseconds. Muretto also reads Claude Code transcripts to fill gaps.
+1. **The story.** A tiny Claude Code hook writes one redacted file per tool call and exits in a few milliseconds. For an MCP server pinned to one project (like Supabase's `?project_ref=…`), it also notes which project, read from your MCP config (only that id, never the URL or headers). Muretto also reads Claude Code transcripts to fill gaps.
 2. **The truth.** Muretto lists what actually exists in your Supabase and Vercel accounts through read-only API calls.
 3. **The join.** A resource is attributed to a session only when that session's own tool call created it: the provider id appears in its output, or a unique name appears in the call that targeted that project. Everything else is labelled **creator unknown**. Muretto never guesses, and `muretto why` shows the evidence for every label.
 

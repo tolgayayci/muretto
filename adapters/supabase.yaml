@@ -296,14 +296,17 @@ signatures:
   - id: supabase.cli.functions_deploy
     kind: function
     role: created
-    when: { tool: ^Bash$, command: ['\bsupabase\s+functions\s+deploy\b'] }
+    # A chained call (`functions new x; functions deploy x`) prints one JSON
+    # line per command; `from: result` reads each, and only the deploy's
+    # {project_ref, functions} yields ids. An error JSON anywhere rejects it.
+    when: { tool: ^Bash$, command: ['\bsupabase\s+functions\s+deploy\b'], result_lacks: [error] }
     extract:
-      - from: output
+      - from: output # TTY text mode
         pattern: 'Deployed Functions on project (?P<ref>[a-z]{20}): (?P<slugs>[A-Za-z][A-Za-z0-9_-]*(?:, [A-Za-z][A-Za-z0-9_-]*)*)'
         split: { field: slugs, sep: "," }
         value: "{slugs}"
         container: "{ref}"
-      - from: result # --output-format json: {project_ref, functions:[slugs], dashboard_url}
+      - from: result # non-TTY / --output-format json: {project_ref, functions:[slugs], dashboard_url, message}
         each: result.functions
         value: "{item}"
         container: "{result.project_ref}"
@@ -407,6 +410,10 @@ signatures:
         value: "{ref}"
 
   # ---- Supabase MCP server (github.com/supabase/mcp). Results are JSON text. ----
+  # A server pinned to one project (?project_ref=<ref> in its URL) takes no
+  # project_id; the hook records the pinned ref as mcp.project_ref
+  # (docs/decisions/0905-project-scoped-mcp.md). With neither, identifiers
+  # have no container and stay "seen in session only".
   - id: supabase.mcp.create_project
     kind: project
     role: created
@@ -419,14 +426,14 @@ signatures:
     role: created
     when: { mcp_tools: [create_branch], result_lacks: [error] }
     extract:
-      - { from: result, value: "{result.project_ref}", container: "{input.project_id}" }
+      - { from: result, value: "{result.project_ref}", container: "{input.project_id|or:mcp.project_ref}" }
 
   - id: supabase.mcp.deploy_edge_function
     kind: function
     role: created
     when: { mcp_tools: [deploy_edge_function], result_lacks: [error] }
     extract:
-      - { from: result, value: "{result.slug|or:input.name}", container: "{input.project_id}" }
+      - { from: result, value: "{result.slug|or:input.name}", container: "{input.project_id|or:mcp.project_ref}" }
 
   # apply_migration returns {"success": true} and execute_sql {"result": ...};
   # errors are {"error": ...} and a pending confirmation is neither.
@@ -439,12 +446,12 @@ signatures:
         from: input.query
         preprocess: sql
         capture: []
-        container: "{input.project_id}"
+        container: "{input.project_id|or:mcp.project_ref}"
       - <<: *sql_insert_bucket
         from: input.query
         preprocess: sql
         capture: []
-        container: "{input.project_id}"
+        container: "{input.project_id|or:mcp.project_ref}"
 
   # Read-only MCP calls: ids appear, nothing was created.
   - id: supabase.mcp.read_projects
@@ -465,20 +472,20 @@ signatures:
     role: referenced
     when: { mcp_tools: [list_edge_functions, get_edge_function], result_lacks: [error] }
     extract:
-      - { from: result, each: result.functions, value: "{item.slug}", container: "{input.project_id}" }
-      - { from: result, value: "{result.slug}", container: "{input.project_id}" }
+      - { from: result, each: result.functions, value: "{item.slug}", container: "{input.project_id|or:mcp.project_ref}" }
+      - { from: result, value: "{result.slug}", container: "{input.project_id|or:mcp.project_ref}" }
   - id: supabase.mcp.read_buckets
     kind: bucket
     role: referenced
     when: { mcp_tools: [list_storage_buckets], result_lacks: [error] }
     extract:
-      - { from: result, each: result.buckets, value: "{item.id}", container: "{input.project_id}" }
+      - { from: result, each: result.buckets, value: "{item.id}", container: "{input.project_id|or:mcp.project_ref}" }
   - id: supabase.mcp.read_tables
     kind: table
     role: referenced
     when: { mcp_tools: [list_tables], result_lacks: [error] }
     extract:
-      - { from: result, each: result.tables, value: "{item.name}", container: "{input.project_id}" }
+      - { from: result, each: result.tables, value: "{item.name}", container: "{input.project_id|or:mcp.project_ref}" }
 
 coverage:
   - { kind: project, status: full, note: "GET /v1/projects" }

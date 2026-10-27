@@ -70,6 +70,41 @@
   expect:
     - { kind: supabase.function, value: stripe-webhook, container: abcdefghijklmnopqrst, role: created }
 
+# Observed shape (CLI v2.118, non-TTY): one Bash call chaining init, new and
+# deploy prints one JSON line per command, between update notices.
+- name: CLI functions new then deploy in one chained call
+  tool: Bash
+  input: { command: "ls supabase 2>&1 | head -1; [ -d supabase ] || supabase init 2>&1 | tail -3; supabase functions new demo-cli-fn 2>&1 | tail -3; supabase functions deploy demo-cli-fn --project-ref abcdefghijklmnopqrst --use-api 2>&1 | tail -15" }
+  output: |
+    ls: supabase: No such file or directory
+    Finished supabase init.
+    A new version of Supabase CLI is available: v2.122.0 (currently installed v2.118.0)
+    We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli
+    {"path":"supabase/functions/demo-cli-fn","function_name":"demo-cli-fn","auth":"apikey","message":""}
+    A new version of Supabase CLI is available: v2.122.0 (currently installed v2.118.0)
+    Uploading asset (demo-cli-fn): supabase/functions/demo-cli-fn/deno.json
+    Uploading asset (demo-cli-fn): supabase/functions/demo-cli-fn/index.ts
+    {"project_ref":"abcdefghijklmnopqrst","functions":["demo-cli-fn"],"dashboard_url":"https://supabase.com/dashboard/project/abcdefghijklmnopqrst/functions","message":"Deployed Functions."}
+    A new version of Supabase CLI is available: v2.122.0 (currently installed v2.118.0)
+  expect:
+    - { kind: supabase.function, value: demo-cli-fn, container: abcdefghijklmnopqrst, role: created }
+
+- name: CLI functions new with a deploy that printed nothing is no creation
+  tool: Bash
+  input: { command: "supabase functions new demo-cli-fn; supabase functions deploy demo-cli-fn --project-ref abcdefghijklmnopqrst" }
+  output: |
+    {"path":"supabase/functions/demo-cli-fn","function_name":"demo-cli-fn","auth":"apikey","message":""}
+    unexpected deploy status 401: {"message":"Unauthorized"}
+  expect: []
+
+- name: CLI chained deploy with an error JSON creates nothing
+  tool: Bash
+  input: { command: "supabase functions deploy a --project-ref abcdefghijklmnopqrst; supabase functions deploy b --project-ref abcdefghijklmnopqrst" }
+  output: |
+    {"project_ref":"abcdefghijklmnopqrst","functions":["a"],"message":"Deployed Functions."}
+    {"error":"failed to deploy b"}
+  expect: []
+
 - name: CLI db query creates a table (linked; ref not printed)
   tool: Bash
   input: { command: "supabase db query \"create table customers (id bigint primary key, email text)\" --linked" }
@@ -265,6 +300,54 @@
     - { kind: supabase.table, value: public.Orders, container: abcdefghijklmnopqrst, role: created }
     - { kind: supabase.table, value: private.audit_log, container: abcdefghijklmnopqrst, role: created }
     - { kind: supabase.bucket, value: customer-files, container: abcdefghijklmnopqrst, role: created }
+
+# A server pinned with ?project_ref=<ref> takes no project_id; the hook
+# records the ref as mcp.project_ref (docs/decisions/0905-project-scoped-mcp.md).
+- name: MCP apply_migration on a project-pinned server
+  tool: mcp__supabase__apply_migration
+  mcp: { project_ref: abcdefghijklmnopqrst }
+  input: { name: create_customers_table, query: "create table public.customers (id int); insert into public.customers values (1);" }
+  output: '{"success":true}'
+  expect:
+    - { kind: supabase.table, value: public.customers, container: abcdefghijklmnopqrst, role: created }
+
+- name: MCP execute_sql bucket on a project-pinned server
+  tool: mcp__supabase__execute_sql
+  mcp: { project_ref: abcdefghijklmnopqrst }
+  input: { query: "insert into storage.buckets (id, name, public) values ('demo-uploads','demo-uploads',true);" }
+  output: '{"result":"Below is the result of the SQL query. <untrusted-data-00000000>\n[]\n</untrusted-data-00000000>"}'
+  expect:
+    - { kind: supabase.bucket, value: demo-uploads, container: abcdefghijklmnopqrst, role: created }
+
+- name: MCP deploy_edge_function on a project-pinned server
+  tool: mcp__supabase__deploy_edge_function
+  mcp: { project_ref: abcdefghijklmnopqrst }
+  input: { name: demo-hello, entrypoint_path: index.ts, verify_jwt: true, files: [] }
+  output: '{"id":"00000000-0000-4000-8000-000000000031","slug":"demo-hello","name":"demo-hello","status":"ACTIVE","version":1,"created_at":1793099195402,"verify_jwt":true,"import_map":false}'
+  expect:
+    - { kind: supabase.function, value: demo-hello, container: abcdefghijklmnopqrst, role: created }
+
+- name: MCP project_id in the input wins over the pinned ref
+  tool: mcp__supabase__deploy_edge_function
+  mcp: { project_ref: zyxwvutsrqponmlkjihg }
+  input: { project_id: abcdefghijklmnopqrst, name: demo-hello, files: [] }
+  output: '{"slug":"demo-hello","status":"ACTIVE"}'
+  expect:
+    - { kind: supabase.function, value: demo-hello, container: abcdefghijklmnopqrst, role: created }
+
+- name: MCP deploy_edge_function with no project anywhere has no container
+  tool: mcp__supabase__deploy_edge_function
+  input: { name: demo-hello, entrypoint_path: index.ts, files: [] }
+  output: '{"slug":"demo-hello","name":"demo-hello","status":"ACTIVE","verify_jwt":true}'
+  expect:
+    - { kind: supabase.function, value: demo-hello, role: created }
+
+- name: MCP execute_sql with no project anywhere has no container
+  tool: mcp__supabase__execute_sql
+  input: { query: "insert into storage.buckets (id, name, public) values ('demo-uploads','demo-uploads',true);" }
+  output: '{"result":"Below is the result of the SQL query. <untrusted-data-00000000>[]</untrusted-data-00000000>"}'
+  expect:
+    - { kind: supabase.bucket, value: demo-uploads, role: created }
 
 - name: MCP execute_sql that only reads
   tool: mcp__supabase__execute_sql

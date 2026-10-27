@@ -405,6 +405,11 @@ func redactKeyValues(s string) string {
 			// "password: correct horse battery" loses every word.
 			ve = lineValueEnd(s, ve)
 		}
+		if vs == v && isJSONLiteral(s[vs:ve]) {
+			// "verify_jwt":true carries no secret, and replacing a bare
+			// literal would break the JSON that signatures parse.
+			continue
+		}
 		if b.Cap() == 0 {
 			b.Grow(len(s))
 		}
@@ -545,6 +550,11 @@ func isValueStop(c byte) bool {
 		return true
 	}
 	return false
+}
+
+// isJSONLiteral reports an unquoted true, false or null.
+func isJSONLiteral(v string) bool {
+	return v == "true" || v == "false" || v == "null"
 }
 
 func isAuthScheme(v string) bool {

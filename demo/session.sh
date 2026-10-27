@@ -3,7 +3,10 @@
 #
 # Started by run.sh in a tmux pane (or in the background with run.sh --wait).
 # It waits for the shared "go" file, then runs `claude -p` with Muretto's
-# hooks from the per-run settings file, and pretty-prints the stream.
+# hooks from the per-run settings file, and pretty-prints the stream. The
+# Supabase MCP server comes from the workdir's .mcp.json (written by run.sh,
+# approved by enabledMcpjsonServers in the settings file), so hook events
+# report it as project scope and Muretto can read its pinned project_ref.
 #
 # Demo tool for TEST accounts only. Muretto itself never writes anything.
 set -euo pipefail
@@ -34,7 +37,7 @@ clean_claude_env
 # Prompts name every resource with the demo- prefix (or an entry of
 # DEMO_TABLES) so reset.sh can find and remove exactly what they create.
 
-REF=$SUPABASE_PROJECT_REF
+REF=$(dev_ref "$DEV")
 case $DEV in
 alice)
 	TITLE="Add a waitlist signup"
@@ -71,13 +74,11 @@ insert into public.customers (name, email, company, plan) values
 	TOOLS="mcp__supabase__execute_sql"
 	;;
 carol)
-	[ -z "$SUPABASE_PROJECT_REF_2" ] || REF=$SUPABASE_PROJECT_REF_2
 	TITLE="Add image uploads"
 	PROMPT="Add image uploads. Create a private Supabase Storage bucket with id and name demo-uploads (5 MB file size limit, allowed MIME types image/png, image/jpeg and image/webp) by inserting it into storage.buckets with the Supabase execute_sql tool. Then add a policy on storage.objects that lets authenticated users upload into that bucket only. Finish with one line naming the bucket."
 	TOOLS="mcp__supabase__execute_sql|mcp__supabase__apply_migration"
 	;;
 dan)
-	[ -z "$SUPABASE_PROJECT_REF_2" ] || REF=$SUPABASE_PROJECT_REF_2
 	TITLE="Add a webhook handler"
 	PROMPT="Add a webhook handler as a Supabase Edge Function named demo-webhook. Write it as a single index.ts that accepts POST requests with a JSON body, logs the event type, and returns {\"received\": true}; other methods get 405. Deploy it with the Supabase deploy_edge_function tool, with verify_jwt false because the payment provider calls it without a user token. Finish with one line: the function slug."
 	TOOLS="mcp__supabase__deploy_edge_function|mcp__supabase__list_edge_functions|Read|Write"
@@ -97,7 +98,6 @@ else
 	SID=$(cat "$SID_FILE")
 fi
 HOOKS=$DEMO_RUN_DIR/hooks.json
-MCP=$DEMO_RUN_DIR/mcp-$REF.json
 LOG=$DEMO_RUN_DIR/logs/$DEV.jsonl
 WORK=$(dev_workdir "$DEV")
 
@@ -109,7 +109,6 @@ CMD=(claude -p "$PROMPT"
 	--output-format stream-json --verbose --include-hook-events
 	--permission-mode dontAsk
 	--allowedTools "${TOOL_ARGS[@]}"
-	--mcp-config "$MCP" --strict-mcp-config
 	--settings "$HOOKS"
 	--session-id "$SID"
 	-n "$DEV: $TITLE"

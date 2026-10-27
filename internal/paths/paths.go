@@ -91,6 +91,24 @@ func ClaudeConfigDir() (string, error) {
 	return filepath.Join(uh, ".claude"), nil
 }
 
+// ClaudeGlobalConfig returns Claude Code's global config file, which holds
+// user- and local-scope MCP servers: $CLAUDE_CONFIG_DIR/.claude.json when
+// CLAUDE_CONFIG_DIR is set, else ~/.claude.json (outside ~/.claude).
+func ClaudeGlobalConfig() (string, error) {
+	if d := os.Getenv("CLAUDE_CONFIG_DIR"); d != "" {
+		dir, err := expand(d)
+		if err != nil {
+			return "", err
+		}
+		return filepath.Join(dir, ".claude.json"), nil
+	}
+	uh, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("find home directory: %w", err)
+	}
+	return filepath.Join(uh, ".claude.json"), nil
+}
+
 // expand resolves a leading ~ and makes the path absolute.
 func expand(p string) (string, error) {
 	if p == "~" || strings.HasPrefix(p, "~/") {

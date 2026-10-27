@@ -11,12 +11,13 @@ import (
 )
 
 type extractCase struct {
-	Name   string `yaml:"name"`
-	Tool   string `yaml:"tool"`
-	Status string `yaml:"status"`
-	Input  any    `yaml:"input"`
-	Output string `yaml:"output"`
-	Guess  string `yaml:"guess"`
+	Name   string            `yaml:"name"`
+	Tool   string            `yaml:"tool"`
+	Status string            `yaml:"status"`
+	Input  any               `yaml:"input"`
+	Output string            `yaml:"output"`
+	MCP    map[string]string `yaml:"mcp"` // MCP server URL params recorded by the hook
+	Guess  string            `yaml:"guess"`
 	Expect []struct {
 		Kind      string `yaml:"kind"`
 		Value     string `yaml:"value"`
@@ -55,6 +56,7 @@ func TestExtractFixtures(t *testing.T) {
 			total++
 			t.Run(c.Name, func(t *testing.T) {
 				a := rawAction(c.Tool, c.Status, c.Input, c.Output)
+				a.MCP = c.MCP
 				var got, want []string
 				for _, id := range r.Extract(a) {
 					cont := ""
@@ -160,5 +162,28 @@ func TestRemoveHint(t *testing.T) {
 	}
 	if r.RemoveHint(contract.Resource{Provider: "nope", Kind: "nope.x"}) != nil {
 		t.Fatal("unknown provider must have no hint")
+	}
+}
+
+func TestParseJSONResults(t *testing.T) {
+	cases := []struct {
+		in   string
+		want int
+	}{
+		{"", 0},
+		{"no json here", 0},
+		{`  {"a":1}`, 1},
+		{`[1,2]`, 1},
+		{`"just a string"`, 0},
+		{"noise {\"not\":\"at line start\"}\n", 0},
+		// A pretty-printed value's own lines are not parsed again.
+		{"{\n  \"a\": {\n\"b\": 1\n  },\n  \"c\": [\n{\"d\": 2}\n]\n}\ntrailing", 1},
+		{"{\"a\":1}\nnoise\n{\"b\":2}\n[3]\n{broken\n", 3},
+		{strings.Repeat("{}\n", maxResults+5), maxResults},
+	}
+	for _, c := range cases {
+		if got := parseJSONResults(c.in); len(got) != c.want {
+			t.Errorf("%q: got %d values %v, want %d", c.in, len(got), got, c.want)
+		}
 	}
 }

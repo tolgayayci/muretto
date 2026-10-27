@@ -69,7 +69,8 @@ sed "s/$FIXTURE_SID/$DECOY_SID/g" "$FIXTURE" >"$CLAUDE_SRC_DIR/projects/-home-pr
 setup_org alice bob
 ok "team '$DEMO_ORG_NAME' created by alice; bob joined by invite"
 
-hooks_settings | jq -e '.hooks.PostToolUse[0].hooks[0].args == ["hook","PostToolUse"]' >/dev/null || fail "hooks settings"
+hooks_settings | jq -e '.hooks.PostToolUse[0].hooks[0].args == ["hook","PostToolUse"] and .enabledMcpjsonServers == ["supabase"]' >/dev/null ||
+	fail "hooks settings"
 mcp_config abcdefghijklmnopqrst | jq -e '.mcpServers.supabase.headers.Authorization == "Bearer ${SUPABASE_ACCESS_TOKEN}"' >/dev/null ||
 	fail "mcp config"
 ok "per-run hooks settings and MCP config are valid JSON"
@@ -79,6 +80,8 @@ ok "per-run hooks settings and MCP config are valid JSON"
 SID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 WORK=$(dev_workdir bob)
 mkdir -p "$WORK"
+# As run.sh does: the Supabase MCP server pinned in the workdir's .mcp.json.
+mcp_config abcdefghijklmnopqrst >"$WORK/.mcp.json"
 TP=$SCRATCH/transcripts/$SID.jsonl
 hook() {
 	MURETTO_HOME=$(dev_home bob) "$MURETTO_BIN" hook "$1"
@@ -92,15 +95,21 @@ jq -cn --arg s "$SID" --arg t "$TP" --arg c "$WORK" --arg q "$Q" '{
 	session_id:$s, transcript_path:$t, cwd:$c, hook_event_name:"PostToolUse",
 	prompt_id:"5d1f7e2a-0c3b-4e8f-b1a2-9c7d6e5f4a30", permission_mode:"dontAsk",
 	tool_name:"mcp__supabase__execute_sql",
-	tool_input:{project_id:"abcdefghijklmnopqrst", query:$q},
+	tool_input:{query:$q},
 	tool_response:[{type:"text", text:"{\"result\":\"[]\"}"}],
 	tool_use_id:"toolu_01FAKEselftest00000000000", duration_ms:5,
-	mcp_server:{name:"supabase", source:"dynamic"}}' | hook PostToolUse
+	mcp_server:{name:"supabase", source:"project"}}' | hook PostToolUse
 jq -cn --arg s "$SID" --arg t "$TP" --arg c "$WORK" \
 	'{session_id:$s, transcript_path:$t, cwd:$c, hook_event_name:"SessionEnd", reason:"other"}' | hook SessionEnd
 n=$(find "$(dev_home bob)/spool" -name '*.json' | wc -l | tr -d ' ')
 [ "$n" -ge 4 ] || fail "expected 4 spool files, found $n"
 ok "4 hook events spooled for bob ($n files in $(dev_home bob)/spool)"
+grep -l '"mcp_params":{"project_ref":"abcdefghijklmnopqrst"}' "$(dev_home bob)"/spool/*.json >/dev/null ||
+	fail "the hook did not record the pinned project_ref from .mcp.json"
+if grep -qE 'SUPABASE_ACCESS_TOKEN|mcp[.]supabase[.]com' "$(dev_home bob)"/spool/*.json; then
+	fail "the spool holds MCP config beyond the project_ref"
+fi
+ok "the hook recorded the project_ref pinned in .mcp.json, and nothing else from it"
 
 out=$(muretto_as bob sync now 2>&1) || fail "muretto sync now: $out"
 printf '%s' "$out" | grep -q 'Synced.' || fail "sync now said: $out"

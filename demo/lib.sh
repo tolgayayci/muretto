@@ -108,6 +108,15 @@ check_ref() {
 	printf '%s' "$1" | grep -Eq '^[a-z]{20}$' || die "'$1' is not a Supabase project ref (20 lowercase letters)"
 }
 
+# dev_ref <dev>: the test project <dev>'s session works in (carol and dan use
+# the second project when there is one).
+dev_ref() {
+	case $1 in
+	carol | dan) [ -z "$SUPABASE_PROJECT_REF_2" ] || { printf '%s' "$SUPABASE_PROJECT_REF_2" && return 0; } ;;
+	esac
+	printf '%s' "$SUPABASE_PROJECT_REF"
+}
+
 # project_refs prints the configured test project refs, one per line.
 project_refs() {
 	printf '%s\n' "$SUPABASE_PROJECT_REF"
@@ -455,11 +464,13 @@ setup_org() {
 }
 
 # hooks_settings prints the per-run --settings file: Muretto's hook events
-# (internal/claudecfg.Events) in exec form, pointing at the repo-built binary.
+# (internal/claudecfg.Events) in exec form, pointing at the repo-built binary,
+# and approval for the "supabase" server in each workdir's .mcp.json.
 hooks_settings() {
 	jq -n --arg bin "$MURETTO_BIN" '
 	  def h($e): {type:"command", command:$bin, args:["hook",$e], timeout:5};
-	  {hooks: {
+	  {enabledMcpjsonServers: ["supabase"],
+	   hooks: {
 	    SessionStart:       [{hooks:[h("SessionStart")]}],
 	    UserPromptSubmit:   [{hooks:[h("UserPromptSubmit")]}],
 	    PostToolUse:        [{matcher:"*", hooks:[h("PostToolUse")]}],
@@ -469,8 +480,11 @@ hooks_settings() {
 	  }}'
 }
 
-# mcp_config <ref>: the Supabase MCP server scoped to one test project. The
-# token is expanded by Claude Code from the environment, never written here.
+# mcp_config <ref>: a .mcp.json with the Supabase MCP server pinned to one
+# test project. It goes into the developer's workdir (project scope), so the
+# hook can read the pinned project_ref and Muretto can attribute (decision
+# 0905). The token is expanded by Claude Code from the environment, never
+# written here.
 mcp_config() {
 	jq -n --arg ref "$1" '{mcpServers: {supabase: {
 	  type: "http",

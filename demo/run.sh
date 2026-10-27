@@ -87,11 +87,8 @@ for d in $DEMO_DEVS; do
 done
 setup_org alice bob carol dan eve
 
-step "Writing the per-run hooks settings and MCP configs"
+step "Writing the per-run hooks settings"
 hooks_settings | write_file "$DEMO_RUN_DIR/hooks.json" 600
-for ref in $(project_refs); do
-	mcp_config "$ref" | write_file "$DEMO_RUN_DIR/mcp-$ref.json" 600
-done
 
 step "Preparing each developer's working directory and session id"
 for d in $DEMO_DEVS; do
@@ -103,6 +100,7 @@ for d in $DEMO_DEVS; do
 	fi
 	printf '%s\n' "$sid" | write_file "$DEMO_RUN_DIR/devs/$d/session-id" 600
 	run git init -q -b "demo/$d" "$work"
+	mcp_config "$(dev_ref "$d")" | write_file "$work/.mcp.json" 600
 	case $d in
 	alice) site=$work/demo-waitlist ;;
 	eve) site=$work/demo-landing-staging ;;

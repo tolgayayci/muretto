@@ -46,6 +46,16 @@ export interface SpoolRecord {
   tool_use_id?: string;
   mcp_server?: string;
   /**
+   * Where Claude Code loaded the MCP server from (mcp_server.source): project, local, user, dynamic, plugin, claudeai, ...
+   */
+  mcp_server_scope?: string;
+  /**
+   * Identifier query parameters (e.g. project_ref) of the MCP server's URL, read from Claude Code's MCP config for project, local and user scopes. Only allowlisted keys with short id-shaped values; never the URL, headers or env values.
+   */
+  mcp_params?: {
+    [k: string]: string;
+  };
+  /**
    * Redacted, size-capped copy of the tool input.
    */
   tool_input?: {

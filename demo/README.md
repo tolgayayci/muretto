@@ -57,8 +57,10 @@ What `run.sh` does, in order:
 2. Builds and starts `murettod` with `MURETTO_DEV_LOGIN=1` on `127.0.0.1:$DEMO_SERVER_PORT`, in-memory (stopping it clears all server data), and the dashboard on `localhost:$DEMO_WEB_PORT` with `MURETTO_API_URL` pointing at it.
 3. For each developer: their own `MURETTO_HOME` under `demo/.run/devs/<dev>/home`, a CLI token from the dev-only `POST /v1/dev/token` (stored 0600, local server only), `muretto init --yes --no-hooks` (connects the test accounts from `MURETTO_SUPABASE_TOKEN` / `MURETTO_VERCEL_TOKEN`), `sync.server` set to the local server, `muretto sync on --yes`.
 4. alice creates the team `DEMO_ORG_NAME`; bob, carol, dan and eve join with invites (dev cookie login + CSRF, the same API the dashboard uses).
-5. Writes `demo/.run/hooks.json` (Muretto's six hook events in exec form, pointing at the repo-built `bin/muretto`; passed with `--settings`, so your own Claude Code settings are never touched) and one Supabase MCP config per test project (`project_ref` scoped; the token is `${SUPABASE_ACCESS_TOKEN}`, expanded by Claude Code, never written to disk).
-6. Creates the tmux grid. Each pane runs `claude -p` with `--settings`, `--session-id`, `-n "<dev>: <task>"`, `--permission-mode dontAsk --allowedTools …` (only what that task needs), `--mcp-config … --strict-mcp-config`, `--max-budget-usd`, `--output-format stream-json --verbose --include-hook-events`, piped through `pretty.jq`. Never `--bare` (it would skip hooks).
+5. Writes `demo/.run/hooks.json` (Muretto's six hook events in exec form, pointing at the repo-built `bin/muretto`, plus `enabledMcpjsonServers: ["supabase"]`; passed with `--settings`, so your own Claude Code settings are never touched), and a `.mcp.json` in each developer's workdir with the Supabase MCP server pinned to that developer's test project (`?project_ref=<ref>`; the token is `"Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"`, expanded by Claude Code, never written to disk).
+6. Creates the tmux grid. Each pane runs `claude -p` in its workdir with `--settings`, `--session-id`, `-n "<dev>: <task>"`, `--permission-mode dontAsk --allowedTools …` (only what that task needs), `--max-budget-usd`, `--output-format stream-json --verbose --include-hook-events`, piped through `pretty.jq`. Never `--bare` (it would skip hooks).
+
+**Why `.mcp.json` and not `--mcp-config`.** A server pinned to one project takes no `project_id` in its tool calls, so Muretto learns the project from the server's config: the hook reads the server's `project_ref` from `.mcp.json` (project scope) and records only that (decision 0905). Claude Code doesn't say where a `--mcp-config` server came from (`source: "dynamic"`), so those sessions would show every Supabase resource as "creator unknown". Without `--strict-mcp-config`, your own user-scope MCP servers (from `~/.claude.json`) also load in the panes; `--allowedTools` still limits each agent to its task's tools, so they can't be called.
 
 Each developer's muretto reads only its own session's transcripts: `CLAUDE_CONFIG_DIR` for muretto points at `demo/.run/devs/<dev>/claude`, which holds a symlink to that developer's Claude Code project directory only. Without this, every developer would also pick up the other four sessions and your personal Claude Code history.
 
@@ -89,7 +91,7 @@ Since Oct 30, 2026, Supabase no longer grants new `public` tables to `anon`/`aut
 ## Unverified (check on the first real run)
 
 - `--allowedTools` permission rules with arguments (`Bash(vercel *)`) in `dontAsk` mode; the research verified exact tool names only.
-- `${SUPABASE_ACCESS_TOKEN}` expansion inside a file passed with `--mcp-config` (documented for `.mcp.json`).
+- `enabledMcpjsonServers` from a `--settings` file approving a workdir's `.mcp.json` server in `-p` mode (observed once in a live test, with `source: "project"` in the hook input).
 - The raw Storage API paths `POST /storage/v1/bucket/{id}/empty` and `DELETE /storage/v1/bucket/{id}` (from supabase storage-js; `docs/research/supabase.md` Q9 marks them unverified).
 - Whether the Vercel team settings page offers a team-wide default for deployment protection on your plan.
 - `GET /v10/projects?search=` matching by name prefix; `reset.sh` filters by the `demo-` prefix again anyway.

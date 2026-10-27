@@ -51,6 +51,8 @@ func TestStringRedacts(t *testing.T) {
 		{"stripe restricted", fake("rk_live_", 24), []string{fake("rk_live_", 24)}, nil},
 		{"aws access key", "id AKIA" + strings.ToUpper(fake("", 16)), []string{"AKIA" + strings.ToUpper(fake("", 16))}, []string{"id "}},
 		{"aws secret env", "AWS_SECRET_ACCESS_KEY=" + fake("", 40), []string{fake("", 40)}, []string{"AWS_SECRET_ACCESS_KEY="}},
+		{"quoted literal under a secret key", `{"password":"null"}`, []string{"null"}, []string{`"password":`}},
+		{"literal starting a longer secret", "password: true horse battery", []string{"horse", "battery"}, []string{"password:"}},
 		{"postgres url", "postgres://postgres:" + pw + "@db.abcdefghijklmnopqrst.supabase.co:5432/postgres",
 			[]string{pw, "postgres:" + pw}, []string{"postgres://", "@db.abcdefghijklmnopqrst.supabase.co:5432/postgres"}},
 		{"postgresql url with slash in password", "postgresql://u:" + pw + "/x@host/db", []string{pw}, []string{"postgresql://", "@host/db"}},
@@ -218,6 +220,11 @@ func TestStringKeepsIdentifiers(t *testing.T) {
 		"psql postgres://localhost:5432/app",
 		`{"input_tokens":2,"output_tokens":120,"cache_read_input_tokens":2000}`,
 		`{"token_type":"bearer","expires_in":3600}`,
+		// deploy_edge_function's result: a bare boolean under a jwt key must
+		// stay, or the JSON no longer parses and the function is lost.
+		`{"slug":"demo-hello","status":"ACTIVE","verify_jwt":true,"import_map":false}`,
+		`{"verify_jwt": false, "jwt_secret": null}`,
+		"VERIFY_JWT=true",
 		"Authorization required", // no separator: prose
 		"password reset email sent",
 		"NEXT_PUBLIC_SUPABASE_URL=https://abcdefghijklmnopqrst.supabase.co",

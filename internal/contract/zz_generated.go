@@ -662,8 +662,18 @@ type SpoolRecord struct {
 	// schema drift is visible.
 	ExtraKeys []string `json:"extra_keys,omitempty,omitzero"`
 
+	// Identifier query parameters (e.g. project_ref) of the MCP server's URL, read
+	// from Claude Code's MCP config for project, local and user scopes. Only
+	// allowlisted keys with short id-shaped values; never the URL, headers or env
+	// values.
+	McpParams SpoolRecordMcpParams `json:"mcp_params,omitempty,omitzero"`
+
 	// McpServer corresponds to the JSON schema field "mcp_server".
 	McpServer *string `json:"mcp_server,omitempty,omitzero"`
+
+	// Where Claude Code loaded the MCP server from (mcp_server.source): project,
+	// local, user, dynamic, plugin, claudeai, ...
+	McpServerScope *string `json:"mcp_server_scope,omitempty,omitzero"`
 
 	// SessionStart only, when Claude Code sends it.
 	Model *string `json:"model,omitempty,omitzero"`
@@ -711,6 +721,12 @@ type SpoolRecord struct {
 	// True when any field was cut to fit the size cap.
 	Truncated *bool `json:"truncated,omitempty,omitzero"`
 }
+
+// Identifier query parameters (e.g. project_ref) of the MCP server's URL, read
+// from Claude Code's MCP config for project, local and user scopes. Only
+// allowlisted keys with short id-shaped values; never the URL, headers or env
+// values.
+type SpoolRecordMcpParams map[string]string
 
 type SpoolRecordSpoolVersion float64
 

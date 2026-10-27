@@ -85,3 +85,19 @@ func TestClaudeConfigDir(t *testing.T) {
 		t.Errorf("override = %q, %v", d, err)
 	}
 }
+
+func TestClaudeGlobalConfig(t *testing.T) {
+	uh := t.TempDir()
+	t.Setenv("HOME", uh)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	f, err := ClaudeGlobalConfig()
+	if err != nil || f != filepath.Join(uh, ".claude.json") {
+		t.Errorf("default = %q, %v", f, err)
+	}
+	alt := filepath.Join(uh, "cc")
+	t.Setenv("CLAUDE_CONFIG_DIR", alt)
+	f, err = ClaudeGlobalConfig()
+	if err != nil || f != filepath.Join(alt, ".claude.json") {
+		t.Errorf("override = %q, %v", f, err)
+	}
+}
