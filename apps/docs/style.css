@@ -1,0 +1,550 @@
+/*
+ * Muretto docs theme: the Muretto Design System on top of Mintlify.
+ *
+ * Dark only. Warm stone neutrals, one accent (lime), and red reserved for
+ * "exposed" and nothing else. Token values mirror project/tokens.json in the
+ * design system; change them there first, then here.
+ *
+ * Mintlify loads every .css file in this folder on every page.
+ */
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+
+html:root {
+  color-scheme: dark;
+
+  --mu-surface: #0b0b0a;
+  --mu-surface-raised: #121211;
+  --mu-surface-sunken: #0e0e0c;
+  --mu-surface-hover: #1a1a17;
+  --mu-line: #24231f;
+  --mu-line-strong: #36352f;
+  --mu-control-line: #63625a;
+  --mu-ink: #edece6;
+  --mu-ink-muted: #a9a8a0;
+  --mu-ink-faint: #858479;
+  --mu-accent: #c8f169;
+  --mu-on-accent: #141a05;
+  --mu-accent-wash: #c8f16914;
+  --mu-accent-line: #c8f16952;
+  --mu-exposed: #ff6b61;
+  --mu-exposed-wash: #ff6b611f;
+  --mu-exposed-line: #ff6b616b;
+
+  --mu-term-bg: #0e0e0c;
+  --mu-term-line: #2c2b26;
+  --mu-term-chrome: #22211d;
+  --mu-term-ink: #d6d5cd;
+  --mu-term-bold: #f4f3ec;
+  --mu-term-dim: #8a897f;
+  --mu-code-key: #c8f169;
+  --mu-code-value: #bdbcb3;
+
+  --mu-radius-sm: 5px;
+  --mu-radius-md: 10px;
+  --mu-radius-lg: 12px;
+  --mu-radius-xl: 16px;
+  --mu-radius-2xl: 18px;
+
+  --mu-font-sans: Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mu-font-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Mintlify's gray scale, remapped onto the stone neutrals so every
+     built-in border, hover and muted text lands on a token. */
+  --gray-50: 248 247 242;
+  --gray-100: 244 243 236;
+  --gray-200: 237 236 230;
+  --gray-300: 214 213 205;
+  --gray-400: 169 168 160;
+  --gray-500: 133 132 121;
+  --gray-600: 99 98 90;
+  --gray-700: 54 53 47;
+  --gray-800: 36 35 31;
+  --gray-900: 26 26 23;
+  --gray-950: 18 18 17;
+}
+
+html.dark body {
+  background: var(--mu-surface);
+  color: var(--mu-ink-muted);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: #c8f16940;
+  color: var(--mu-ink);
+}
+
+/* Geist Mono for anything a developer would type or read in a terminal. */
+code,
+kbd,
+samp,
+pre,
+.font-mono {
+  font-family: var(--mu-font-mono) !important;
+}
+
+/* One focus ring for every control: 2px gap, then 2px of accent. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[role="link"]:focus-visible,
+[role="tab"]:focus-visible {
+  outline: 2px solid var(--mu-accent) !important;
+  outline-offset: 2px !important;
+}
+
+/* ---------- Navbar ---------- */
+
+#navbar {
+  border-color: var(--mu-line);
+}
+
+#search-bar-entry {
+  background: var(--mu-surface-raised);
+  border-radius: var(--mu-radius-md);
+  --tw-ring-color: var(--mu-line-strong) !important;
+  color: var(--mu-ink-faint);
+}
+
+#search-bar-entry:hover {
+  --tw-ring-color: var(--mu-control-line) !important;
+}
+
+#search-bar-entry [data-search-item="trigger-hint"] {
+  font-family: var(--mu-font-mono);
+  font-weight: 500;
+  color: var(--mu-ink-faint);
+}
+
+/* Primary button: accent fill, on-accent label, 10px corners. */
+#topbar-cta-button a > span:first-child {
+  background: var(--mu-accent);
+  border-radius: var(--mu-radius-md);
+}
+
+#topbar-cta-button a:hover > span:first-child {
+  opacity: 1;
+  filter: brightness(1.06);
+}
+
+#topbar-cta-button a .text-white,
+#topbar-cta-button a svg {
+  color: var(--mu-on-accent) !important;
+}
+
+#topbar-cta-button a {
+  font-weight: 600;
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar-group-header,
+.sidebar-title {
+  font-family: var(--mu-font-mono);
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mu-ink-faint) !important;
+}
+
+#navigation-items a {
+  border-radius: var(--mu-radius-md);
+}
+
+#navigation-items li:not([data-active="true"]) > a {
+  color: var(--mu-ink-muted);
+}
+
+#navigation-items li:not([data-active="true"]) > a:hover {
+  color: var(--mu-ink);
+  background: var(--mu-surface-hover);
+}
+
+#navigation-items li[data-active="true"] > a {
+  color: var(--mu-accent) !important;
+  background: var(--mu-accent-wash) !important;
+  font-weight: 500;
+  text-shadow: none !important;
+}
+
+/* ---------- Page header ---------- */
+
+#header .eyebrow {
+  font-family: var(--mu-font-mono);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--mu-accent) !important;
+}
+
+#page-title {
+  color: var(--mu-ink);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+/* The lede under the title. */
+#header .prose {
+  color: var(--mu-ink-muted);
+}
+
+#page-context-menu-button,
+#page-context-menu button {
+  background: var(--mu-surface-raised) !important;
+  border-color: var(--mu-line-strong) !important;
+  color: var(--mu-ink-muted) !important;
+}
+
+#page-context-menu-button {
+  border-radius: var(--mu-radius-md) 0 0 var(--mu-radius-md) !important;
+}
+
+#page-context-menu button:last-child {
+  border-radius: 0 var(--mu-radius-md) var(--mu-radius-md) 0 !important;
+}
+
+#page-context-menu button:hover {
+  background: var(--mu-surface-hover) !important;
+  color: var(--mu-ink) !important;
+}
+
+/* ---------- Content ---------- */
+
+#content-area .prose {
+  color: var(--mu-ink-muted);
+}
+
+#content-area .prose :is(h1, h2, h3, h4) {
+  color: var(--mu-ink);
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+#content-area .prose h2 {
+  letter-spacing: -0.025em;
+}
+
+#content-area .prose h3 {
+  letter-spacing: -0.015em;
+}
+
+#content-area .prose strong {
+  color: var(--mu-ink);
+}
+
+/* Links: ink with a quiet underline, accent on hover. */
+#content-area .prose a.link,
+#content-area .prose a:not([class]) {
+  color: var(--mu-ink);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mu-control-line);
+  text-decoration: none;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+#content-area .prose a.link:hover,
+#content-area .prose a:not([class]):hover {
+  color: var(--mu-accent);
+  border-bottom-color: var(--mu-accent);
+}
+
+/* Inline code: a small sunken chip. */
+#content-area :not(pre) > code {
+  font-size: 0.875em;
+  color: var(--mu-ink);
+  background: var(--mu-surface-hover);
+  border: 1px solid var(--mu-line);
+  border-radius: 6px;
+  padding: 0.12em 0.4em;
+}
+
+#content-area kbd {
+  font-size: 0.8em;
+  color: var(--mu-ink);
+  background: var(--mu-surface-raised);
+  border: 1px solid var(--mu-line-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--mu-radius-sm);
+  padding: 0.1em 0.4em;
+}
+
+#content-area .prose blockquote {
+  border-left-color: var(--mu-line-strong);
+  color: var(--mu-ink-muted);
+}
+
+#content-area .prose :is(ul, ol) > li::marker {
+  color: var(--mu-ink-faint);
+}
+
+#content-area .prose hr {
+  border-color: var(--mu-line);
+}
+
+/* Tables: bordered box, label-style headers. */
+#content-area .prose table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  border: 1px solid var(--mu-line-strong);
+  border-radius: var(--mu-radius-lg);
+  overflow: hidden;
+}
+
+#content-area .prose thead th {
+  font-family: var(--mu-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mu-ink-faint);
+  background: var(--mu-surface-raised);
+  border-bottom: 1px solid var(--mu-line-strong);
+  padding: 10px 14px;
+}
+
+#content-area .prose tbody td {
+  border-top: 1px solid var(--mu-line);
+  padding: 10px 14px;
+}
+
+#content-area .prose tbody tr:first-child td {
+  border-top: 0;
+}
+
+/* ---------- Code blocks: terminal windows ---------- */
+
+.code-block,
+.code-group {
+  border-radius: var(--mu-radius-xl) !important;
+  background: var(--mu-term-bg) !important;
+  --tw-ring-color: var(--mu-term-line) !important;
+}
+
+.code-block [data-component-part="code-block-root"],
+.code-group [data-component-part="code-block-root"],
+.code-block pre.shiki,
+.code-group pre.shiki {
+  background-color: var(--mu-term-bg) !important;
+  --shiki-dark-bg: var(--mu-term-bg) !important;
+}
+
+.code-block-fade-overlay {
+  --fade-color-dark: var(--mu-term-bg) !important;
+  --fade-color-light: var(--mu-term-bg) !important;
+}
+
+.code-block [data-component-part="code-block-root"],
+.code-group [data-component-part="code-block-root"] {
+  font-size: 14px;
+  line-height: 24px;
+}
+
+.code-block [data-floating-buttons] button {
+  background: var(--mu-surface-hover) !important;
+  border-radius: 8px;
+}
+
+/*
+ * Syntax colors. The CLI only prints bold, dim and red, so code reads like
+ * its output: plain text in term-ink, commands and keywords bold, keys in
+ * accent, values in code-value, comments dim. Red stays out of code.
+ * The selectors target the colors of the "dark" (dark-plus) Shiki theme
+ * set in docs.json; changing styling.codeblocks there breaks this map.
+ * Mintlify paints tokens with color: var(--shiki-dark), so we swap that
+ * variable rather than the color.
+ */
+.shiki { --shiki-dark: var(--mu-term-ink) !important; }
+.shiki span[style*="--shiki-dark:#D4D4D4" i] { --shiki-dark: var(--mu-term-ink) !important; }
+.shiki span[style*="--shiki-dark:#DCDCAA" i],
+.shiki span[style*="--shiki-dark:#C586C0" i],
+.shiki span[style*="--shiki-dark:#4EC9B0" i],
+.shiki span[style*="--shiki-dark:#4FC1FF" i] { --shiki-dark: var(--mu-term-bold) !important; }
+.shiki span[style*="--shiki-dark:#9CDCFE" i],
+.shiki span[style*="--shiki-dark:#569CD6" i] { --shiki-dark: var(--mu-code-key) !important; }
+.shiki span[style*="--shiki-dark:#CE9178" i],
+.shiki span[style*="--shiki-dark:#B5CEA8" i],
+.shiki span[style*="--shiki-dark:#D7BA7D" i],
+.shiki span[style*="--shiki-dark:#D16969" i] { --shiki-dark: var(--mu-code-value) !important; }
+.shiki span[style*="--shiki-dark:#6A9955" i],
+.shiki span[style*="--shiki-dark:#808080" i] { --shiki-dark: var(--mu-term-dim) !important; }
+.shiki span[style*="--shiki-dark:#F44747" i] { --shiki-dark: var(--mu-term-ink) !important; }
+
+/* ---------- Callouts ---------- */
+
+/* Flat raised panels. No tinted grounds and no red: red means exposed. */
+.callout[data-callout-type] {
+  background: var(--mu-surface-raised) !important;
+  border-color: var(--mu-line) !important;
+  border-radius: var(--mu-radius-lg) !important;
+}
+
+.callout[data-callout-type] [data-component-part="callout-content"] {
+  color: var(--mu-ink-muted) !important;
+}
+
+.callout[data-callout-type] [data-component-part="callout-content"] :is(strong, code, a) {
+  color: var(--mu-ink) !important;
+}
+
+.callout[data-callout-type] [data-component-part="callout-icon"] svg {
+  color: var(--mu-accent) !important;
+}
+
+.callout[data-callout-type="warning"],
+.callout[data-callout-type="danger"] {
+  border-color: var(--mu-line-strong) !important;
+}
+
+.callout[data-callout-type="danger"] {
+  border-color: var(--mu-control-line) !important;
+}
+
+.callout[data-callout-type="warning"] [data-component-part="callout-icon"] svg,
+.callout[data-callout-type="danger"] [data-component-part="callout-icon"] svg {
+  color: var(--mu-ink) !important;
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+  background: var(--mu-surface-raised) !important;
+  border-color: var(--mu-line) !important;
+  border-radius: var(--mu-radius-2xl) !important;
+  transition: border-color 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--mu-control-line) !important;
+}
+
+/* Feature tile: the icon in accent on an accent-wash square. */
+.card [data-component-part="card-icon"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 11px;
+  background: var(--mu-accent-wash);
+}
+
+.card [data-component-part="card-icon"] > svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.card [data-component-part="card-title"] {
+  color: var(--mu-ink) !important;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.card [data-component-part="card-content"] {
+  color: var(--mu-ink-muted) !important;
+  font-size: 15px;
+}
+
+/* ---------- Accordions ---------- */
+
+details.accordion,
+.accordion-group {
+  background: var(--mu-surface-raised) !important;
+  border-color: var(--mu-line) !important;
+  border-radius: var(--mu-radius-lg) !important;
+}
+
+.accordion-group > details.accordion {
+  border-radius: 0 !important;
+}
+
+.accordion-group > :not(:first-child) {
+  border-color: var(--mu-line) !important;
+}
+
+[data-component-part="accordion-button"]:hover {
+  background: var(--mu-surface-hover) !important;
+}
+
+[data-component-part="accordion-title"] {
+  color: var(--mu-ink) !important;
+}
+
+/* ---------- API fields ---------- */
+
+[data-component-part="field-info-pill"],
+[data-component-part="field-required-pill"] {
+  font-family: var(--mu-font-mono);
+  background: transparent !important;
+  color: var(--mu-ink-muted) !important;
+  box-shadow: inset 0 0 0 1px var(--mu-line-strong);
+  border-radius: var(--mu-radius-sm) !important;
+}
+
+/* "required" is a fact, not a warning: neutral outline, never red. */
+[data-component-part="field-required-pill"] {
+  color: var(--mu-ink) !important;
+  box-shadow: inset 0 0 0 1px var(--mu-control-line);
+}
+
+/* ---------- Steps ---------- */
+
+[data-component-part="step-indicator"] {
+  background: var(--mu-accent) !important;
+  color: var(--mu-on-accent) !important;
+  font-family: var(--mu-font-mono);
+  font-weight: 600;
+}
+
+[data-component-part="step-line"] {
+  background: var(--mu-line-strong) !important;
+}
+
+[data-component-part="step-title"] {
+  color: var(--mu-ink) !important;
+}
+
+/* ---------- Table of contents ---------- */
+
+[data-layout-item="toc-title"] {
+  font-family: var(--mu-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mu-ink-faint);
+}
+
+#table-of-contents-content a:not([data-active="true"]) {
+  color: var(--mu-ink-faint);
+}
+
+#table-of-contents-content a:not([data-active="true"]):hover {
+  color: var(--mu-ink);
+}
+
+/* ---------- Pagination and footer ---------- */
+
+#pagination a {
+  color: var(--mu-ink);
+}
+
+#pagination a:hover {
+  color: var(--mu-accent);
+}
+
+#footer {
+  border-color: var(--mu-line) !important;
+}
