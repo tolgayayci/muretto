@@ -198,6 +198,10 @@ func writeNew(path string, data []byte, force bool) error {
 	if _, err := os.Stat(path); err == nil && !force {
 		return fmt.Errorf("%s exists; pass --force to overwrite it", path)
 	}
+	// -o adapters/<provider>/adapter.yaml creates the provider's folder.
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return err
+	}
 	return os.WriteFile(path, data, 0o600)
 }
 
