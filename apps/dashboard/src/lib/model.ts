@@ -1,6 +1,6 @@
 // Derives everything the dashboard shows from one Answer (the same computed
 // model the CLI renders). Pure functions: no I/O, the clock is passed in.
-import type { Answer, Attribution, Evidence, ExposureFinding, Fix, ProviderCheck, Resource, ReviewItem, Session, Warning } from "@/contract";
+import type { Answer, Attribution, Evidence, ExposureFinding, ProviderCheck, Resource, ReviewItem, Session, Warning } from "@/contract";
 
 const DAY = 86_400_000;
 
@@ -21,7 +21,8 @@ export interface Finding {
   title: string;
   explanation: string;
   caveat?: string;
-  fix: Fix;
+  /** How Muretto knows: the provider's advisor, an API field, a catalog query or a name pattern. */
+  signal: ExposureFinding["signal"];
   checkedAt?: Date;
   /** One plain sentence: what anyone on the internet can do. */
   what: string;
@@ -186,7 +187,7 @@ function finding(f: ExposureFinding): Finding {
     title: f.title,
     explanation: f.explanation,
     caveat: f.caveat,
-    fix: f.fix,
+    signal: f.signal,
     checkedAt: date(f.checked_at),
     what: plain.what,
     why: plain.why,
@@ -445,8 +446,8 @@ export function problems(m: Model): Problem[] {
   }
   for (const w of m.warnings) {
     if (w.code === "check_failed") continue;
-    const command = w.fix?.startsWith("muretto ") ? w.fix : undefined;
-    out.push({ code: w.code, title: w.message, text: command ? WARNING_HINT[w.code] ?? "" : w.fix ?? "", command });
+    const command = w.hint?.startsWith("muretto ") ? w.hint : undefined;
+    out.push({ code: w.code, title: w.message, text: command ? WARNING_HINT[w.code] ?? "" : w.hint ?? "", command });
   }
   const seen = new Set<string>();
   return out.filter((p) => (seen.has(p.title) ? false : (seen.add(p.title), true)));

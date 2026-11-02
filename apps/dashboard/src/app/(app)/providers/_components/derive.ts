@@ -181,7 +181,7 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Failing checks grouped by account and error, with a plain explanation and the fix. */
+/** Failing checks grouped by account and error, with a plain explanation and what to check. */
 export function checkProblems(m: Model, name: (provider: string) => string): CheckProblem[] {
   const out: CheckProblem[] = [];
   const sameProvider = (p: string) => m.checks.filter((g) => g.provider === p).length > 1;

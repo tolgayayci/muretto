@@ -184,9 +184,9 @@ function headline(machines: MachineView[], stale: MachineView[]): { title: strin
 
 function StaleBox({ stale }: { stale: MachineView[] }) {
   return (
-    <section aria-labelledby="fix-h" className="m-list" style={{ background: "var(--surface-raised)" }}>
+    <section aria-labelledby="setup-h" className="m-list" style={{ background: "var(--surface-raised)" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
-        <h2 id="fix-h" style={h2}>
+        <h2 id="setup-h" style={h2}>
           {stale.length === 1 ? "1 machine hasn't synced lately" : `${stale.length} machines haven't synced lately`}
         </h2>
         <span className="m-note-mono">until then, {stale.length === 1 ? "its" : "their"} sessions here may be out of date</span>

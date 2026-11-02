@@ -9,7 +9,7 @@ import { loadModel } from "@/lib/data";
 import { age, ago, clock, day, when } from "@/lib/format";
 import { linkText, safeUrl } from "@/lib/links";
 import { resourceById, type Finding, type Model, type Res } from "@/lib/model";
-import { CopyButton, DecideButtons } from "../_components/client";
+import { DecideButtons } from "../_components/client";
 import { failingGroup } from "../_components/lib";
 import s from "../_components/resources.module.css";
 
@@ -151,41 +151,40 @@ function StatusMark({ r, waiting }: { r: Res; waiting: boolean }) {
   return null;
 }
 
+function signalLine(f: Finding, r: Res): string {
+  const p = providerName(r.provider);
+  if (f.signal === "official_advisor") return `${p}'s own security advisor flags it`;
+  if (f.signal === "catalog_query") return `a read-only query of the ${p} catalog`;
+  if (f.signal === "name_pattern") return "the name looks like a secret";
+  return `${p}'s API reports it`;
+}
+
 function FindingCard({ f, r, m }: { f: Finding; r: Res; m: Model }) {
-  const text = f.explanation && f.explanation !== f.title ? f.explanation : `${f.what} ${f.why}`;
-  const code = f.fix.kind === "sql" || f.fix.kind === "command";
-  const docs = safeUrl(f.fix.docs_url);
+  const extra = f.explanation && f.explanation !== f.title ? f.explanation : undefined;
+  const facts: [string, string][] = [
+    ["who can reach it", f.what],
+    ["why", f.why],
+    ["how Muretto knows", signalLine(f, r)],
+    ...(f.caveat ? ([["what it can't see", f.caveat]] as [string, string][]) : []),
+  ];
   return (
     <section aria-labelledby={`f-${f.id}`} style={card}>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <h2 id={`f-${f.id}`} style={h2}>
           {f.title}
         </h2>
-        <p style={body}>{text}</p>
+        {extra ? <p style={body}>{extra}</p> : null}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 30 }}>
-          <span style={{ fontSize: 14, fontWeight: 500 }}>How to close it</span>
-          {code ? <CopyButton text={f.fix.text} label={f.fix.kind === "sql" ? "Copy SQL" : "Copy"} /> : null}
-        </div>
-        {code ? (
-          <code style={{ display: "block", padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)", font: "13.5px/1.6 var(--font-mono)", color: "var(--ink)", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{f.fix.text}</code>
-        ) : (
-          <p style={{ margin: 0, padding: "14px 16px", border: "1px solid var(--line)", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)", fontSize: 14.5, lineHeight: "22px", color: "var(--ink)" }}>{f.fix.text}</p>
-        )}
-        <span style={{ fontSize: 14, lineHeight: "21px", color: "var(--ink-faint)" }}>
-          {f.fix.note ? `${f.fix.note} ` : ""}
-          {code ? "Muretto never runs this for you." : "Muretto never changes this for you."}
-        </span>
-        {f.caveat ? <span style={{ fontSize: 14, lineHeight: "21px", color: "var(--ink-faint)" }}>Muretto can&apos;t see everything here: {f.caveat}</span> : null}
-      </div>
+      <dl style={{ margin: 0, display: "flex", flexDirection: "column", border: "1px solid var(--line)", borderRadius: "var(--radius-md)", background: "var(--surface-sunken)" }}>
+        {facts.map(([k, v], i) => (
+          <div key={k} className={s.fact} style={{ borderTop: i ? "1px solid var(--line)" : 0 }}>
+            <dt style={{ font: "12.5px/22px var(--font-mono)", color: "var(--ink-faint)" }}>{k}</dt>
+            <dd style={{ margin: 0, fontSize: 14.5, lineHeight: "22px", color: "var(--ink)" }}>{v}</dd>
+          </div>
+        ))}
+      </dl>
       <div style={foot}>
         <span>{f.checkedAt ? `checked ${ago(f.checkedAt, m.now)}` : "not checked yet"}</span>
-        {docs ? (
-          <a href={docs} target="_blank" rel="noopener noreferrer" style={{ color: "var(--ink-muted)" }}>
-            {providerName(r.provider)} docs →
-          </a>
-        ) : null}
       </div>
     </section>
   );
@@ -223,7 +222,7 @@ function StatusCard({ r, m }: { r: Res; m: Model }) {
     tone = "m-tile";
     icon = <Icon name="x" size={16} />;
     title = `Gone from ${providerName(r.provider)}.`;
-    text = `Muretto last saw it ${ago(r.lastSeenAt, m.now)}. Nothing to close or decide.`;
+    text = `Muretto last saw it ${ago(r.lastSeenAt, m.now)}. Nothing left to decide.`;
   } else if (r.existence === "unconfirmed") {
     tone = "m-tile dashed";
     icon = <Icon name="question" size={16} />;

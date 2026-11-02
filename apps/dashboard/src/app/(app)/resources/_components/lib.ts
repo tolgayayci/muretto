@@ -189,7 +189,7 @@ export function ruleShort(ruleId: string): string | undefined {
 }
 
 export type Tone = "open" | "wait" | "dash" | "quiet";
-export type Action = "close" | "decide" | "link" | "age";
+export type Action = "details" | "decide" | "link" | "age";
 
 export interface RowStatus {
   tone: Tone;
@@ -201,7 +201,7 @@ export interface RowStatus {
 
 export function rowStatus(r: Res, waiting: boolean): RowStatus {
   if (r.existence === "gone") return { tone: "quiet", label: r.goneAt ? `gone ${day(r.goneAt)}` : "gone", action: "age" };
-  if (r.open.length) return { tone: "open", label: "Open to anyone", action: "close" };
+  if (r.open.length) return { tone: "open", label: "Open to anyone", action: "details" };
   if (r.cantTell.length) return { tone: "dash", label: "can't tell", action: "link" };
   if (waiting) return { tone: "wait", label: `Waiting · ${r.ageDays} d`, action: "decide" };
   if (r.existence === "unconfirmed") return { tone: "dash", label: "unconfirmed", action: "age" };

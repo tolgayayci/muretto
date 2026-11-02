@@ -185,7 +185,7 @@ export function IssueCard({ r, m, compact = false }: { r: Res; m: Model; compact
         {s ? <SessionAvatar id={s.id} agent={s.agent} size={22} /> : null}
         <span style={{ font: "12.5px var(--font-mono)", color: "var(--ink-faint)", whiteSpace: "nowrap" }}>{s ? `${s.short} · ${shortWhen(r.createdAt ?? r.firstSeenAt, m.now)}` : "origin unknown"}</span>
         <Link href={`/resources/${encodeURIComponent(r.id)}`} className="m-stretch m-go" style={{ marginLeft: "auto", fontSize: 13.5, fontWeight: 500, color: "var(--accent)", whiteSpace: "nowrap" }}>
-          How to close it →
+          See details →
         </Link>
       </span>
     </div>
@@ -217,7 +217,7 @@ export function CantTellCard({ r, m }: { r: Res; m: Model }) {
       </span>
       <span style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 9, paddingTop: 14, borderTop: "1px dashed var(--line-strong)" }}>
         <span style={{ font: "12.5px var(--font-mono)", color: "var(--ink-faint)" }}>last seen {ago(last, m.now)}</span>
-        <span style={{ marginLeft: "auto", fontSize: 13.5, fontWeight: 500 }}>Fix the check →</span>
+        <span style={{ marginLeft: "auto", fontSize: 13.5, fontWeight: 500 }}>See details →</span>
       </span>
     </Link>
   );
@@ -277,10 +277,10 @@ export function ResourceRow({ r, sub, end, href = true }: { r: Res; sub?: ReactN
 export function ProblemBox({ problems, title }: { problems: Problem[]; title?: string }) {
   if (!problems.length) return null;
   return (
-    <section aria-labelledby="fix-h" className="m-list" style={{ background: "var(--surface-raised)" }}>
+    <section aria-labelledby="setup-h" className="m-list" style={{ background: "var(--surface-raised)" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
-        <h2 id="fix-h" style={{ margin: 0, fontSize: 17, lineHeight: "22px", fontWeight: 600 }}>
-          {title ?? (problems.length === 1 ? "1 thing to fix in your setup" : `${problems.length} things to fix in your setup`)}
+        <h2 id="setup-h" style={{ margin: 0, fontSize: 17, lineHeight: "22px", fontWeight: 600 }}>
+          {title ?? (problems.length === 1 ? "1 thing to check in your setup" : `${problems.length} things to check in your setup`)}
         </h2>
         <span className="m-note-mono">until then, some of this page is out of date</span>
       </div>

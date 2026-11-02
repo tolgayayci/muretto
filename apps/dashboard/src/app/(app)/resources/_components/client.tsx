@@ -1,29 +1,8 @@
 "use client";
 
-// Interactive bits of the resource page: copy the fix, and Keep / Not needed as two big buttons.
-import { useEffect, useRef, useState, useTransition } from "react";
+// Interactive bit of the resource page: Keep / Not needed as two big buttons.
+import { useState, useTransition } from "react";
 import { decide } from "@/app/(app)/actions";
-
-export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // Clipboard can be blocked; the text is still on the page to copy by hand.
-    }
-    setCopied(true);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), 1600);
-  }
-  return (
-    <button type="button" onClick={copy} style={{ height: 30, padding: "0 12px", borderRadius: 8, border: "1px solid var(--control-line)", background: "var(--surface)", color: "var(--ink-muted)", font: "500 12.5px var(--font-sans)", cursor: "pointer" }}>
-      {copied ? "Copied" : label}
-    </button>
-  );
-}
 
 type State = "keep" | "not_needed" | "pending";
 

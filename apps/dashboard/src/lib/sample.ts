@@ -110,12 +110,6 @@ function att(r: Resource, session?: Session, evidence: Evidence[] = []): Attribu
   return { resource_id: r.id, label: "exact", session_id: session.id, rule_id: "id_in_result", reason: "the agent's own call returned it", evidence, computed_at: minutesAgo(3) };
 }
 
-const FIX: Record<string, ExposureFinding["fix"]> = {
-  rls_disabled: { kind: "sql", text: "alter table public.{name} enable row level security;", note: "Then add a policy for the rows your app should read." },
-  public_bucket: { kind: "sql", text: "update storage.buckets set public = false where id = '{name}';", note: "Serve files with signed URLs instead." },
-  public_preview: { kind: "steps", text: "Vercel → Project → Settings → Deployment Protection → turn on Vercel Authentication for previews." },
-  client_exposed_env: { kind: "steps", text: "Rename the variable without the NEXT_PUBLIC_ prefix and read it only on the server, then rotate the key." },
-};
 const TITLE: Record<string, string> = {
   rls_disabled: "RLS off: public.{name} is publicly readable",
   public_bucket: "Public bucket: {name}",
@@ -134,7 +128,6 @@ function find(r: Resource, rule: string, state: ExposureFinding["state"] = "expo
     severity: SEVERITY[rule],
     title: fill(TITLE[rule]),
     explanation: fill(TITLE[rule]),
-    fix: { ...FIX[rule], text: fill(FIX[rule].text) },
     checked_at: state === "unknown" ? undefined : checkedAt,
     signal: rule === "rls_disabled" ? "official_advisor" : "api_field",
   };
@@ -319,8 +312,8 @@ function problemStory(): Built {
   b.findings = b.findings.map((f) => (f.resource_id.startsWith("vercel.") ? { ...f, state: "unknown", checked_at: undefined } : f));
   b.resources = b.resources.map((r) => (r.name === "process-import" ? { ...r, existence: "unconfirmed", seen_via: "evidence" } : r));
   b.warnings = [
-    { code: "stale_data", message: "alice's Mac mini hasn't synced in 2 days", fix: "Wake it up, or check that sync is on there." },
-    { code: "hooks_not_installed", message: "Claude Code hooks are off on alice's Mac mini", fix: "muretto init" },
+    { code: "stale_data", message: "alice's Mac mini hasn't synced in 2 days", hint: "Wake it up, or check that sync is on there." },
+    { code: "hooks_not_installed", message: "Claude Code hooks are off on alice's Mac mini", hint: "muretto init" },
   ];
   return b;
 }

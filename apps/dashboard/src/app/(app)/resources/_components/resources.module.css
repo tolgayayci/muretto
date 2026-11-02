@@ -38,7 +38,7 @@
 .dash { padding: 3px 8px; border: 1px dashed var(--control-line); border-radius: 6px; font: 500 11.5px var(--font-mono); color: var(--ink-muted); white-space: nowrap; }
 .quiet { font: 12.5px var(--font-mono); color: var(--ink-faint); white-space: nowrap; }
 .act { display: flex; justify-content: flex-end; min-width: 0; }
-.close { font-size: 13.5px; font-weight: 500; color: var(--accent); white-space: nowrap; }
+.details { font-size: 13.5px; font-weight: 500; color: var(--accent); white-space: nowrap; }
 .link { font-size: 13.5px; font-weight: 500; color: var(--ink); white-space: nowrap; }
 .more { display: flex; align-items: center; justify-content: space-between; height: 48px; padding: 0 20px; font: 13.5px var(--font-sans); color: var(--ink-muted); }
 .more:hover { background: var(--surface-hover); color: var(--ink); }
@@ -65,3 +65,7 @@
 .detail { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr); gap: 24px; align-items: stretch; }
 .detail > * > :last-child { flex-grow: 1; }
 @media (max-width: 1100px) { .detail { grid-template-columns: minmax(0, 1fr); } }
+
+/* A finding's facts: label beside value, stacked on phones */
+.fact { display: grid; grid-template-columns: minmax(120px, 160px) minmax(0, 1fr); gap: 16px; padding: 12px 16px; }
+@media (max-width: 560px) { .fact { grid-template-columns: minmax(0, 1fr); gap: 2px; } }

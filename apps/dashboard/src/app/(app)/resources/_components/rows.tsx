@@ -78,9 +78,9 @@ export function ResourceLine({ r, m, waiting, border = true }: { r: Res; m: Mode
         ) : null}
       </span>
       <span className={s.act}>
-        {st.action === "close" ? (
-          <Link href={resourceHref(r)} className={s.close}>
-            How to close it →
+        {st.action === "details" ? (
+          <Link href={resourceHref(r)} className={s.details}>
+            See details →
           </Link>
         ) : st.action === "decide" ? (
           <KeepToggle resourceId={r.id} state="pending" />

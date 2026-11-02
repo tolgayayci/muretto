@@ -8,7 +8,6 @@ import { CantTellCard, Count, OpenLink, Section } from "@/components/ui";
 import { CommandChip, KeepToggle } from "@/components/client";
 import { ago, age, clock, day, duration, plural, severitySummary, word } from "@/lib/format";
 import type { Model, Res } from "@/lib/model";
-import { CopyButton } from "./copy-button";
 import { creatingCalls, groupByProject, joinAnd, kindSummary, madeBy, notCheckedYet, rowSub, shortStamp, stamp, type Facts } from "./derive";
 import css from "./session.module.css";
 
@@ -132,10 +131,9 @@ export function Stats({ m, f }: { m: Model; f: Facts }) {
 
 // ---------------------------------------------------------- open to anyone
 
-function FixCard({ r, m }: { r: Res; m: Model }) {
+function OpenCard({ r, m }: { r: Res; m: Model }) {
   const f = r.open[0];
   const by = madeBy(r);
-  const code = f.fix.kind !== "steps";
   return (
     <div className="m-card" style={{ display: "flex", flexDirection: "column", gap: 16, padding: 20 }}>
       <span style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -158,19 +156,7 @@ function FixCard({ r, m }: { r: Res; m: Model }) {
         <span style={{ fontSize: 16, lineHeight: "22px", fontWeight: 600 }}>{f.what}</span>
         <span style={{ fontSize: 14, lineHeight: "21px", color: "var(--ink-muted)" }}>{f.why}</span>
       </span>
-      <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 10, padding: 14, border: "1px solid var(--line)", borderRadius: "var(--radius-lg)", background: "var(--surface-sunken)" }}>
-        <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 28 }}>
-          <span style={{ font: "500 12.5px var(--font-mono)", color: "var(--accent)" }}>How to close it</span>
-          {code ? <CopyButton text={f.fix.text} /> : null}
-        </span>
-        {code ? (
-          <code style={{ font: "12.5px/19px var(--font-mono)", color: "var(--ink)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{f.fix.text}</code>
-        ) : (
-          <span style={{ fontSize: 13.5, lineHeight: "20px", color: "var(--ink)" }}>{f.fix.text}</span>
-        )}
-        {f.fix.note ? <span style={{ fontSize: 12.5, lineHeight: "18px", color: "var(--ink-faint)" }}>{f.fix.note}</span> : null}
-      </div>
-      <span style={{ display: "flex", alignItems: "center", gap: 9, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+      <span style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 9, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
         <span style={{ ...mono(), overflowWrap: "anywhere", minWidth: 0 }}>{by ? `made ${shortStamp(by.at, m.now)} · ${by.short}` : `made ${shortStamp(r.createdAt ?? r.firstSeenAt, m.now)}`}</span>
         <Link href={`/resources/${encodeURIComponent(r.id)}`} style={{ marginLeft: "auto", fontSize: 13.5, fontWeight: 500, color: "var(--ink-muted)", whiteSpace: "nowrap" }}>
           Details →
@@ -216,10 +202,10 @@ export function OpenSection({ m, f }: { m: Model; f: Facts }) {
   // No half-empty rows: two or four cards sit in two columns.
   const grid = n === 2 || n === 4 ? "m-grid-2" : n === 1 ? "" : "m-grid-3";
   return (
-    <Section title="Open to anyone" id="open-h" note="Muretto never changes them. You run the fix.">
+    <Section title="Open to anyone" id="open-h" note="Muretto only reads. It never changes them.">
       <div className={grid} style={n === 1 ? { maxWidth: 560 } : undefined}>
         {f.open.map((r) => (
-          <FixCard key={r.id} r={r} m={m} />
+          <OpenCard key={r.id} r={r} m={m} />
         ))}
         {f.cantTell.map((r) => (
           <CantTellCard key={r.id} r={r} m={m} />
@@ -289,7 +275,7 @@ export function NothingMade({ m, f }: { m: Model; f: Facts }) {
           <span style={{ fontSize: 14.5, lineHeight: "22px", color: "var(--ink-muted)" }}>
             {s.live
               ? "Muretto hasn't seen a call create a table, bucket, function, branch, preview or env var yet."
-              : "Muretto saw no call create a table, bucket, function, branch, preview or env var. There is nothing here to review or close."}
+              : "Muretto saw no call create a table, bucket, function, branch, preview or env var. There is nothing here to review."}
           </span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: 28 }}>
@@ -505,7 +491,7 @@ function ResCard({ r, m }: { r: Res; m: Model }) {
         </span>
         {r.status === "open" ? (
           <Link href={`/resources/${encodeURIComponent(r.id)}`} style={{ marginLeft: "auto", fontSize: 13.5, fontWeight: 500, color: "var(--ink-muted)", whiteSpace: "nowrap" }}>
-            How to close it →
+            See details →
           </Link>
         ) : null}
       </span>

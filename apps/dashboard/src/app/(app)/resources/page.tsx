@@ -125,7 +125,7 @@ export default async function ResourcesPage({ searchParams }: { searchParams: Pr
       {empty ? null : (
         <p style={{ margin: 0, display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, lineHeight: "20px", color: "var(--ink-faint)" }}>
           <Icon name="lock" size={15} />
-          Muretto only reads. To remove something, delete it at the provider.
+          Muretto only reads. Changes happen at the provider.
         </p>
       )}
     </div>

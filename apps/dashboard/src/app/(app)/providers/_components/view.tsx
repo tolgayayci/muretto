@@ -210,9 +210,9 @@ function ProviderGrid({ m }: { m: Model }) {
 
 function ProblemList({ problems, failing }: { problems: CheckProblem[]; failing: number }) {
   return (
-    <section aria-labelledby="fix-h" className="m-list" style={{ background: "var(--surface-raised)" }}>
+    <section aria-labelledby="setup-h" className="m-list" style={{ background: "var(--surface-raised)" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px 20px", borderBottom: "1px solid var(--line)" }}>
-        <h2 id="fix-h" style={{ margin: 0, fontSize: 17, lineHeight: "22px", fontWeight: 600 }}>
+        <h2 id="setup-h" style={{ margin: 0, fontSize: 17, lineHeight: "22px", fontWeight: 600 }}>
           {failing === 1 ? "1 check didn't work" : `${failing} checks didn't work`}
         </h2>
         <span className="m-note-mono">what they cover shows as can&apos;t tell</span>
