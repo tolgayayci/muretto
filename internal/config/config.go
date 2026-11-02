@@ -23,7 +23,7 @@ import (
 const Version = 1
 
 // DefaultSyncServer is used when sync.server is empty.
-const DefaultSyncServer = "https://api.muretto.dev"
+const DefaultSyncServer = "https://api.muretto.ai"
 
 // Config is the whole config.json.
 type Config struct {
