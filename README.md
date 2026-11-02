@@ -76,14 +76,34 @@ Read the full model, including what your tokens can do, in [`docs/SECURITY.md`](
 |---|---|---|
 | **Supabase** | projects, branches, edge functions, storage buckets; tables (agent-created and advisor-flagged, or all of them with an opt-in) | schemas, views, secrets (names), custom domains, read replicas, queues, cron jobs, webhooks, vector buckets |
 | **Vercel** | projects, deployments (preview URLs), domains, env var names | aliases, custom environments, Global Config, sandboxes, webhooks, drains |
+| **GitHub** ¹ | repos, Pages sites, repo and org webhooks, deploy keys, environments, Actions variable names, org app installations | rulesets, secret scanning settings, Codespaces |
+| **Cloudflare** ¹ | R2 buckets and custom domains, Workers, Pages projects and deployments, D1, KV, zones, DNS records, tunnels and their routes | Pages preview protection, dangling DNS, jurisdiction-scoped R2 |
+| **Neon** ¹ | projects, branches, computes, databases (with Data API state), roles | API keys, snapshots |
+| **Stripe** ¹ | webhook endpoints, products, prices, payment links, billing portal configurations; live and test as separate accounts | event destinations, Connect accounts |
+| **Render** ¹ | services, Postgres, Key Value, custom domains, Blueprints, env groups (opt-in) | deploys, env vars, secret files |
+| **PlanetScale** ¹ | databases, branches, passwords, Postgres roles, deploy requests | backups, IP restrictions, webhooks |
 
-Exposure checks: tables readable with the public key (via Supabase's own security advisor), public buckets, public preview deployments, and client-exposed env vars that look secret. Run `muretto providers --coverage` for the live matrix.
+¹ Built against each provider's documented API and tested offline. Not yet verified against a live account.
+
+Exposure checks:
+- **Supabase:** tables readable with the public key (via Supabase's own security advisor), public buckets.
+- **Vercel:** public preview deployments, client-exposed env vars that look secret.
+- **GitHub:** public repos, public Pages on private repos, webhooks without SSL verification, writable deploy keys.
+- **Cloudflare:** public r2.dev buckets, Workers on workers.dev, tunnels routed to localhost or admin ports.
+- **Neon:** databases exposed through the Data API.
+- **Stripe:** live webhooks pointed at temporary preview or tunnel hosts.
+- **Render:** Postgres and Key Value open to 0.0.0.0/0.
+- **PlanetScale:** admin passwords that never expire, production branches without safe migrations.
+
+Run `muretto providers --coverage` for the live matrix.
 
 Agents: Claude Code.
 
 ## Write an adapter
 
 Every provider is a declarative, read-only YAML file in [`adapters/`](adapters/). Adding one needs no Go: one YAML file, sanitized fixtures and test cases. Start with [`docs/WRITING_AN_ADAPTER.md`](docs/WRITING_AN_ADAPTER.md) and [`adapters/template.yaml`](adapters/template.yaml).
+
+Have an OpenAPI file? `muretto adapter new openapi.json` drafts the adapter for you (Swagger 2.0 and OpenAPI 3.0–3.2), and `muretto adapter install` uses it on your machine.
 
 ## Team dashboard
 
