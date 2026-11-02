@@ -1,0 +1,71 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "0123456789abcdef0123456789abcd21",
+      "name": "example-api",
+      "created_on": "2026-10-31T10:00:00Z",
+      "updated_on": "2026-10-31T10:00:00Z",
+      "deployed_on": "2026-10-31T10:00:00Z",
+      "logpush": false,
+      "tags": [],
+      "observability": {
+        "enabled": true
+      },
+      "references": {
+        "domains": []
+      },
+      "previews_base_config": {
+        "env": {
+          "API_KEY": {
+            "type": "plain_text",
+            "text": "MURETTO_FAKE_SECRET"
+          }
+        }
+      },
+      "subdomain": {
+        "enabled": true,
+        "previews_enabled": true,
+        "url": "https://example-api.example-sub.workers.dev",
+        "preview_url_suffix": "-example-api.example-sub.workers.dev"
+      }
+    },
+    {
+      "id": "0123456789abcdef0123456789abcd22",
+      "name": "example-cron",
+      "created_on": "2026-10-31T10:05:00Z",
+      "updated_on": "2026-10-31T10:05:00Z",
+      "deployed_on": "2026-10-31T10:05:00Z",
+      "logpush": false,
+      "tags": [],
+      "observability": {
+        "enabled": true
+      },
+      "references": {
+        "domains": []
+      },
+      "previews_base_config": {
+        "env": {
+          "API_KEY": {
+            "type": "plain_text",
+            "text": "MURETTO_FAKE_SECRET"
+          }
+        }
+      },
+      "subdomain": {
+        "enabled": false,
+        "previews_enabled": false,
+        "url": "https://example-cron.example-sub.workers.dev"
+      }
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 100,
+    "count": 2,
+    "total_count": 3,
+    "total_pages": 2
+  }
+}

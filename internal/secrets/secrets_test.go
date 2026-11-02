@@ -33,3 +33,22 @@ func TestEnvOverridesKeychain(t *testing.T) {
 		t.Fatal("key names")
 	}
 }
+
+type refusingBackend struct{ MemBackend }
+
+func (refusingBackend) Set(string, string, string) error { return errors.New("exit status 36") }
+
+func TestCheck(t *testing.T) {
+	mem := &MemBackend{}
+	s := &Store{Backend: mem, Getenv: func(string) string { return "" }}
+	if err := s.Check(); err != nil || len(mem.M) != 0 {
+		t.Fatalf("check must pass and leave nothing behind: %v %v", err, mem.M)
+	}
+	s.Backend = &refusingBackend{}
+	if err := s.Check(); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("a keychain that won't store is unavailable: %v", err)
+	}
+	if err := s.Set("k", "v"); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("set: %v", err)
+	}
+}

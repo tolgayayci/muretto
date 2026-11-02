@@ -1,0 +1,89 @@
+account: { id: org-example-12345678, name: Example Org, slug: example-org }
+
+resources:
+  - neon.project:example-project-123456
+  - neon.project:example-locked-654321
+  - neon.branch:example-project-123456/br-example-000001
+  - neon.branch:example-project-123456/br-example-000002
+  - neon.branch:example-project-123456/br-example-000003
+  - neon.branch:example-locked-654321/br-example-000010
+  - neon.endpoint:example-project-123456/ep-example-000001
+  - neon.endpoint:example-project-123456/ep-example-000002
+  - neon.endpoint:example-project-123456/ep-example-000003
+  - neon.database:example-project-123456/br-example-000001/neondb
+  - neon.database:example-project-123456/br-example-000002/neondb
+  - neon.role:example-project-123456/br-example-000001/neondb_owner
+
+fields:
+  neon.project:example-project-123456:
+    _name: waitlist-demo
+    _url: https://console.neon.tech/app/projects/example-project-123456
+    _created_at: "2026-09-01T10:00:00Z"
+    subscription_type: scale
+    allowed_ips: ""
+    block_public_connections: false
+    account_slug: example-org
+  neon.project:example-locked-654321:
+    allowed_ips: 192.0.2.10,198.51.100.0/24
+    subscription_type: scale_v3
+  neon.branch:example-project-123456/br-example-000002:
+    _parent_id: neon.project:example-project-123456
+    _status: ready
+    branch_id: br-example-000002
+    project_id: example-project-123456
+    parent_branch_id: br-example-000001
+    default: false
+  neon.endpoint:example-project-123456/ep-example-000002:
+    _parent_id: neon.branch:example-project-123456/br-example-000002
+    _status: active
+    current_state: active
+    suspend_timeout_seconds: 0
+  neon.database:example-project-123456/br-example-000001/neondb:
+    data_api_url: https://ep-example-000001.apirest.us-east-2.aws.neon.tech/neondb/rest/v1
+    data_api_anon_role: anonymous
+    data_api_schemas: public
+  neon.database:example-project-123456/br-example-000002/neondb:
+    data_api_url: null
+    data_api_status: null
+  neon.role:example-project-123456/br-example-000001/neondb_owner:
+    role_name: neondb_owner
+    authentication_method: password
+
+findings:
+  open_project:neon.project:example-project-123456: exposed
+  open_project:neon.project:example-locked-654321: not_exposed
+  api_exposed_database:neon.database:example-project-123456/br-example-000001/neondb: exposed
+  api_exposed_database:neon.database:example-project-123456/br-example-000002/neondb: not_exposed
+  long_running_endpoint:neon.endpoint:example-project-123456/ep-example-000002: exposed
+  long_running_endpoint:neon.endpoint:example-project-123456/ep-example-000003: not_exposed
+
+fixes:
+  long_running_endpoint:neon.endpoint:example-project-123456/ep-example-000002: "If the branch is no longer needed:\n  neon branches delete br-example-000002 --project-id example-project-123456\nOtherwise give it an expiry:\n  neon branches set-expiration br-example-000002 --project-id example-project-123456 --expires-at <RFC 3339 time>"
+
+checks:
+  - neon.project|||ok
+  - neon.project||open_project|ok
+  - neon.branch|example-project-123456||ok
+  - neon.branch|example-locked-654321||ok
+  - neon.endpoint|example-project-123456/br-example-000001||ok
+  - neon.endpoint|example-project-123456/br-example-000001|long_running_endpoint|ok
+  - neon.endpoint|example-project-123456/br-example-000002||ok
+  - neon.endpoint|example-project-123456/br-example-000002|long_running_endpoint|ok
+  - neon.endpoint|example-project-123456/br-example-000003||ok
+  - neon.endpoint|example-project-123456/br-example-000003|long_running_endpoint|ok
+  - neon.endpoint|example-locked-654321/br-example-000010||ok
+  - neon.endpoint|example-locked-654321/br-example-000010|long_running_endpoint|ok
+  - neon.database|example-project-123456/br-example-000001||ok
+  - neon.database|example-project-123456/br-example-000001|api_exposed_database|ok
+  - neon.database|example-project-123456/br-example-000002||ok
+  - neon.database|example-project-123456/br-example-000002|api_exposed_database|ok
+  - neon.database|example-project-123456/br-example-000003||ok
+  - neon.database|example-project-123456/br-example-000003|api_exposed_database|ok
+  - neon.database|example-locked-654321/br-example-000010||ok
+  - neon.database|example-locked-654321/br-example-000010|api_exposed_database|ok
+  - neon.role|example-project-123456/br-example-000001||ok
+  - neon.role|example-project-123456/br-example-000002||ok
+  - neon.role|example-project-123456/br-example-000003||ok
+  - neon.role|example-locked-654321/br-example-000010||ok
+
+forbidden: [MURETTO_FAKE_SECRET]

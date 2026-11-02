@@ -1,0 +1,12 @@
+# The token lacks Workers R2 Storage Read (403), the Workers list fails (500)
+# and the tunnel's configuration is forbidden: those checks are errors and
+# their rules stay unknown, never "not exposed".
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/r2/buckets, status: 403, body: '{"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[],"result":null}' }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/workers/workers, status: 500, body: '{"success":false,"errors":[{"code":10013,"message":"An unknown error occurred"}],"messages":[],"result":null}' }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/pages/projects, body: '{"success":true,"errors":[],"messages":[],"result":[],"result_info":{"page":1,"per_page":20,"count":0,"total_count":0,"total_pages":1}}' }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/d1/database, body: '{"success":true,"errors":[],"messages":[],"result":[],"result_info":{"page":1,"per_page":20,"count":0,"total_count":0,"total_pages":1}}' }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/storage/kv/namespaces, body: '{"success":true,"errors":[],"messages":[],"result":[],"result_info":{"page":1,"per_page":20,"count":0,"total_count":0,"total_pages":1}}' }
+- { path: /client/v4/zones, body: '{"success":true,"errors":[],"messages":[],"result":[],"result_info":{"page":1,"per_page":20,"count":0,"total_count":0,"total_pages":1}}' }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/cfd_tunnel, file: tunnels.json }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/cfd_tunnel, query: { page: "2" }, body: '{"success":true,"errors":[],"messages":[],"result":[],"result_info":{"page":2,"per_page":1000,"count":0,"total_count":1}}' }
+- { path: /client/v4/accounts/0123456789abcdef0123456789abcdef/cfd_tunnel/01234567-0000-4000-8000-0000000000f1/configurations, status: 403, body: '{"success":false,"errors":[{"code":10000,"message":"Authentication error"}],"messages":[],"result":null}' }

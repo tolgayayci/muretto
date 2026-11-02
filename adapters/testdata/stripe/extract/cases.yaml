@@ -1,0 +1,323 @@
+# Extract cases built from the CLI, curl and API reference examples quoted in
+# docs/research/stripe.md (Creation paths). All ids are fakes. The signing
+# secret in create responses is redacted before the spool (internal/redact,
+# whsec_); here it is a placeholder. MCP result shapes are unverified: they
+# follow the API objects, as the Stripe MCP passes API calls through.
+
+# ---- Stripe CLI ----
+- name: stripe webhook_endpoints create prints the endpoint JSON
+  tool: Bash
+  input: { command: 'stripe webhook_endpoints create --live -d "enabled_events[0]"="checkout.session.completed" -d "enabled_events[1]"="customer.subscription.updated" --url="https://example-app-git-feat-example.vercel.app/api/webhook"' }
+  output: |
+    {
+      "id": "we_EXAMPLEPREVIEW000000001",
+      "object": "webhook_endpoint",
+      "api_version": null,
+      "application": null,
+      "created": 1793000000,
+      "description": null,
+      "enabled_events": [
+        "checkout.session.completed",
+        "customer.subscription.updated"
+      ],
+      "livemode": true,
+      "metadata": {},
+      "secret": "[REDACTED]",
+      "status": "enabled",
+      "url": "https://example-app-git-feat-example.vercel.app/api/webhook"
+    }
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPREVIEW000000001, role: created }
+  matches: [stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001]
+
+- name: stripe post to the webhook collection is a create
+  tool: Bash
+  input: { command: 'stripe post /v1/webhook_endpoints -d url=https://example.com/hooks/stripe -d "enabled_events[]=*" --live' }
+  output: |
+    {
+      "id": "we_EXAMPLEPROD00000000001",
+      "object": "webhook_endpoint",
+      "enabled_events": ["*"],
+      "livemode": true,
+      "status": "enabled",
+      "url": "https://example.com/hooks/stripe"
+    }
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPROD00000000001, role: created }
+  matches: [stripe.webhook_endpoint:we_EXAMPLEPROD00000000001]
+
+- name: stripe products create with default_price_data creates the price too
+  tool: Bash
+  input: { command: 'stripe products create --live --name="Example Pro" -d "default_price_data[currency]"=usd -d "default_price_data[unit_amount]"=1000 -d "default_price_data[recurring][interval]"=month' }
+  output: |
+    {
+      "id": "prod_EXAMPLELIVE0001",
+      "object": "product",
+      "active": true,
+      "created": 1793000100,
+      "default_price": "price_EXAMPLELIVE0001",
+      "description": null,
+      "images": [],
+      "marketing_features": [],
+      "livemode": true,
+      "metadata": {},
+      "name": "Example Pro",
+      "updated": 1793000100,
+      "url": null
+    }
+  expect:
+    - { kind: stripe.product, value: prod_EXAMPLELIVE0001, role: created }
+    - { kind: stripe.price, value: price_EXAMPLELIVE0001, role: created }
+  matches: [stripe.product:prod_EXAMPLELIVE0001, stripe.price:price_EXAMPLELIVE0001]
+
+- name: stripe prices create with product_data creates both (API reference example)
+  tool: Bash
+  input: { command: 'stripe prices create --currency=usd --unit-amount=1000 -d "recurring[interval]"=month -d "product_data[name]"="Example Test Plan"' }
+  output: |
+    {
+      "id": "price_EXAMPLETEST0001",
+      "object": "price",
+      "active": true,
+      "billing_scheme": "per_unit",
+      "created": 1792000100,
+      "currency": "usd",
+      "livemode": false,
+      "lookup_key": null,
+      "metadata": {},
+      "nickname": null,
+      "product": "prod_EXAMPLETEST0001",
+      "recurring": { "interval": "month", "interval_count": 1, "trial_period_days": null, "usage_type": "licensed" },
+      "type": "recurring",
+      "unit_amount": 1000
+    }
+  expect:
+    - { kind: stripe.price, value: price_EXAMPLETEST0001, role: created }
+    - { kind: stripe.product, value: prod_EXAMPLETEST0001, role: created }
+  matches: [stripe.price:price_EXAMPLETEST0001, stripe.product:prod_EXAMPLETEST0001]
+
+- name: stripe prices create for an existing product does not claim the product
+  tool: Bash
+  input: { command: 'stripe prices create --live --currency=usd --unit-amount=1000 --product=prod_EXAMPLELIVE0001' }
+  output: |
+    {
+      "id": "price_EXAMPLELIVE0001",
+      "object": "price",
+      "livemode": true,
+      "product": "prod_EXAMPLELIVE0001",
+      "type": "one_time"
+    }
+  expect:
+    - { kind: stripe.price, value: price_EXAMPLELIVE0001, role: created }
+  matches: [stripe.price:price_EXAMPLELIVE0001]
+
+- name: stripe payment_links create
+  tool: Bash
+  input: { command: 'stripe payment_links create --live -d "line_items[0][price]"=price_EXAMPLELIVE0001 -d "line_items[0][quantity]"=1' }
+  output: |
+    {
+      "id": "plink_EXAMPLELIVE0001",
+      "object": "payment_link",
+      "active": true,
+      "livemode": true,
+      "metadata": {},
+      "url": "https://buy.stripe.com/EXAMPLElive0001"
+    }
+  expect:
+    - { kind: stripe.payment_link, value: plink_EXAMPLELIVE0001, role: created }
+  matches: [stripe.payment_link:plink_EXAMPLELIVE0001]
+
+- name: stripe billing_portal configurations create
+  tool: Bash
+  input: { command: 'stripe billing_portal configurations create --live -d "features[invoice_history][enabled]"=true' }
+  output: |
+    {
+      "id": "bpc_EXAMPLE0000000001",
+      "object": "billing_portal.configuration",
+      "active": true,
+      "is_default": true,
+      "livemode": true
+    }
+  expect:
+    - { kind: stripe.billing_portal_configuration, value: bpc_EXAMPLE0000000001, role: created }
+  matches: [stripe.billing_portal_configuration:bpc_EXAMPLE0000000001]
+
+- name: chained creates attribute each object to its own kind
+  tool: Bash
+  input: { command: 'stripe products create --name="Example Test Plan" && stripe payment_links create -d "line_items[0][price]"=price_EXAMPLETEST0001 -d "line_items[0][quantity]"=1' }
+  output: |
+    {
+      "id": "prod_EXAMPLETEST0001",
+      "object": "product",
+      "livemode": false,
+      "name": "Example Test Plan"
+    }
+    {
+      "id": "plink_EXAMPLETEST0001",
+      "object": "payment_link",
+      "livemode": false,
+      "url": "https://buy.stripe.com/test_EXAMPLEtest0001"
+    }
+  expect:
+    - { kind: stripe.product, value: prod_EXAMPLETEST0001, role: created }
+    - { kind: stripe.payment_link, value: plink_EXAMPLETEST0001, role: created }
+  matches: [stripe.product:prod_EXAMPLETEST0001, stripe.payment_link:plink_EXAMPLETEST0001]
+
+- name: stripe products update is not a create
+  tool: Bash
+  input: { command: 'stripe products update prod_EXAMPLELIVE0001 --active=false --live' }
+  output: '{ "id": "prod_EXAMPLELIVE0001", "object": "product", "active": false, "livemode": true }'
+  expect: []
+
+- name: stripe post to an object path is an update
+  tool: Bash
+  input: { command: 'stripe post /v1/webhook_endpoints/we_EXAMPLEPROD00000000001 -d disabled=true' }
+  output: '{ "id": "we_EXAMPLEPROD00000000001", "object": "webhook_endpoint", "status": "disabled" }'
+  expect: []
+
+- name: stripe webhook_endpoints delete proves nothing
+  tool: Bash
+  input: { command: 'stripe webhook_endpoints delete we_EXAMPLEPROD00000000001 --live' }
+  output: '{ "id": "we_EXAMPLEPROD00000000001", "object": "webhook_endpoint", "deleted": true }'
+  expect: []
+
+- name: stripe webhook_endpoints create that failed prints an error
+  tool: Bash
+  input: { command: 'stripe webhook_endpoints create --url=http://localhost:3000/api/webhook -d "enabled_events[]=*"' }
+  output: |
+    {
+      "error": {
+        "message": "EXAMPLE: invalid URL",
+        "param": "url",
+        "type": "invalid_request_error"
+      }
+    }
+  expect: []
+
+- name: stripe listen creates no endpoint
+  tool: Bash
+  input: { command: 'stripe listen --forward-to localhost:4242/webhook' }
+  output: |
+    > Ready! Your webhook signing secret is [REDACTED] (^C to quit)
+    2026-11-01 09:47:46   --> customer.created [evt_EXAMPLE0001]
+  expect: []
+
+- name: stripe trigger creates fixtures but prints no ids
+  tool: Bash
+  input: { command: 'stripe trigger checkout.session.completed' }
+  output: |
+    Setting up fixture for: product
+    Setting up fixture for: price
+    Setting up fixture for: checkout_session
+    Trigger succeeded! Check dashboard for event details.
+  expect: []
+
+- name: stripe webhook_endpoints list references
+  tool: Bash
+  input: { command: 'stripe webhook_endpoints list --live' }
+  output: |
+    {
+      "object": "list",
+      "data": [
+        { "id": "we_EXAMPLEPROD00000000001", "object": "webhook_endpoint", "url": "https://example.com/hooks/stripe" }
+      ],
+      "has_more": false,
+      "url": "/v1/webhook_endpoints"
+    }
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPROD00000000001, role: referenced }
+
+# ---- curl against the API ----
+- name: curl POST /v1/webhook_endpoints
+  tool: Bash
+  input: { command: 'curl https://api.stripe.com/v1/webhook_endpoints -u "$STRIPE_SECRET_KEY:" -d url="https://example-app-git-feat-example.vercel.app/api/webhook" -d "enabled_events[]"="checkout.session.completed"' }
+  output: |
+    {
+      "id": "we_EXAMPLEPREVIEW000000001",
+      "object": "webhook_endpoint",
+      "livemode": true,
+      "status": "enabled",
+      "url": "https://example-app-git-feat-example.vercel.app/api/webhook"
+    }
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPREVIEW000000001, role: created }
+  matches: [stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001]
+
+- name: curl GET of the list is read-only
+  tool: Bash
+  input: { command: 'curl https://api.stripe.com/v1/products -u "$STRIPE_SECRET_KEY:"' }
+  output: '{"object":"list","data":[{"id":"prod_EXAMPLELIVE0001","object":"product"}],"has_more":false,"url":"/v1/products"}'
+  expect: []
+
+# ---- Stripe MCP (mcp.stripe.com) ----
+- name: MCP stripe_api_write creating a payment link
+  tool: mcp__stripe__stripe_api_write
+  input: { method: POST, path: /v1/payment_links }
+  output: '{"id":"plink_EXAMPLELIVE0001","object":"payment_link","active":true,"livemode":true,"url":"https://buy.stripe.com/EXAMPLElive0001"}'
+  expect:
+    - { kind: stripe.payment_link, value: plink_EXAMPLELIVE0001, role: created }
+  matches: [stripe.payment_link:plink_EXAMPLELIVE0001]
+
+- name: MCP stripe_api_write via the claude.ai connector creating a price
+  tool: mcp__claude_ai_Stripe__stripe_api_write
+  input: { method: POST, path: /v1/prices }
+  output: '{"id":"price_EXAMPLELIVE0001","object":"price","livemode":true,"product":"prod_EXAMPLELIVE0001","type":"recurring"}'
+  expect:
+    - { kind: stripe.price, value: price_EXAMPLELIVE0001, role: created }
+    - { kind: stripe.product, value: prod_EXAMPLELIVE0001, role: referenced }
+  matches: [stripe.price:price_EXAMPLELIVE0001]
+
+- name: MCP stripe_api_write delete proves nothing
+  tool: mcp__stripe__stripe_api_write
+  input: { method: DELETE, path: /v1/webhook_endpoints/we_EXAMPLEPROD00000000001 }
+  output: '{"id":"we_EXAMPLEPROD00000000001","object":"webhook_endpoint","deleted":true}'
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPROD00000000001, role: referenced }
+
+- name: MCP stripe_api_write POST to an object path is an update
+  tool: mcp__stripe__stripe_api_write
+  input: { method: POST, path: /v1/products/prod_EXAMPLELIVE0001 }
+  output: '{"id":"prod_EXAMPLELIVE0001","object":"product","active":false,"livemode":true}'
+  expect:
+    - { kind: stripe.product, value: prod_EXAMPLELIVE0001, role: referenced }
+
+- name: MCP stripe_api_write with unknown input fields only references
+  tool: mcp__stripe__stripe_api_write
+  input: { operation: create_webhook_endpoint }
+  output: '{"id":"we_EXAMPLEPROD00000000001","object":"webhook_endpoint","livemode":true}'
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPROD00000000001, role: referenced }
+
+- name: MCP stripe_api_write error proves nothing
+  tool: mcp__stripe__stripe_api_write
+  input: { method: POST, path: /v1/webhook_endpoints }
+  output: '{"error":{"message":"EXAMPLE: missing enabled_events","type":"invalid_request_error"}}'
+  expect: []
+
+- name: MCP stripe_api_read references only
+  tool: mcp__stripe__stripe_api_read
+  input: { method: GET, path: /v1/webhook_endpoints }
+  output: '{"object":"list","data":[{"id":"we_EXAMPLEPREVIEW000000001","object":"webhook_endpoint"}],"has_more":false,"url":"/v1/webhook_endpoints"}'
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPREVIEW000000001, role: referenced }
+
+- name: legacy local MCP create_product
+  tool: mcp__stripe__create_product
+  input: { name: Example Pro }
+  output: '{"id":"prod_EXAMPLELIVE0001","object":"product","active":true,"livemode":true,"name":"Example Pro"}'
+  expect:
+    - { kind: stripe.product, value: prod_EXAMPLELIVE0001, role: created }
+  matches: [stripe.product:prod_EXAMPLELIVE0001]
+
+# ---- Stripe Projects ----
+- name: stripe projects add stripe/livemode references printed ids only
+  tool: Bash
+  input: { command: 'stripe projects add stripe/livemode --json --no-interactive' }
+  output: '{"provider":"stripe","service":"livemode","webhook_endpoint":"we_EXAMPLEPROD00000000001"}'
+  expect:
+    - { kind: stripe.webhook_endpoint, value: we_EXAMPLEPROD00000000001, role: referenced }
+
+- name: stripe projects add for another provider is not Stripe's
+  tool: Bash
+  input: { command: 'stripe projects add supabase/project --json' }
+  output: '{"provider":"supabase","service":"project"}'
+  expect: []

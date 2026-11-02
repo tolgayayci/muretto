@@ -1,0 +1,80 @@
+account: { id: "acct_EXAMPLE0000000001:live", name: Example Shop (live), slug: acct_EXAMPLE0000000001 }
+
+resources:
+  - stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001
+  - stripe.webhook_endpoint:we_EXAMPLEPROD00000000001
+  - stripe.webhook_endpoint:we_EXAMPLETUNNEL000000001
+  - stripe.product:prod_EXAMPLELIVE0001
+  - stripe.product:prod_EXAMPLETEST0001
+  - stripe.price:price_EXAMPLELIVE0001
+  - stripe.price:price_EXAMPLETEST0001
+  - stripe.price:price_EXAMPLEOLD00001
+  - stripe.payment_link:plink_EXAMPLELIVE0001
+  - stripe.payment_link:plink_EXAMPLEOFF00001
+  - stripe.payment_link:plink_EXAMPLETEST0001
+  - stripe.billing_portal_configuration:bpc_EXAMPLE0000000001
+
+fields:
+  stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001:
+    _name: https://example-app-git-feat-example.vercel.app/api/webhook
+    _status: enabled
+    _url: https://dashboard.stripe.com/webhooks/we_EXAMPLEPREVIEW000000001
+    _created_at: "2026-10-26T07:33:20Z"
+    livemode: true
+    endpoint_url: https://example-app-git-feat-example.vercel.app/api/webhook
+    enabled_events: checkout.session.completed,customer.subscription.updated
+    api_version: null
+  stripe.webhook_endpoint:we_EXAMPLEPROD00000000001:
+    enabled_events: "*"
+  stripe.product:prod_EXAMPLELIVE0001:
+    _name: Example Pro
+    default_price: price_EXAMPLELIVE0001
+    livemode: true
+  stripe.price:price_EXAMPLELIVE0001:
+    _name: Pro monthly
+    product_id: prod_EXAMPLELIVE0001
+    recurring_interval: month
+    type: recurring
+  stripe.price:price_EXAMPLEOLD00001:
+    active: false
+    recurring_interval: null
+  stripe.payment_link:plink_EXAMPLELIVE0001:
+    _url: https://buy.stripe.com/EXAMPLElive0001
+    active: true
+  stripe.billing_portal_configuration:bpc_EXAMPLE0000000001:
+    _name: bpc_EXAMPLE0000000001
+    is_default: true
+    login_page_enabled: false
+
+findings:
+  ephemeral_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001: exposed
+  ephemeral_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPROD00000000001: not_exposed
+  all_events_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001: not_exposed
+  all_events_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPROD00000000001: exposed
+  live_product:stripe.product:prod_EXAMPLELIVE0001: exposed
+  live_product:stripe.product:prod_EXAMPLETEST0001: not_exposed
+  live_price:stripe.price:price_EXAMPLELIVE0001: exposed
+  live_price:stripe.price:price_EXAMPLETEST0001: not_exposed
+  live_price:stripe.price:price_EXAMPLEOLD00001: not_exposed
+  live_payment_link:stripe.payment_link:plink_EXAMPLELIVE0001: exposed
+  live_payment_link:stripe.payment_link:plink_EXAMPLEOFF00001: not_exposed
+  live_payment_link:stripe.payment_link:plink_EXAMPLETEST0001: not_exposed
+
+fixes:
+  "live_payment_link:stripe.payment_link:plink_EXAMPLELIVE0001": "stripe payment_links update plink_EXAMPLELIVE0001 --active=false --live"
+
+checks:
+  - stripe.webhook_endpoint|||ok
+  - stripe.webhook_endpoint||ephemeral_webhook_endpoint|ok
+  - stripe.webhook_endpoint||all_events_webhook_endpoint|ok
+  - stripe.product|||ok
+  - stripe.product||live_product|ok
+  - stripe.price|||ok
+  - stripe.price|||ok  # active=false list
+  - stripe.price||live_price|ok
+  - stripe.price||live_price|ok  # active=false list
+  - stripe.payment_link|||ok
+  - stripe.payment_link||live_payment_link|ok
+  - stripe.billing_portal_configuration|||ok
+
+forbidden: [MURETTO_FAKE_SECRET, whsec_]

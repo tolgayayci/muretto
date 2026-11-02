@@ -1,0 +1,11 @@
+# Postgres answers 403 (key lacks Read on Postgres), Key Value 500, and one
+# service's custom domains 403: those checks are errors and their rules stay
+# unknown, never "nothing found".
+- { path: /v1/owners, query: { limit: "100" }, file: owners.json }
+- { path: /v1/owners, query: { limit: "100", cursor: cursorOWNEREXAMPLE01 }, body: "[]" }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100" }, file: services.json }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorSRVEXAMPLE01 }, body: "[]" }
+- { path: /v1/postgres, status: 403, body: '{"id":"forbidden","message":"permission denied"}' }
+- { path: /v1/key-value, status: 500, body: '{"id":"internal","message":"internal server error"}' }
+- { path: /v1/blueprints, query: { ownerId: tea-example0000000000001, limit: "100" }, body: "[]" }
+- { path: /v1/services/srv-example0000000000001/custom-domains, status: 403, body: '{"id":"forbidden","message":"permission denied"}' }

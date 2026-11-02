@@ -1,0 +1,28 @@
+account: { id: example-org, name: example-org, slug: example-org }
+
+resources:
+  - planetscale.database:example-org/example-db
+  - planetscale.database:example-org/example-pg
+  - planetscale.branch:example-org/example-db/main
+  - planetscale.branch:example-org/example-db/feature-x
+
+findings:
+  unprotected_production_branch:planetscale.branch:example-org/example-db/main: exposed
+
+checks:
+  - planetscale.database|||ok
+  - planetscale.branch|example-org/example-db||ok
+  - planetscale.branch|example-org/example-db|unprotected_production_branch|ok
+  - planetscale.branch|example-org/example-pg||error:permission
+  - planetscale.branch|example-org/example-pg|unprotected_production_branch|error:permission
+  - planetscale.password|example-org/example-db/main||error:provider
+  - planetscale.password|example-org/example-db/main|permanent_admin_password|error:provider
+  - planetscale.password|example-org/example-db/main|unrestricted_password|error:provider
+  - planetscale.password|example-org/example-db/main|long_lived_password|error:provider
+  - planetscale.password|example-org/example-db/feature-x||ok
+  - planetscale.password|example-org/example-db/feature-x|permanent_admin_password|ok
+  - planetscale.password|example-org/example-db/feature-x|unrestricted_password|ok
+  - planetscale.password|example-org/example-db/feature-x|long_lived_password|ok
+  - planetscale.deploy_request|example-org/example-db||error:permission
+
+forbidden: ["MURETTO_FAKE_SECRET"]

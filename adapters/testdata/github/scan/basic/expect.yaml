@@ -1,0 +1,165 @@
+account: { id: "1000001", name: octo-example, slug: octo-example }
+
+resources:
+  - github.repo:2000001
+  - github.repo:2000002
+  - github.repo:2000003
+  - github.repo:2000004
+  - github.repo:2000005
+  - github.organization:example-org
+  - github.pages_site:2000001
+  - github.pages_site:2000002
+  - github.pages_site:2000003
+  - github.pages_site:2000005
+  - github.repo_webhook:3000001
+  - github.repo_webhook:3000002
+  - github.repo_webhook:3000003
+  - github.deploy_key:4000001
+  - github.deploy_key:4000002
+  - github.environment:5000001
+  - github.actions_variable:2000001/STRIPE_SECRET_KEY
+  - github.actions_variable:2000001/SITE_URL
+  - github.org_webhook:3000010
+  - github.installation:6000001
+
+fields:
+  github.repo:2000001:
+    _name: octo-example/agent-landing
+    _url: https://github.com/octo-example/agent-landing
+    _created_at: "2026-10-30T09:15:00Z"
+    full_name: octo-example/agent-landing
+    visibility: public
+    private: false
+    owner: octo-example
+    owner_type: User
+    account_slug: octo-example
+  github.repo:2000004:
+    visibility: <absent>
+    private: true
+  github.organization:example-org:
+    _url: https://github.com/example-org
+    org_id: 1000002
+  github.pages_site:2000002:
+    _name: https://octo-example.github.io/private-notes/
+    _parent_id: github.repo:2000002
+    _status: built
+    public: true
+    https_enforced: false
+    repo_full_name: octo-example/private-notes
+  github.pages_site:2000005:
+    public: <absent>
+  github.repo_webhook:3000001:
+    _parent_id: github.repo:2000001
+    insecure_ssl: "1"
+    events: push,pull_request
+    repo_full_name: octo-example/agent-landing
+  github.repo_webhook:3000003:
+    insecure_ssl: <absent>
+  github.deploy_key:4000001:
+    _name: deploy-bot
+    read_only: false
+    last_used: null
+  github.environment:5000001:
+    _name: github-pages
+    protected_branches: false
+    custom_branch_policies: true
+  github.actions_variable:2000001/STRIPE_SECRET_KEY:
+    _name: STRIPE_SECRET_KEY
+    _created_at: "2026-10-30T09:45:00Z"
+    repo_full_name: octo-example/agent-landing
+    repo_visibility: public
+  github.org_webhook:3000010:
+    _parent_id: github.organization:example-org
+    insecure_ssl: 1
+    org: example-org
+  github.installation:6000001:
+    _name: example-deploy-app
+    _created_at: "2026-10-30T17:00:00Z"
+    repository_selection: all
+    org: example-org
+
+findings:
+  public_repo:github.repo:2000001: exposed
+  public_repo:github.repo:2000002: not_exposed
+  public_repo:github.repo:2000003: not_exposed
+  public_repo:github.repo:2000004: unknown
+  public_repo:github.repo:2000005: not_exposed
+  public_pages_site:github.pages_site:2000002: exposed
+  public_pages_site:github.pages_site:2000003: not_exposed
+  public_pages_site:github.pages_site:2000005: unknown
+  http_pages_site:github.pages_site:2000001: not_exposed
+  http_pages_site:github.pages_site:2000002: exposed
+  http_pages_site:github.pages_site:2000003: not_exposed
+  http_pages_site:github.pages_site:2000005: not_exposed
+  insecure_repo_webhook:github.repo_webhook:3000001: exposed
+  insecure_repo_webhook:github.repo_webhook:3000002: not_exposed
+  insecure_repo_webhook:github.repo_webhook:3000003: unknown
+  insecure_org_webhook:github.org_webhook:3000010: exposed
+  writable_deploy_key:github.deploy_key:4000001: exposed
+  writable_deploy_key:github.deploy_key:4000002: not_exposed
+  secret_named_actions_variable:github.actions_variable:2000001/STRIPE_SECRET_KEY: exposed
+  secret_named_actions_variable:github.actions_variable:2000001/SITE_URL: not_exposed
+
+fixes:
+  "public_repo:github.repo:2000001": "gh repo edit octo-example/agent-landing --visibility private --accept-visibility-change-consequences"
+  "insecure_repo_webhook:github.repo_webhook:3000001": "gh api -X PATCH repos/octo-example/agent-landing/hooks/3000001/config -f insecure_ssl=0"
+  "writable_deploy_key:github.deploy_key:4000001": "gh repo deploy-key delete 4000001 -R octo-example/agent-landing"
+
+checks:
+  - github.repo|||ok
+  - github.repo||public_repo|ok
+  - github.organization|||ok
+  - github.installation|example-org||ok
+  - github.org_webhook|example-org||ok
+  - github.org_webhook|example-org|insecure_org_webhook|ok
+  - github.actions_variable|2000001|secret_named_actions_variable|ok
+  - github.actions_variable|2000001||ok
+  - github.deploy_key|2000001|writable_deploy_key|ok
+  - github.deploy_key|2000001||ok
+  - github.environment|2000001||ok
+  - github.pages_site|2000001|http_pages_site|ok
+  - github.pages_site|2000001|public_pages_site|ok
+  - github.pages_site|2000001||ok
+  - github.repo_webhook|2000001|insecure_repo_webhook|ok
+  - github.repo_webhook|2000001||ok
+  - github.actions_variable|2000002|secret_named_actions_variable|ok
+  - github.actions_variable|2000002||ok
+  - github.deploy_key|2000002|writable_deploy_key|ok
+  - github.deploy_key|2000002||ok
+  - github.environment|2000002||ok
+  - github.pages_site|2000002|http_pages_site|ok
+  - github.pages_site|2000002|public_pages_site|ok
+  - github.pages_site|2000002||ok
+  - github.repo_webhook|2000002|insecure_repo_webhook|ok
+  - github.repo_webhook|2000002||ok
+  - github.actions_variable|2000003|secret_named_actions_variable|ok
+  - github.actions_variable|2000003||ok
+  - github.deploy_key|2000003|writable_deploy_key|ok
+  - github.deploy_key|2000003||ok
+  - github.environment|2000003||ok
+  - github.pages_site|2000003|http_pages_site|ok
+  - github.pages_site|2000003|public_pages_site|ok
+  - github.pages_site|2000003||ok
+  - github.repo_webhook|2000003|insecure_repo_webhook|ok
+  - github.repo_webhook|2000003||ok
+  - github.actions_variable|2000004|secret_named_actions_variable|ok
+  - github.actions_variable|2000004||ok
+  - github.deploy_key|2000004|writable_deploy_key|ok
+  - github.deploy_key|2000004||ok
+  - github.environment|2000004||ok
+  - github.pages_site|2000004|http_pages_site|ok
+  - github.pages_site|2000004|public_pages_site|ok
+  - github.pages_site|2000004||ok
+  - github.repo_webhook|2000004|insecure_repo_webhook|ok
+  - github.repo_webhook|2000004||ok
+  - github.actions_variable|2000005|secret_named_actions_variable|ok
+  - github.actions_variable|2000005||ok
+  - github.deploy_key|2000005|writable_deploy_key|ok
+  - github.deploy_key|2000005||ok
+  - github.environment|2000005||ok
+  - github.pages_site|2000005|http_pages_site|ok
+  - github.pages_site|2000005|public_pages_site|ok
+  - github.pages_site|2000005||ok
+  - github.repo_webhook|2000005|insecure_repo_webhook|ok
+  - github.repo_webhook|2000005||ok
+forbidden: ["MURETTO_FAKE_SECRET", "octo@example.com", "apps@example.com", "hooks.example.com", "ssh-ed25519", "Octo Example"]

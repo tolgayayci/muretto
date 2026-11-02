@@ -1,0 +1,46 @@
+[
+  {
+    "cursor": "cursorSRVEXAMPLE01",
+    "service": {
+      "id": "srv-example0000000000001",
+      "name": "example-api",
+      "ownerId": "tea-example0000000000001",
+      "type": "web_service",
+      "repo": "https://github.com/example-org/example-api",
+      "branch": "main",
+      "autoDeploy": "yes",
+      "createdAt": "2026-10-28T09:15:00.000000Z",
+      "updatedAt": "2026-10-28T09:20:00.000000Z",
+      "dashboardUrl": "https://dashboard.render.com/web/srv-example0000000000001",
+      "slug": "example-api",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "notifyOnFail": "default",
+      "rootDir": "",
+      "serviceDetails": {
+        "env": "node",
+        "runtime": "node",
+        "plan": "free",
+        "region": "oregon",
+        "numInstances": 1,
+        "healthCheckPath": "",
+        "openPorts": [
+          {
+            "port": 10000,
+            "protocol": "TCP"
+          }
+        ],
+        "url": "https://example-api.onrender.com",
+        "buildPlan": "starter",
+        "previews": {
+          "generation": "off"
+        },
+        "renderSubdomainPolicy": "enabled",
+        "envSpecificDetails": {
+          "buildCommand": "npm install",
+          "startCommand": "npm start"
+        }
+      }
+    }
+  }
+]

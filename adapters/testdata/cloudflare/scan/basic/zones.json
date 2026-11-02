@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "0123456789abcdef0123456789abcd10",
+      "name": "example.com",
+      "status": "active",
+      "paused": false,
+      "type": "full",
+      "created_on": "2026-01-01T00:00:00Z",
+      "account": {
+        "id": "0123456789abcdef0123456789abcdef",
+        "name": "Example Account"
+      },
+      "plan": {
+        "name": "Free Website"
+      },
+      "name_servers": [
+        "ns1.example.net"
+      ]
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 50,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  }
+}

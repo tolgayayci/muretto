@@ -1,0 +1,18 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "0123456789abcdef0123456789abcd30",
+      "title": "example-cache",
+      "supports_url_encoding": true
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 1000,
+    "count": 1,
+    "total_count": 2
+  }
+}

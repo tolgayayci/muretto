@@ -1,0 +1,56 @@
+[
+  {
+    "cursor": "cursorREDEXAMPLE01",
+    "keyValue": {
+      "id": "red-example0000000000001",
+      "name": "example-cache",
+      "createdAt": "2026-10-28T09:17:00.000000Z",
+      "updatedAt": "2026-10-28T09:17:00.000000Z",
+      "status": "available",
+      "region": "oregon",
+      "plan": "free",
+      "owner": { "id": "tea-example0000000000001", "name": "Example Team", "email": "team@example.com", "type": "team" },
+      "options": { "maxmemoryPolicy": "allkeys-lru" },
+      "ipAllowList": [],
+      "version": "8.1.4",
+      "dashboardUrl": "https://dashboard.render.com/r/red-example0000000000001",
+      "connectionInfo": { "externalConnectionString": "MURETTO_FAKE_SECRET", "cliCommand": "MURETTO_FAKE_SECRET" },
+      "internalConnectionString": "MURETTO_FAKE_SECRET",
+      "externalConnectionString": "MURETTO_FAKE_SECRET",
+      "cliCommand": "MURETTO_FAKE_SECRET"
+    }
+  },
+  {
+    "cursor": "cursorREDEXAMPLE02",
+    "keyValue": {
+      "id": "red-example0000000000002",
+      "name": "example-queue",
+      "createdAt": "2026-10-29T11:00:00.000000Z",
+      "updatedAt": "2026-10-29T11:05:00.000000Z",
+      "status": "available",
+      "region": "oregon",
+      "plan": "starter",
+      "owner": { "id": "tea-example0000000000001", "name": "Example Team", "email": "team@example.com", "type": "team" },
+      "options": { "maxmemoryPolicy": "noeviction", "persistenceMode": "aof" },
+      "ipAllowList": [{ "cidrBlock": "0.0.0.0/0", "description": "anywhere" }],
+      "version": "8.1.4",
+      "dashboardUrl": "https://dashboard.render.com/r/red-example0000000000002"
+    }
+  },
+  {
+    "cursor": "cursorREDEXAMPLE03",
+    "keyValue": {
+      "id": "red-example0000000000003",
+      "name": "example-legacy-cache",
+      "createdAt": "2026-07-01T08:00:00.000000Z",
+      "updatedAt": "2026-07-01T08:00:00.000000Z",
+      "status": "available",
+      "region": "ohio",
+      "plan": "starter",
+      "owner": { "id": "tea-example0000000000001", "name": "Example Team", "email": "team@example.com", "type": "team" },
+      "options": {},
+      "version": "7.2.4",
+      "dashboardUrl": "https://dashboard.render.com/r/red-example0000000000003"
+    }
+  }
+]

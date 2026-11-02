@@ -1,0 +1,25 @@
+{
+ "total_count": 1,
+ "environments": [
+  {
+   "id": 5000001,
+   "node_id": "EN_EXAMPLE5000001",
+   "name": "github-pages",
+   "url": "https://api.github.com/repos/octo-example/agent-landing/environments/github-pages",
+   "html_url": "https://github.com/octo-example/agent-landing/deployments/activity_log?environments_filter=github-pages",
+   "created_at": "2026-10-30T09:16:00Z",
+   "updated_at": "2026-10-30T09:16:00Z",
+   "protection_rules": [
+    {
+     "id": 5100001,
+     "node_id": "GA_EXAMPLE",
+     "type": "branch_policy"
+    }
+   ],
+   "deployment_branch_policy": {
+    "protected_branches": false,
+    "custom_branch_policies": true
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "we_EXAMPLEPAGE000000002",
+      "object": "webhook_endpoint",
+      "api_version": null,
+      "application": null,
+      "created": 1793000100,
+      "description": null,
+      "enabled_events": [
+        "invoice.paid"
+      ],
+      "livemode": true,
+      "metadata": {},
+      "secret": "MURETTO_FAKE_SECRET",
+      "status": "enabled",
+      "url": "https://example-shop-abc123def-example-team.vercel.app/api/stripe"
+    }
+  ],
+  "has_more": false,
+  "url": "/v1/webhook_endpoints"
+}

@@ -1,0 +1,16 @@
+{
+ "url": "https://api.github.com/repos/octo-example/private-notes/pages",
+ "status": "built",
+ "cname": null,
+ "custom_404": false,
+ "html_url": "https://octo-example.github.io/private-notes/",
+ "build_type": "workflow",
+ "source": {
+  "branch": "main",
+  "path": "/"
+ },
+ "https_enforced": false,
+ "protected_domain_state": null,
+ "pending_domain_unverified_at": null,
+ "public": true
+}

@@ -1,0 +1,9 @@
+# One public user repo; the deploy key list answers 403 (token without
+# Administration read), the webhook list 500.
+- { path: /user, file: user.json }
+- { path: /user/repos, file: repos.json }
+- { path: /repos/octo-example/agent-landing/pages, status: 404, body: '{"message":"Not Found","status":"404"}' }
+- { path: /repos/octo-example/agent-landing/hooks, status: 500, body: '{"message":"Server Error"}' }
+- { path: /repos/octo-example/agent-landing/keys, status: 403, body: '{"message":"Resource not accessible by personal access token","documentation_url":"https://docs.github.com/rest/deploy-keys/deploy-keys#list-deploy-keys","status":"403"}' }
+- { path: /repos/octo-example/agent-landing/environments, body: '{"total_count":0,"environments":[]}' }
+- { path: /repos/octo-example/agent-landing/actions/variables, body: '{"total_count":0,"variables":[]}' }

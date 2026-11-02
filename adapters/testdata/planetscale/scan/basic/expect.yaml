@@ -1,0 +1,96 @@
+account: { id: example-org, name: example-org, slug: example-org }
+
+resources:
+  - planetscale.database:example-org/example-db
+  - planetscale.database:example-org/example-pg
+  - planetscale.branch:example-org/example-db/main
+  - planetscale.branch:example-org/example-db/feature-x
+  - planetscale.branch:example-org/example-pg/main
+  - planetscale.password:example-org/example-db/main/pwEXAMPLE0001
+  - planetscale.password:example-org/example-db/main/pwEXAMPLE0002
+  - planetscale.password:example-org/example-db/main/pwEXAMPLE0003
+  - planetscale.role:example-org/example-pg/main/roleEXAMPLE01
+  - planetscale.role:example-org/example-pg/main/roleEXAMPLE02
+  - planetscale.role:example-org/example-pg/main/roleEXAMPLE03
+  - planetscale.deploy_request:example-org/example-db/1
+
+fields:
+  planetscale.database:example-org/example-db:
+    _name: example-db
+    _status: ready
+    _url: https://app.planetscale.com/example-org/example-db
+    _created_at: "2025-01-10T10:00:00Z"
+    engine: mysql
+    region: us-east
+  planetscale.database:example-org/example-pg:
+    engine: postgresql
+    deletion_protected: true
+  planetscale.branch:example-org/example-db/main:
+    _parent_id: planetscale.database:example-org/example-db
+    database: example-db
+    production: true
+    safe_migrations: false
+  planetscale.branch:example-org/example-db/feature-x:
+    parent_branch: main
+  planetscale.branch:example-org/example-pg/main:
+    engine: postgresql
+    database: example-pg
+  planetscale.password:example-org/example-db/main/pwEXAMPLE0001:
+    _name: agent-admin
+    password_id: pwEXAMPLE0001
+    database: example-db
+    branch: main
+    role: admin
+    expires_at: null
+    cidrs: ""
+  planetscale.password:example-org/example-db/main/pwEXAMPLE0002:
+    role: reader
+    cidrs: 203.0.113.0/24
+  planetscale.role:example-org/example-pg/main/roleEXAMPLE02:
+    _name: agent-admin-role
+    role_id: roleEXAMPLE02
+    inherited_roles: postgres
+    default: false
+  planetscale.deploy_request:example-org/example-db/1:
+    _name: "#1 feature-x -> main"
+    _status: open
+    number: 1
+    database: example-db
+
+findings:
+  permanent_admin_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0001: exposed
+  permanent_admin_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0002: not_exposed
+  permanent_admin_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0003: unknown
+  unrestricted_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0001: exposed
+  unrestricted_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0002: not_exposed
+  unrestricted_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0003: unknown
+  long_lived_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0001: exposed
+  long_lived_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0002: not_exposed
+  long_lived_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0003: exposed
+  unprotected_production_branch:planetscale.branch:example-org/example-db/main: exposed
+  permanent_admin_role:planetscale.role:example-org/example-pg/main/roleEXAMPLE02: exposed
+  permanent_admin_role:planetscale.role:example-org/example-pg/main/roleEXAMPLE03: not_exposed
+
+fixes:
+  unprotected_production_branch:planetscale.branch:example-org/example-db/main: pscale branch safe-migrations enable example-db main --org example-org
+  unrestricted_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0001: pscale password update example-db main pwEXAMPLE0001 --cidrs <your-ip-or-cidr> --org example-org
+
+checks:
+  - planetscale.database|||ok
+  - planetscale.branch|example-org/example-db||ok
+  - planetscale.branch|example-org/example-pg||ok
+  - planetscale.branch|example-org/example-db|unprotected_production_branch|ok
+  - planetscale.branch|example-org/example-pg|unprotected_production_branch|ok
+  - planetscale.password|example-org/example-db/main||ok
+  - planetscale.password|example-org/example-db/main|permanent_admin_password|ok
+  - planetscale.password|example-org/example-db/main|unrestricted_password|ok
+  - planetscale.password|example-org/example-db/main|long_lived_password|ok
+  - planetscale.password|example-org/example-db/feature-x||ok
+  - planetscale.password|example-org/example-db/feature-x|permanent_admin_password|ok
+  - planetscale.password|example-org/example-db/feature-x|unrestricted_password|ok
+  - planetscale.password|example-org/example-db/feature-x|long_lived_password|ok
+  - planetscale.role|example-org/example-pg/main||ok
+  - planetscale.role|example-org/example-pg/main|permanent_admin_role|ok
+  - planetscale.deploy_request|example-org/example-db||ok
+
+forbidden: ["MURETTO_FAKE_SECRET"]

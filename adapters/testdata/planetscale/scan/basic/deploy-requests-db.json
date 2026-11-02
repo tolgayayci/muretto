@@ -1,0 +1,26 @@
+{
+  "type": "list",
+  "current_page": 1,
+  "next_page": null,
+  "prev_page": null,
+  "data": [
+    {
+      "id": "drEXAMPLE0001",
+      "type": "DeployRequest",
+      "number": 1,
+      "branch": "feature-x",
+      "branch_id": "brEXAMPLE0002",
+      "into_branch": "main",
+      "approved": false,
+      "state": "open",
+      "deployment_state": "ready",
+      "html_url": "https://app.planetscale.com/example-org/example-db/deploy-requests/1",
+      "notes": "",
+      "actor": { "id": "tknEXAMPLE01", "display_name": "example-token" },
+      "created_at": "2026-10-30T12:00:00.000Z",
+      "updated_at": "2026-10-30T12:00:00.000Z",
+      "closed_at": null,
+      "deployed_at": null
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "acct_EXAMPLE0000000001",
+  "object": "account",
+  "business_profile": {
+    "name": "Example Shop",
+    "support_email": "MURETTO_FAKE_SECRET",
+    "support_phone": "MURETTO_FAKE_SECRET",
+    "support_address": "MURETTO_FAKE_SECRET",
+    "url": "https://example.com"
+  },
+  "business_type": "company",
+  "charges_enabled": true,
+  "company": "MURETTO_FAKE_SECRET",
+  "country": "US",
+  "created": 1767225600,
+  "default_currency": "usd",
+  "details_submitted": true,
+  "email": "MURETTO_FAKE_SECRET",
+  "external_accounts": "MURETTO_FAKE_SECRET",
+  "individual": "MURETTO_FAKE_SECRET",
+  "payouts_enabled": true,
+  "settings": {
+    "dashboard": {
+      "display_name": "Example Shop",
+      "timezone": "Etc/UTC"
+    }
+  },
+  "tos_acceptance": "MURETTO_FAKE_SECRET",
+  "type": "standard"
+}

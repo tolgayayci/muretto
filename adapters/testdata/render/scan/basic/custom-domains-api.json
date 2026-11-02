@@ -1,0 +1,15 @@
+[
+  {
+    "cursor": "cursorCDMEXAMPLE01",
+    "customDomain": {
+      "id": "cdm-example0000000000001",
+      "name": "api.example.com",
+      "domainType": "subdomain",
+      "publicSuffix": "com",
+      "redirectForName": "",
+      "verificationStatus": "unverified",
+      "createdAt": "2026-10-28T09:30:00.000000Z",
+      "server": { "id": "srv-example0000000000001", "name": "example-api" }
+    }
+  }
+]

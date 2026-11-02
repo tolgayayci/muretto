@@ -1,0 +1,595 @@
+# GitHub adapter. Every endpoint, field and output string here comes from
+# docs/research/github.md (checked 2026-11-01). Format: docs/WRITING_AN_ADAPTER.md.
+# Not yet verified live.
+format: 1
+provider: github
+display_name: GitHub
+
+api:
+  base_url: https://api.github.com
+  auth: { header: Authorization, scheme: Bearer }
+
+mcp_servers: [github]
+
+token_help: |
+  Create a fine-grained personal access token (read-only):
+    github.com > Settings > Developer settings > Personal access tokens >
+    Fine-grained tokens > Generate new token.
+    Name: muretto-readonly. Expiration: 30 days or less.
+    Resource owner: your account, or the organization to scan (one token per
+    owner; a fine-grained token cannot span organizations).
+    Repository access: All repositories (or the ones to scan).
+    Repository permissions, all "Read-only":
+      Metadata, Administration (deploy keys), Pages, Webhooks,
+      Variables, Actions (environments).
+    Organization permissions, "Read-only" (organization owner only):
+      Webhooks, Administration (app installations).
+  Or open this pre-filled form (add &target_name=<org> for an organization,
+  plus &organization_hooks=read&organization_administration=read):
+    https://github.com/settings/personal-access-tokens/new?name=muretto-readonly&expires_in=30&metadata=read&administration=read&pages=read&repository_hooks=read&actions_variables=read&actions=read
+  The token can only read. It can still read private repository metadata,
+  Actions variable values (Muretto strips them before storage), Actions run
+  data, and every public repository on GitHub. Muretto only sends allowlisted
+  GET requests (internal/broker). Do not use a classic token: the "repo" scope
+  it needs can write to every repository you can access.
+
+# Pinned REST API version (docs/research/github.md "Spec"). Every list that
+# pages declares Link-header paging; per_page is the documented maximum.
+endpoints:
+  user:
+    path: /user
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+  user_repos:
+    path: /user/repos
+    query: { per_page: "100" }
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+    strip: ["[].temp_clone_token"] # short-lived Git read credential
+  repo_pages:
+    path: /repos/{owner}/{repo}/pages
+    params: { owner: "{parent.owner.login}", repo: "{parent.name}" }
+    on_status: { 404: empty } # 404 = no Pages site
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+  repo_hooks:
+    path: /repos/{owner}/{repo}/hooks
+    params: { owner: "{parent.owner.login}", repo: "{parent.name}" }
+    query: { per_page: "100" }
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+    # The secret comes back masked; the payload URL may carry credentials.
+    strip: ["[].config.secret", "[].config.url"]
+  repo_keys:
+    path: /repos/{owner}/{repo}/keys
+    params: { owner: "{parent.owner.login}", repo: "{parent.name}" }
+    query: { per_page: "100" }
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+  repo_environments:
+    path: /repos/{owner}/{repo}/environments
+    params: { owner: "{parent.owner.login}", repo: "{parent.name}" }
+    query: { per_page: "100" }
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+  repo_variables:
+    path: /repos/{owner}/{repo}/actions/variables
+    params: { owner: "{parent.owner.login}", repo: "{parent.name}" }
+    query: { per_page: "30" } # documented maximum for this endpoint
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+    strip: ["variables[].value"] # plaintext variable values
+  org_hooks:
+    path: /orgs/{org}/hooks
+    params: { org: "{parent.provider_id}" }
+    query: { per_page: "100" }
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+    strip: ["[].config.secret", "[].config.url"]
+  org_installations:
+    path: /orgs/{org}/installations
+    params: { org: "{parent.provider_id}" }
+    query: { per_page: "100" }
+    pagination: { style: link, param: page }
+    headers: { X-GitHub-Api-Version: "2026-03-10" }
+
+# The account is the user the token belongs to (GET /user). A fine-grained
+# token has one resource owner; GET /user/orgs answers an empty list to
+# fine-grained tokens, so organizations are read from the owners of the
+# repositories the token can see (kind organization below).
+accounts:
+  endpoint: user
+  items: $
+  id: "{id}"
+  name: "{login}"
+  slug: "{login}"
+
+kinds:
+  - kind: repo
+    sources:
+      - endpoint: user_repos
+        items: $
+        checks_rules: [public_repo]
+        id: "{id}"
+        name: "{full_name}"
+        url: "{html_url}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes:
+          - full_name
+          - visibility # public | private | internal
+          - private
+          - fork
+          - archived
+          - has_pages
+          - default_branch
+          - { name: owner, field: owner.login }
+          - { name: owner_type, field: owner.type }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "gh repo delete {full_name} --yes"
+      note: Deleting a repository is permanent after GitHub's restore window. A private repository's forks are deleted with it.
+
+  # Organizations that own repositories the token can see. Used to scope the
+  # organization-level lists; Muretto never lists every organization.
+  - kind: organization
+    sources:
+      - endpoint: user_repos
+        items: $
+        where: { field: owner.type, equals: Organization }
+        id: "{owner.login}"
+        name: "{owner.login}"
+        url: "https://github.com/{owner.login}"
+        attributes:
+          - { name: org_id, field: owner.id }
+
+  - kind: pages_site
+    for_each: repo
+    sources:
+      - endpoint: repo_pages
+        items: $
+        checks_rules: [public_pages_site, http_pages_site]
+        id: "{parent.id}"
+        name: "{html_url|or:parent.full_name}"
+        url: "{html_url}"
+        status: "{status}"
+        attributes:
+          - public
+          - https_enforced
+          - cname
+          - build_type
+          - { name: repo_full_name, template: "{parent.full_name}" }
+    remove:
+      kind: command
+      text: "gh api -X DELETE repos/{repo_full_name}/pages"
+
+  - kind: repo_webhook
+    for_each: repo
+    sources:
+      - endpoint: repo_hooks
+        items: $
+        checks_rules: [insecure_repo_webhook]
+        id: "{id}"
+        name: "{parent.full_name} webhook {id}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes: # config.url and config.secret are stripped by the broker
+          - active
+          - events
+          - { name: insecure_ssl, field: config.insecure_ssl }
+          - { name: content_type, field: config.content_type }
+          - { name: repo_full_name, template: "{parent.full_name}" }
+    remove:
+      kind: command
+      text: "gh api -X DELETE repos/{repo_full_name}/hooks/{provider_id}"
+
+  - kind: deploy_key
+    for_each: repo
+    sources:
+      - endpoint: repo_keys
+        items: $
+        checks_rules: [writable_deploy_key]
+        id: "{id}"
+        name: "{title|default:deploy key}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes: # the public key itself is not kept
+          - read_only
+          - verified
+          - enabled
+          - last_used
+          - { name: repo_full_name, template: "{parent.full_name}" }
+    remove:
+      kind: command
+      text: "gh repo deploy-key delete {provider_id} -R {repo_full_name}"
+
+  - kind: environment
+    for_each: repo
+    sources:
+      - endpoint: repo_environments
+        items: environments
+        id: "{id}"
+        name: "{name}"
+        url: "{html_url}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes:
+          - { name: protected_branches, field: deployment_branch_policy.protected_branches }
+          - { name: custom_branch_policies, field: deployment_branch_policy.custom_branch_policies }
+          - { name: repo_full_name, template: "{parent.full_name}" }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "gh api -X DELETE repos/{repo_full_name}/environments/{name}"
+
+  - kind: actions_variable
+    for_each: repo
+    sources:
+      - endpoint: repo_variables
+        items: variables
+        checks_rules: [secret_named_actions_variable]
+        id: "{parent.id}/{name}"
+        name: "{name}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes: # names only; values are stripped by the broker
+          - { name: repo_full_name, template: "{parent.full_name}" }
+          - { name: repo_visibility, template: "{parent.visibility}" }
+    match: { value: "{name|upper}", container: "{repo_full_name|lower}" }
+    remove:
+      kind: command
+      text: "gh variable delete {name} -R {repo_full_name}"
+
+  - kind: org_webhook
+    for_each: organization
+    sources:
+      - endpoint: org_hooks
+        items: $
+        checks_rules: [insecure_org_webhook]
+        id: "{id}"
+        name: "{parent.provider_id} webhook {id}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes:
+          - active
+          - events
+          - { name: insecure_ssl, field: config.insecure_ssl }
+          - { name: content_type, field: config.content_type }
+          - { name: org, template: "{parent.provider_id}" }
+    remove:
+      kind: command
+      text: "gh api -X DELETE orgs/{org}/hooks/{provider_id}"
+
+  - kind: installation
+    for_each: organization
+    sources:
+      - endpoint: org_installations
+        items: installations
+        id: "{id}"
+        name: "{app_slug}"
+        url: "{html_url}"
+        created_at: { value: "{created_at}", format: auto }
+        attributes:
+          - app_slug
+          - app_id
+          - repository_selection # all | selected
+          - target_type
+          - suspended_at
+          - { name: org, template: "{parent.provider_id}" }
+    remove:
+      kind: steps
+      text: "Open https://github.com/organizations/{org}/settings/installations/{provider_id} and click Uninstall."
+
+rules:
+  - id: public_repo
+    kind: repo
+    severity: high
+    signal: api_field
+    exposed: { field: visibility, equals: public }
+    not_exposed: { field: visibility, in: [private, internal] }
+    title: "Public repository: {full_name}"
+    explanation: >-
+      The API reports {full_name} as public: its code, history, issues and
+      Actions logs can be read by anyone on the internet.
+    caveat: >-
+      Visibility only. The API cannot say whether the repository was meant to
+      be public, or what its history contains. An internal repository is
+      visible to every member of the enterprise and is not flagged.
+    fix:
+      kind: command
+      text: "gh repo edit {full_name} --visibility private --accept-visibility-change-consequences"
+      note: Making a repository private removes its stars and watchers and detaches public forks. If secrets were ever committed, rotate them; they were public.
+      docs_url: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility
+
+  - id: public_pages_site
+    kind: pages_site
+    severity: high
+    signal: api_field
+    applies: { field: parent.visibility, in: [private, internal] }
+    exposed: { field: public, equals: "true" }
+    not_exposed: { field: public, equals: "false" }
+    title: "Public Pages site on a private repository: {repo_full_name}"
+    explanation: >-
+      {repo_full_name} is not public, but the API reports its GitHub Pages
+      site ({name}) as public: anyone on the internet can open the published
+      files.
+    caveat: >-
+      The API reports what Pages publishes, not which files the build output
+      includes. Private Pages sites need GitHub Enterprise Cloud; on other
+      plans every Pages site is public.
+    fix:
+      kind: command
+      text: "gh api -X DELETE repos/{repo_full_name}/pages"
+      note: This unpublishes the site. On GitHub Enterprise Cloud you can instead set Settings > Pages > Visibility to Private.
+      docs_url: https://docs.github.com/en/enterprise-cloud@latest/pages/getting-started-with-github-pages/changing-the-visibility-of-your-github-pages-site
+
+  - id: http_pages_site
+    kind: pages_site
+    severity: low
+    signal: api_field
+    exposed: { field: https_enforced, equals: "false" }
+    not_exposed: { field: https_enforced, equals: "true" }
+    title: "Pages site without enforced HTTPS: {name}"
+    explanation: >-
+      The API reports that HTTPS is not enforced for the Pages site of
+      {repo_full_name}, so it can also be served over plain HTTP.
+    caveat: The API cannot see whether a custom domain's DNS or certificate is ready for HTTPS.
+    fix:
+      kind: steps
+      text: "Repository > Settings > Pages > Enforce HTTPS: on."
+      docs_url: https://docs.github.com/en/pages/getting-started-with-github-pages/securing-your-github-pages-site-with-https
+
+  - id: insecure_repo_webhook
+    kind: repo_webhook
+    severity: medium
+    signal: api_field
+    exposed: { field: insecure_ssl, equals: "1" }
+    not_exposed: { field: insecure_ssl, equals: "0" }
+    title: "Webhook without TLS verification: {repo_full_name} hook {provider_id}"
+    explanation: >-
+      The API reports insecure_ssl = 1 for this webhook on {repo_full_name}:
+      GitHub delivers its payloads without verifying the receiver's TLS
+      certificate.
+    caveat: >-
+      Muretto never stores the payload URL or the secret (both are stripped),
+      so it cannot say where the hook delivers or whether it is signed.
+    fix:
+      kind: command
+      text: "gh api -X PATCH repos/{repo_full_name}/hooks/{provider_id}/config -f insecure_ssl=0"
+      docs_url: https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks
+
+  - id: insecure_org_webhook
+    kind: org_webhook
+    severity: medium
+    signal: api_field
+    exposed: { field: insecure_ssl, equals: "1" }
+    not_exposed: { field: insecure_ssl, equals: "0" }
+    title: "Organization webhook without TLS verification: {org} hook {provider_id}"
+    explanation: >-
+      The API reports insecure_ssl = 1 for this webhook on organization
+      {org}: GitHub delivers its payloads without verifying the receiver's TLS
+      certificate.
+    caveat: >-
+      Muretto never stores the payload URL or the secret (both are stripped),
+      so it cannot say where the hook delivers or whether it is signed.
+    fix:
+      kind: command
+      text: "gh api -X PATCH orgs/{org}/hooks/{provider_id}/config -f insecure_ssl=0"
+      docs_url: https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks
+
+  - id: writable_deploy_key
+    kind: deploy_key
+    severity: medium
+    signal: api_field
+    exposed: { field: read_only, equals: "false" }
+    not_exposed: { field: read_only, equals: "true" }
+    title: "Deploy key with write access: {name} on {repo_full_name}"
+    explanation: >-
+      The API reports this deploy key on {repo_full_name} as not read-only:
+      whoever holds the private key can push to the repository.
+    caveat: The API cannot see where the private key is stored or who holds it.
+    fix:
+      kind: command
+      text: "gh repo deploy-key delete {provider_id} -R {repo_full_name}"
+      note: "If the deployment needs the key, add it back read-only: gh repo deploy-key add <key.pub> -R {repo_full_name} (without --allow-write)."
+      docs_url: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys
+
+  - id: secret_named_actions_variable
+    kind: actions_variable
+    severity: medium
+    signal: name_pattern
+    exposed:
+      field: name
+      matches: '(SECRET|PASSWORD|PASSWD|TOKEN|API_?KEY|PRIVATE_KEY|ACCESS_KEY|CREDENTIAL|SERVICE_ROLE|DATABASE_URL|CONNECTION_STRING|DSN$)'
+    title: "Secret-looking Actions variable: {name} on {repo_full_name}"
+    explanation: >-
+      {name} is a GitHub Actions variable, not a secret, and its name suggests
+      a secret. GitHub documents variables for non-sensitive values and the API
+      returns them in plaintext. Muretto never stores the value.
+    caveat: Decided from the name only. Muretto strips the value and cannot say whether it is a real secret.
+    fix:
+      kind: command
+      text: "gh secret set {name} -R {repo_full_name} && gh variable delete {name} -R {repo_full_name}"
+      note: Workflows must then read secrets.{name} instead of vars.{name}. If the value was a real secret, rotate it at its provider.
+      docs_url: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables
+
+signatures:
+  # ---- gh CLI (cli/cli pkg/cmd/repo/create/create.go). Claude Code runs it
+  # without a terminal: stdout is only the new repository's URL. With a
+  # terminal, or from a template, it prints "✓ Created repository OWNER/NAME on HOST".
+  - id: github.cli.repo_create
+    kind: repo
+    role: created
+    when: { tool: ^Bash$, command: ['\bgh\s+repo\s+create\b'] }
+    extract:
+      - from: output
+        pattern: 'Created repository (?P<full>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+) on github\.com\b'
+        value: "{full|lower}"
+        match: { value: "{full_name|lower}" }
+      - from: output
+        pattern: '(?m)^https://github\.com/(?P<full>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+?)(?:\.git)?\s*$'
+        value: "{full|lower}"
+        match: { value: "{full_name|lower}" }
+
+  # gh repo fork (pkg/cmd/repo/fork/fork.go) prints the URL (no terminal) or
+  # "✓ Created fork OWNER/NAME" only when the fork is new; an existing fork
+  # prints "OWNER/NAME already exists".
+  - id: github.cli.repo_fork
+    kind: repo
+    role: created
+    when: { tool: ^Bash$, command: ['\bgh\s+repo\s+fork\b'] }
+    extract:
+      - from: output
+        pattern: 'Created fork (?P<full>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+)'
+        value: "{full|lower}"
+        match: { value: "{full_name|lower}" }
+      - from: output
+        pattern: '(?m)^https://github\.com/(?P<full>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+?)(?:\.git)?\s*$'
+        value: "{full|lower}"
+        match: { value: "{full_name|lower}" }
+
+  # gh variable set NAME [-R OWNER/REPO]: no output without a terminal; the
+  # call's success is the proof (create-or-update; attribution vetoes it when
+  # created_at shows the variable already existed). Names are stored upper-case.
+  - id: github.cli.variable_set
+    kind: actions_variable
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bgh\s+variable\s+set\b']
+      not_command: ['\s(?:--org|-o|--env|-e|--env-file|-f)(?:[\s=]|$)']
+    extract:
+      - from: command
+        preprocess: shell_args
+        pattern: '(?:^|\x00)variable\x00set\x00(?P<name>[A-Za-z_][A-Za-z0-9_]*)(?:\x00|$)'
+        capture:
+          - { from: command, pattern: '\s(?:-R|--repo)(?:\s+|=)["'']?(?:https://github\.com/)?(?P<repo>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+)' }
+        value: "{name|upper}"
+        container: "{repo|lower}"
+
+  # gh repo deploy-key add prints nothing without a terminal and never the
+  # key id, so it can only point at the repository.
+  - id: github.cli.deploy_key_add
+    kind: repo
+    role: referenced
+    when: { tool: ^Bash$, command: ['\bgh\s+repo\s+deploy-key\s+add\b'] }
+    extract:
+      - from: command
+        pattern: '\s(?:-R|--repo)(?:\s+|=)["'']?(?:https://github\.com/)?(?P<repo>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+)'
+        value: "{repo|lower}"
+        match: { value: "{full_name|lower}" }
+      - from: output
+        pattern: 'Deploy key added to (?P<repo>[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+)'
+        value: "{repo|lower}"
+        match: { value: "{full_name|lower}" }
+
+  # ---- REST via `gh api` or curl. gh api POSTs when -f/-F/--input is given;
+  # curl -d POSTs. Both print GitHub's JSON body. A failed curl still exits 0
+  # with {"message": ...}, which result_lacks rejects.
+  - id: github.api.repo_create
+    kind: repo
+    role: created
+    when:
+      tool: ^Bash$
+      command:
+        - '\b(?:gh\s+api|curl)\b'
+        - '(?:^|[\s/"''])(?:user|orgs/[A-Za-z0-9-]+)/repos\b|/repos/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/generate\b'
+        - '(?:-X\s*POST|--method[\s=]+POST|--request[\s=]+POST|\s-[fFd]\s|\s--(?:raw-field|field|data|data-raw|data-binary|json|input)[\s=])'
+      result_has: [full_name]
+      result_lacks: [message, errors]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: github.api.webhook_create
+    kind: repo_webhook
+    role: created
+    when:
+      tool: ^Bash$
+      command:
+        - '\b(?:gh\s+api|curl)\b'
+        - 'repos/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/hooks\b'
+        - '(?:-X\s*POST|--method[\s=]+POST|--request[\s=]+POST|\s-[fFd]\s|\s--(?:raw-field|field|data|data-raw|data-binary|json|input)[\s=])'
+      result_has: [ping_url]
+      result_lacks: [message, errors]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: github.api.org_webhook_create
+    kind: org_webhook
+    role: created
+    when:
+      tool: ^Bash$
+      command:
+        - '\b(?:gh\s+api|curl)\b'
+        - 'orgs/[A-Za-z0-9-]+/hooks\b'
+        - '(?:-X\s*POST|--method[\s=]+POST|--request[\s=]+POST|\s-[fFd]\s|\s--(?:raw-field|field|data|data-raw|data-binary|json|input)[\s=])'
+      result_has: [ping_url]
+      result_lacks: [message, errors]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: github.api.deploy_key_create
+    kind: deploy_key
+    role: created
+    when:
+      tool: ^Bash$
+      command:
+        - '\b(?:gh\s+api|curl)\b'
+        - 'repos/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/keys\b'
+        - '(?:-X\s*POST|--method[\s=]+POST|--request[\s=]+POST|\s-[fFd]\s|\s--(?:raw-field|field|data|data-raw|data-binary|json|input)[\s=])'
+      result_has: [read_only]
+      result_lacks: [message, errors]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  # PUT .../environments/{name} creates or updates (attribution vetoes an
+  # update through created_at).
+  - id: github.api.environment_create
+    kind: environment
+    role: created
+    when:
+      tool: ^Bash$
+      command:
+        - '\b(?:gh\s+api|curl)\b'
+        - 'repos/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/environments/[A-Za-z0-9._-]+'
+        - '(?:-X\s*PUT|--method[\s=]+PUT|--request[\s=]+PUT)'
+      result_has: [html_url]
+      result_lacks: [message, errors]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  # ---- GitHub MCP server (github/github-mcp-server). create_repository and
+  # fork_repository answer {"id": "<repo id>", "url": "<html_url>"}.
+  - id: github.mcp.create_repository
+    kind: repo
+    role: created
+    when: { mcp_tools: [create_repository], result_has: [id], result_lacks: [message, error] }
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  # The fork API returns the existing fork when there is one, so success does
+  # not prove creation.
+  - id: github.mcp.fork_repository
+    kind: repo
+    role: referenced
+    when: { mcp_tools: [fork_repository], result_has: [id] }
+    extract:
+      - { from: result, value: "{result.id}" }
+
+coverage:
+  - { kind: repo, status: full, note: "GET /user/repos, Link-header paging (100 per page)" }
+  - { kind: organization, status: partial, note: "Owners of the repositories the token can see; GET /user/orgs is empty for fine-grained tokens" }
+  - { kind: pages_site, status: full, note: "GET /repos/{owner}/{repo}/pages per repo (404 = no site)" }
+  - { kind: repo_webhook, status: full, note: "GET /repos/{owner}/{repo}/hooks, Link-header paging; URL and secret stripped" }
+  - { kind: deploy_key, status: full, note: "GET /repos/{owner}/{repo}/keys, Link-header paging; public key not stored" }
+  - { kind: environment, status: full, note: "GET /repos/{owner}/{repo}/environments, Link-header paging" }
+  - { kind: actions_variable, status: full, note: "GET /repos/{owner}/{repo}/actions/variables, 30 per page with Link paging; names only, values stripped" }
+  - { kind: org_webhook, status: partial, note: "GET /orgs/{org}/hooks (org owners only); URL and secret stripped" }
+  - { kind: installation, status: partial, note: "GET /orgs/{org}/installations (org owners only); GET /user/installations is not available to fine-grained tokens" }
+  - { kind: actions_secret, status: planned, note: "GET /repos/{owner}/{repo}/actions/secrets (names only; needs Secrets read)" }
+  - { kind: org_actions_variable, status: planned, note: "GET /orgs/{org}/actions/variables (values must be stripped)" }
+  - { kind: environment_variable, status: planned, note: "GET /repos/{owner}/{repo}/environments/{name}/variables (values must be stripped)" }
+  - { kind: gist, status: planned, note: "GET /gists; MCP create_gist and gh gist create make public gists" }
+  - { kind: branch, status: planned, note: "MCP create_branch / push_files; not an exposure surface on its own" }
+  - { kind: ruleset, status: planned, note: "GET /repos/{owner}/{repo}/rulesets" }
+  - { kind: secret_scanning_setting, status: planned, note: "security_and_analysis is returned only to admins, owners and security managers" }
+  - { kind: codespace, status: planned, note: "GET /user/codespaces" }
+  - { kind: self_hosted_runner, status: planned, note: "GET /repos/{owner}/{repo}/actions/runners" }
+  - { kind: release, status: planned, note: "GET /repos/{owner}/{repo}/releases" }
+
+recorder:
+  pseudonymize: [id, node_id, login, name, full_name, html_url, url, title, app_slug, app_id, target_id, cname, owner.login, owner.id, account.login, account.id, added_by, parent.full_name]
+  keep: [public, private, internal, User, Organization, Repository, web, json, form, legacy, workflow, built, all, selected]

@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "0123456789abcdef0123456789abcd42",
+      "name": "www.example.com",
+      "type": "CNAME",
+      "content": "example-site.pages.dev",
+      "proxied": true,
+      "ttl": 1,
+      "created_on": "2026-10-31T12:05:00Z"
+    }
+  ],
+  "result_info": {
+    "page": 2,
+    "per_page": 1000,
+    "count": 1,
+    "total_count": 2,
+    "total_pages": 2
+  }
+}

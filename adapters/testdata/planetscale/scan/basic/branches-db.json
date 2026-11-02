@@ -1,0 +1,44 @@
+{
+  "type": "list",
+  "current_page": 1,
+  "next_page": null,
+  "prev_page": null,
+  "data": [
+    {
+      "id": "brEXAMPLE0001",
+      "type": "Branch",
+      "name": "main",
+      "kind": "mysql",
+      "state": "ready",
+      "ready": true,
+      "production": true,
+      "safe_migrations": false,
+      "deletion_protected": false,
+      "parent_branch": null,
+      "mysql_address": "aws.connect.psdb.cloud",
+      "html_url": "https://app.planetscale.com/example-org/example-db/main",
+      "region": { "id": "regEXAMPLE01", "slug": "us-east" },
+      "actor": { "id": "usrEXAMPLE01", "display_name": "Example User" },
+      "created_at": "2025-01-10T10:00:00.000Z",
+      "updated_at": "2026-10-30T10:00:00.000Z",
+      "deleted_at": null
+    },
+    {
+      "id": "brEXAMPLE0002",
+      "type": "Branch",
+      "name": "feature-x",
+      "kind": "mysql",
+      "state": "ready",
+      "ready": true,
+      "production": false,
+      "safe_migrations": false,
+      "deletion_protected": false,
+      "parent_branch": "main",
+      "html_url": "https://app.planetscale.com/example-org/example-db/feature-x",
+      "region": { "id": "regEXAMPLE01", "slug": "us-east" },
+      "created_at": "2026-10-29T12:00:00.000Z",
+      "updated_at": "2026-10-29T12:00:00.000Z",
+      "deleted_at": null
+    }
+  ]
+}

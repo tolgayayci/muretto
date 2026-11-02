@@ -1,0 +1,23 @@
+[
+ {
+  "type": "Organization",
+  "id": 3000010,
+  "name": "web",
+  "active": true,
+  "events": [
+   "push",
+   "pull_request"
+  ],
+  "config": {
+   "content_type": "json",
+   "url": "https://hooks.example.com/MURETTO_FAKE_SECRET",
+   "secret": "MURETTO_FAKE_SECRET",
+   "insecure_ssl": 1
+  },
+  "updated_at": "2026-10-30T09:30:00Z",
+  "created_at": "2026-10-30T09:30:00Z",
+  "url": "https://api.github.com/orgs/example-org/hooks/3000010",
+  "ping_url": "https://api.github.com/orgs/example-org/hooks/3000010/pings",
+  "deliveries_url": "https://api.github.com/orgs/example-org/hooks/3000010/deliveries"
+ }
+]

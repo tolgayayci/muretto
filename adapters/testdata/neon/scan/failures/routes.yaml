@@ -1,0 +1,13 @@
+# Failed calls must become error checks (rules say unknown), never "nothing
+# found": project settings 500, branches 403 on one project, computes 403,
+# Data API 403, roles 500.
+- { method: GET, path: /api/v2/users/me/organizations, file: ../basic/orgs.json }
+- { method: GET, path: /api/v2/projects, query: { org_id: org-example-12345678, limit: "400" }, file: projects.json }
+- { method: GET, path: /api/v2/projects/example-project-123456, status: 500, body: '{"code":"","message":"internal error"}' }
+- { method: GET, path: /api/v2/projects/example-locked-654321, file: ../basic/project-locked.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches, query: { limit: "1000" }, file: branches.json }
+- { method: GET, path: /api/v2/projects/example-locked-654321/branches, query: { limit: "1000" }, status: 403, body: '{"code":"","message":"forbidden"}' }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/endpoints, status: 403, body: '{"code":"","message":"forbidden"}' }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/databases, file: ../basic/databases-2.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/data-api/neondb, status: 403, body: '{"code":"","message":"forbidden"}' }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/roles, status: 500, body: '{"code":"","message":"internal error"}' }

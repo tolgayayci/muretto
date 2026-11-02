@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "domains": [
+      {
+        "domain": "uploads.example.com",
+        "enabled": true,
+        "status": {
+          "ownership": "active",
+          "ssl": "active"
+        },
+        "zoneId": "0123456789abcdef0123456789abcd10",
+        "zoneName": "example.com"
+      }
+    ]
+  }
+}

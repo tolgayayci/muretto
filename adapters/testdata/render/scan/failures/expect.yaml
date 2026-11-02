@@ -1,0 +1,14 @@
+account: { id: tea-example0000000000001, name: Example Team }
+options: []
+resources:
+  - render.service:srv-example0000000000001
+findings: {}
+checks:
+  - "render.blueprint|||ok"
+  - "render.custom_domain|srv-example0000000000001||error:permission"
+  - "render.key_value||open_key_value|error:provider"
+  - "render.key_value|||error:provider"
+  - "render.postgres||expiring_postgres|error:permission"
+  - "render.postgres||open_postgres|error:permission"
+  - "render.postgres|||error:permission"
+  - "render.service|||ok"

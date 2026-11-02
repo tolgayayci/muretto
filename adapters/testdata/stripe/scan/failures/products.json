@@ -1,0 +1,27 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "prod_EXAMPLELIVE0001",
+      "object": "product",
+      "active": true,
+      "created": 1793000100,
+      "default_price": null,
+      "description": null,
+      "images": [],
+      "marketing_features": [],
+      "livemode": true,
+      "metadata": {},
+      "name": "Example Pro",
+      "package_dimensions": null,
+      "shippable": null,
+      "statement_descriptor": null,
+      "tax_code": null,
+      "unit_label": null,
+      "updated": 1793000100,
+      "url": null
+    }
+  ],
+  "has_more": false,
+  "url": "/v1/products"
+}

@@ -424,3 +424,34 @@
   input: { file_path: /home/dev/acme-app/README.md }
   output: "Created a new project at https://supabase.com/dashboard/project/abcdefghijklmnopqrst"
   expect: []
+
+# Cases for the signatures the shipping rules found untested (2026-11-01).
+# Shapes from docs/research/supabase.md (Management API BranchResponse; MCP
+# list_branches, list_edge_functions and list_storage_buckets results).
+- name: Management API create branch through curl
+  tool: Bash
+  input: { command: "curl -X POST https://api.supabase.com/v1/projects/abcdefghijklmnopqrst/branches -H \"Authorization: Bearer [REDACTED]\" -d '{\"branch_name\":\"develop\"}'" }
+  output: '{"id":"00000000-0000-4000-8000-000000000001","name":"develop","project_ref":"tsrqponmlkjihgfedcba","parent_project_ref":"abcdefghijklmnopqrst","is_default":false,"status":"CREATING_PROJECT"}'
+  expect:
+    - { kind: supabase.branch, value: tsrqponmlkjihgfedcba, role: created }
+
+- name: MCP list_branches only references branches
+  tool: mcp__supabase__list_branches
+  input: { project_id: abcdefghijklmnopqrst }
+  output: '{"branches":[{"id":"00000000-0000-4000-8000-000000000001","name":"develop","project_ref":"tsrqponmlkjihgfedcba","parent_project_ref":"abcdefghijklmnopqrst"}]}'
+  expect:
+    - { kind: supabase.branch, value: tsrqponmlkjihgfedcba, role: referenced }
+
+- name: MCP list_edge_functions only references functions
+  tool: mcp__supabase__list_edge_functions
+  input: { project_id: abcdefghijklmnopqrst }
+  output: '{"functions":[{"id":"00000000-0000-4000-8000-000000000002","slug":"hello-world","name":"hello-world","status":"ACTIVE","version":1}]}'
+  expect:
+    - { kind: supabase.function, value: hello-world, container: abcdefghijklmnopqrst, role: referenced }
+
+- name: MCP list_storage_buckets only references buckets
+  tool: mcp__supabase__list_storage_buckets
+  input: { project_id: abcdefghijklmnopqrst }
+  output: '{"buckets":[{"id":"avatars","name":"avatars","owner":"","public":false,"created_at":"2026-10-26T10:00:00Z","updated_at":"2026-10-26T10:00:00Z"}]}'
+  expect:
+    - { kind: supabase.bucket, value: avatars, container: abcdefghijklmnopqrst, role: referenced }

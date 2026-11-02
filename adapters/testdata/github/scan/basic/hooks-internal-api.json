@@ -1,0 +1,28 @@
+[
+ {
+  "type": "Repository",
+  "id": 3000003,
+  "name": "web",
+  "active": true,
+  "events": [
+   "push",
+   "pull_request"
+  ],
+  "config": {
+   "content_type": "json",
+   "url": "https://hooks.example.com/MURETTO_FAKE_SECRET",
+   "secret": "MURETTO_FAKE_SECRET"
+  },
+  "updated_at": "2026-10-30T09:30:00Z",
+  "created_at": "2026-10-30T09:30:00Z",
+  "url": "https://api.github.com/repos/example-org/internal-api/hooks/3000003",
+  "ping_url": "https://api.github.com/repos/example-org/internal-api/hooks/3000003/pings",
+  "deliveries_url": "https://api.github.com/repos/example-org/internal-api/hooks/3000003/deliveries",
+  "test_url": "https://api.github.com/repos/example-org/internal-api/hooks/3000003/test",
+  "last_response": {
+   "code": null,
+   "status": "unused",
+   "message": null
+  }
+ }
+]

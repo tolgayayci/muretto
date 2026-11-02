@@ -1,0 +1,26 @@
+[
+ {
+  "id": 4000001,
+  "key": "ssh-ed25519 AAAAEXAMPLEPUBLICKEY",
+  "url": "https://api.github.com/repos/octo-example/agent-landing/keys/4000001",
+  "title": "deploy-bot",
+  "verified": true,
+  "created_at": "2026-10-30T09:40:00Z",
+  "read_only": false,
+  "added_by": "octo-example",
+  "last_used": null,
+  "enabled": true
+ },
+ {
+  "id": 4000002,
+  "key": "ssh-ed25519 AAAAEXAMPLEPUBLICKEY",
+  "url": "https://api.github.com/repos/octo-example/agent-landing/keys/4000002",
+  "title": "ci-readonly",
+  "verified": true,
+  "created_at": "2026-10-30T09:40:00Z",
+  "read_only": true,
+  "added_by": "octo-example",
+  "last_used": null,
+  "enabled": true
+ }
+]

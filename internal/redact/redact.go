@@ -49,12 +49,29 @@ var tokenRules = []anchored{
 	// they are never needed for attribution).
 	{name: "supabase_publishable", triggers: []string{"sb_publishable_"}, window: 256,
 		re: regexp.MustCompile(`^sb_publishable_[A-Za-z0-9_-]{8,}`)},
-	{name: "github", triggers: []string{"ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"}, window: 512,
-		re: regexp.MustCompile(`^(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})`)},
+	// ghs_ installation tokens (and Actions' GITHUB_TOKEN) became ~520-char
+	// ghs_APPID_JWT values in 2026; GitHub's own pattern is
+	// ghs_[A-Za-z0-9\.\-_]{36,} (github.blog changelog 2026-05-15).
+	{name: "github", triggers: []string{"ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"}, window: 2048,
+		re: regexp.MustCompile(`^(?:ghs_[A-Za-z0-9._-]{20,}|gh[pour]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})`)},
 	{name: "vercel", triggers: []string{"vcp_"}, window: 256,
 		re: regexp.MustCompile(`^vcp_[A-Za-z0-9_-]{16,}`)},
-	{name: "stripe", triggers: []string{"sk_live_", "sk_test_", "rk_live_", "rk_test_", "whsec_"}, window: 512,
-		re: regexp.MustCompile(`^(?:[sr]k_(?:live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{16,})`)},
+	{name: "stripe", triggers: []string{"sk_live_", "sk_test_", "rk_live_", "rk_test_", "whsec_", "sk_org_", "ek_live_", "ek_test_"}, window: 512,
+		re: regexp.MustCompile(`^(?:[sr]k_(?:live|test)_[A-Za-z0-9]{8,}|sk_org_[A-Za-z0-9_]{8,}|ek_(?:live|test)_[A-Za-z0-9]{8,}|whsec_[A-Za-z0-9]{16,})`)},
+	// Cloudflare API tokens and keys (cfk_ = API key, cfut_ = user token,
+	// cfat_ = account token; 40 chars plus a checksum). Older unprefixed
+	// tokens have no reliable shape.
+	{name: "cloudflare", triggers: []string{"cfk_", "cfut_", "cfat_"}, window: 256,
+		re: regexp.MustCompile(`^cf(?:k|ut|at)_[A-Za-z0-9]{40,}`)},
+	// cloudflared tunnel run tokens: base64 of {"a":…,"t":…,"s":…}.
+	{name: "cloudflare_tunnel", triggers: []string{"eyjhijoi"}, window: 1024,
+		re: regexp.MustCompile(`^eyJhIjoi[A-Za-z0-9+/]{40,}={0,2}`)},
+	{name: "neon", triggers: []string{"napi_"}, window: 256,
+		re: regexp.MustCompile(`^napi_[A-Za-z0-9]{40,}`)},
+	{name: "render", triggers: []string{"rnd_"}, window: 256,
+		re: regexp.MustCompile(`^rnd_[A-Za-z0-9]{16,}`)},
+	{name: "planetscale", triggers: []string{"pscale_tkn_", "pscale_oauth_", "pscale_pw_"}, window: 256,
+		re: regexp.MustCompile(`^pscale_(?:tkn|oauth|pw)_[A-Za-z0-9_=.-]{32,}`)},
 	{name: "aws_access_key", triggers: []string{"akia", "asia", "agpa", "aida", "aroa", "aipa", "anpa", "anva"}, window: 20,
 		re: regexp.MustCompile(`^(?:AKIA|ASIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA)[A-Z0-9]{16}`)},
 	{name: "anthropic_openai", triggers: []string{"sk-"}, window: 512,
@@ -71,8 +88,9 @@ var tokenRules = []anchored{
 	// sbp%5F… (the "_" encoded as %5F).
 	{name: "encoded_token", window: 512,
 		triggers: []string{"sbp%5f", "sb%5fsecret%5f", "sb%5fpublishable%5f", "ghp%5f", "gho%5f", "ghu%5f", "ghs%5f", "ghr%5f",
-			"github%5fpat%5f", "vcp%5f", "npm%5f", "mrt%5f", "sk%5flive%5f", "sk%5ftest%5f", "rk%5flive%5f", "rk%5ftest%5f"},
-		re: regexp.MustCompile(`^(?i)(?:sbp|sb%5fsecret|sb%5fpublishable|gh[pousr]|github%5fpat|vcp|npm|mrt|[sr]k%5f(?:live|test))%5f[A-Za-z0-9_%-]{16,}`)},
+			"github%5fpat%5f", "vcp%5f", "npm%5f", "mrt%5f", "sk%5flive%5f", "sk%5ftest%5f", "rk%5flive%5f", "rk%5ftest%5f",
+			"cfk%5f", "cfut%5f", "cfat%5f", "napi%5f", "rnd%5f", "pscale%5ftkn%5f", "pscale%5foauth%5f", "pscale%5fpw%5f"},
+		re: regexp.MustCompile(`^(?i)(?:sbp|sb%5fsecret|sb%5fpublishable|gh[pousr]|github%5fpat|vcp|npm|mrt|[sr]k%5f(?:live|test)|cf(?:k|ut|at)|napi|rnd|pscale%5f(?:tkn|oauth|pw))%5f[A-Za-z0-9_%.=-]{16,}`)},
 }
 
 // contextRules keep the surrounding structure (header name, auth scheme,
@@ -339,6 +357,35 @@ func isURLStop(c byte) bool {
 	return false
 }
 
+// reResourceKind is a resource kind as Muretto writes ids: <provider>.<kind>.
+var reResourceKind = regexp.MustCompile(`(?:^|[^A-Za-z0-9_.-])[a-z][a-z0-9-]{1,31}\.[a-z][a-z0-9_]*$`)
+
+// isResourceID reports whether the key before sep is the kind of a Muretto
+// resource id (github.deploy_key:4000001) rather than a secret label. Only
+// kinds that look secret just because they end in _key qualify, and the ':'
+// must be followed directly by the id: "config.api_key: value" and
+// "foo.db_password:x" stay redacted.
+func isResourceID(s string, sep int, key string) bool {
+	if s[sep] != ':' || sep+1 >= len(s) || s[sep+1] == ' ' || s[sep+1] == '\t' || s[sep+1] == '"' || s[sep+1] == '\'' {
+		return false
+	}
+	if !strings.Contains(key, ".") {
+		return false
+	}
+	kind := key[strings.LastIndex(key, ".")+1:]
+	n := normalizeKey(kind)
+	for _, p := range secretKeyParts {
+		if strings.Contains(n, p) {
+			return false
+		}
+	}
+	lo := sep - 80
+	if lo < 0 {
+		lo = 0
+	}
+	return strings.HasSuffix(n, "_key") && reResourceKind.MatchString(s[lo:sep])
+}
+
 // isUserStop ends a URL's user name. Only ':' and '@' mean userinfo follows;
 // a password after ':' may contain any of the others.
 func isUserStop(c byte) bool {
@@ -373,6 +420,9 @@ func redactKeyValues(s string) string {
 		key, ok := keyBefore(s, sep)
 		if !ok || !IsSecretKey(key) {
 			continue
+		}
+		if isResourceID(s, sep, key) {
+			continue // github.deploy_key:4000001 is an id, not a secret
 		}
 		// Skip spaces and an optional (escaped) opening quote after the separator.
 		v := sep + 1

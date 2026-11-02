@@ -1,0 +1,332 @@
+# Extract cases built from the output strings in docs/research/cloudflare.md
+# (Wrangler source at workers-sdk 3f14c76, cloudflared 872b241, Cloudflare
+# MCP README at cloudflare/mcp 4938f2f, API create responses from the OpenAPI
+# spec). All ids are fakes and match the scan/basic fixtures.
+
+# ---- Wrangler ----
+- name: wrangler d1 create (TOML config, snippet printed)
+  tool: Bash
+  input: { command: "npx wrangler d1 create example-db" }
+  output: |
+    ✅ Successfully created DB 'example-db' in region WEUR
+    Created your new D1 database.
+
+    To access your new D1 Database in your Worker, add the following snippet to your configuration file:
+    [[d1_databases]]
+    binding = "example_db"
+    database_name = "example-db"
+    database_id = "01234567-89ab-4def-8123-456789abcdef"
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: created }
+  matches: [cloudflare.d1_database:01234567-89ab-4def-8123-456789abcdef]
+
+- name: wrangler d1 create (JSON config)
+  tool: Bash
+  input: { command: "wrangler d1 create example-db --binding DB" }
+  output: |
+    ✅ Successfully created DB 'example-db'
+    Created your new D1 database.
+
+    To access your new D1 Database in your Worker, add the following snippet to your configuration file:
+    {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "example-db",
+          "database_id": "01234567-89ab-4def-8123-456789abcdef"
+        }
+      ]
+    }
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: created }
+
+- name: wrangler d1 create that failed proves nothing
+  tool: Bash
+  status: error
+  input: { command: "wrangler d1 create example-db" }
+  output: "✘ [ERROR] A request to the Cloudflare API failed. A database with that name already exists [code: 7502]"
+  expect: []
+
+- name: wrangler kv namespace create
+  tool: Bash
+  input: { command: "wrangler kv namespace create example-cache" }
+  output: |
+    Resource location: remote
+    🌀 Creating namespace with title "example-cache"
+    ✨ Success!
+    To access your new KV Namespace in your Worker, add the following snippet to your configuration file:
+    {
+      "kv_namespaces": [
+        {
+          "binding": "example_cache",
+          "id": "0123456789abcdef0123456789abcd30"
+        }
+      ]
+    }
+  expect:
+    - { kind: cloudflare.kv_namespace, value: 0123456789abcdef0123456789abcd30, role: created }
+  matches: [cloudflare.kv_namespace:0123456789abcdef0123456789abcd30]
+
+- name: wrangler kv namespace list is read-only
+  tool: Bash
+  input: { command: "wrangler kv namespace list" }
+  output: '[{"id": "0123456789abcdef0123456789abcd30", "title": "example-cache", "supports_url_encoding": true}]'
+  expect: []
+
+- name: wrangler r2 bucket create
+  tool: Bash
+  input: { command: "wrangler r2 bucket create example-assets" }
+  output: |
+    Creating bucket 'example-assets'...
+    ✅ Created bucket 'example-assets' with default storage class of Standard.
+    To access your new R2 Bucket in your Worker, add the following snippet to your configuration file:
+    [[r2_buckets]]
+    bucket_name = "example-assets"
+    binding = "example_assets"
+  expect:
+    - { kind: cloudflare.r2_bucket, value: example-assets, role: created }
+  matches: [cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets]
+
+- name: wrangler r2 bucket create in a jurisdiction (not listed, so no id)
+  tool: Bash
+  input: { command: "wrangler r2 bucket create example-eu --jurisdiction eu" }
+  output: |
+    Creating bucket 'example-eu (eu)'...
+    ✅ Created bucket 'example-eu (eu)' with default storage class of Standard.
+  expect: []
+
+- name: wrangler r2 bucket dev-url enable references the bucket
+  tool: Bash
+  input: { command: "wrangler r2 bucket dev-url enable example-assets --force" }
+  output: |
+    Enabling public access for bucket 'example-assets'...
+    ✨ Public access enabled at 'https://pub-0123456789abcdef0123456789abcd01.r2.dev'.
+  expect:
+    - { kind: cloudflare.r2_bucket, value: example-assets, role: referenced }
+
+- name: wrangler r2 bucket domain add
+  tool: Bash
+  input: { command: "wrangler r2 bucket domain add example-assets --domain assets.example.com --zone-id 0123456789abcdef0123456789abcd10 --force" }
+  output: |
+    Connecting custom domain 'assets.example.com' to bucket 'example-assets'...
+    ✨ Custom domain 'assets.example.com' connected successfully.
+  expect:
+    - { kind: cloudflare.r2_custom_domain, value: example-assets/assets.example.com, role: created }
+  matches: [cloudflare.r2_custom_domain:example-assets/assets.example.com]
+
+- name: wrangler deploy (Worker on workers.dev)
+  tool: Bash
+  input: { command: "npx wrangler deploy" }
+  output: |
+    Total Upload: 0.19 KiB / gzip: 0.16 KiB
+    Uploaded example-api (1.42 sec)
+    Deployed example-api triggers (0.37 sec)
+      https://example-api.example-sub.workers.dev
+    Current Version ID: 01234567-0000-4000-8000-0000000000e1
+  expect:
+    - { kind: cloudflare.worker, value: example-api, role: created }
+  matches: [cloudflare.worker:0123456789abcdef0123456789abcd21]
+
+- name: wrangler deploy --dry-run creates nothing
+  tool: Bash
+  input: { command: "wrangler deploy --dry-run --outdir dist" }
+  output: |
+    Total Upload: 0.19 KiB / gzip: 0.16 KiB
+    --dry-run: exiting now.
+  expect: []
+
+- name: wrangler pages project create
+  tool: Bash
+  input: { command: "wrangler pages project create example-site --production-branch main" }
+  output: "✨ Successfully created the 'example-site' project. It will be available at https://example-site.pages.dev/ once you create your first deployment."
+  expect:
+    - { kind: cloudflare.pages_project, value: example-site, role: created }
+  matches: [cloudflare.pages_project:0123abcd-0000-4000-8000-0000000000aa]
+
+- name: wrangler pages deploy (creates the project on first run)
+  tool: Bash
+  input: { command: "wrangler pages deploy dist --project-name example-site --branch feature-x" }
+  output: |
+    ✨ Successfully created the 'example-site' project.
+    ✨ Success! Uploaded 12 files (1.23 sec)
+
+    🌎 Deploying...
+    ✨ Deployment complete! Take a peek over at https://0123abcd.example-site.pages.dev
+    ✨ Deployment alias URL: https://feature-x.example-site.pages.dev
+  expect:
+    - { kind: cloudflare.pages_project, value: example-site, role: created }
+    - { kind: cloudflare.pages_deployment, value: "https://0123abcd.example-site.pages.dev", role: created }
+  matches: [cloudflare.pages_project:0123abcd-0000-4000-8000-0000000000aa, cloudflare.pages_deployment:0123abcd-0000-4000-8000-000000000001]
+
+- name: wrangler tunnel create
+  tool: Bash
+  input: { command: "wrangler tunnel create example-dev" }
+  output: |
+    Creating tunnel "example-dev"
+    Created tunnel.
+    ID: 01234567-0000-4000-8000-0000000000f1
+    Name: example-dev
+
+    To run this tunnel, configure its ingress rules in the Cloudflare dashboard, then run:
+       wrangler tunnel run 01234567-0000-4000-8000-0000000000f1
+  expect:
+    - { kind: cloudflare.tunnel, value: 01234567-0000-4000-8000-0000000000f1, role: created }
+  matches: [cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1]
+
+# ---- cloudflared ----
+- name: cloudflared tunnel create
+  tool: Bash
+  input: { command: "cloudflared tunnel create example-dev" }
+  output: |
+    Tunnel credentials written to /home/example/.cloudflared/01234567-0000-4000-8000-0000000000f1.json. Keep this file secret. To revoke these credentials, delete the tunnel.
+
+    Created tunnel example-dev with id 01234567-0000-4000-8000-0000000000f1
+  expect:
+    - { kind: cloudflare.tunnel, value: 01234567-0000-4000-8000-0000000000f1, role: created }
+  matches: [cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1]
+
+- name: cloudflared tunnel create --output json
+  tool: Bash
+  input: { command: "cloudflared tunnel create --output json example-dev" }
+  output: |
+    {
+      "id": "01234567-0000-4000-8000-0000000000f1",
+      "name": "example-dev",
+      "created_at": "2026-10-31T12:00:00Z",
+      "deleted_at": "0001-01-01T00:00:00Z",
+      "connections": [],
+      "token": "[REDACTED]"
+    }
+  expect:
+    - { kind: cloudflare.tunnel, value: 01234567-0000-4000-8000-0000000000f1, role: created }
+
+- name: cloudflared tunnel list is read-only
+  tool: Bash
+  input: { command: "cloudflared tunnel list" }
+  output: |
+    ID                                   NAME        CREATED              CONNECTIONS
+    01234567-0000-4000-8000-0000000000f1 example-dev 2026-10-31T12:00:00Z 1xFRA
+  expect: []
+
+# ---- curl against the API ----
+- name: curl create D1 database
+  tool: Bash
+  input: { command: "curl -s -X POST https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/d1/database -H \"Authorization: Bearer [REDACTED]\" --json '{\"name\":\"example-db\"}'" }
+  output: '{"result":{"uuid":"01234567-89ab-4def-8123-456789abcdef","name":"example-db","created_at":"2026-10-31T09:00:00.000Z","version":"production"},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: created }
+  matches: [cloudflare.d1_database:01234567-89ab-4def-8123-456789abcdef]
+
+- name: curl create D1 database that failed proves nothing
+  tool: Bash
+  input: { command: "curl -s -X POST https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/d1/database -H \"Authorization: Bearer [REDACTED]\" --json '{\"name\":\"example-db\"}'" }
+  output: '{"result":null,"success":false,"errors":[{"code":7502,"message":"A database with that name already exists"}],"messages":[]}'
+  expect: []
+
+- name: curl list D1 databases is read-only
+  tool: Bash
+  input: { command: "curl -s https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/d1/database -H \"Authorization: Bearer [REDACTED]\"" }
+  output: '{"result":[{"uuid":"01234567-89ab-4def-8123-456789abcdef","name":"example-db"}],"success":true,"errors":[],"messages":[]}'
+  expect: []
+
+- name: curl create KV namespace
+  tool: Bash
+  input: { command: "curl -X POST \"https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/storage/kv/namespaces\" -H \"Authorization: Bearer [REDACTED]\" -d '{\"title\":\"example-cache\"}'" }
+  output: '{"result":{"id":"0123456789abcdef0123456789abcd30","title":"example-cache","supports_url_encoding":true},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.kv_namespace, value: 0123456789abcdef0123456789abcd30, role: created }
+  matches: [cloudflare.kv_namespace:0123456789abcdef0123456789abcd30]
+
+- name: curl create R2 bucket (the URL names the account)
+  tool: Bash
+  input: { command: "curl -X POST https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/r2/buckets -H \"Authorization: Bearer [REDACTED]\" -d '{\"name\":\"example-assets\"}'" }
+  output: '{"result":{"name":"example-assets","creation_date":"2026-10-30T09:00:00.000Z","location":"WEUR","storage_class":"Standard"},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.r2_bucket, value: example-assets, container: 0123456789abcdef0123456789abcdef, role: created }
+  matches: [cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets]
+
+- name: curl create Pages project
+  tool: Bash
+  input: { command: "curl -X POST https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/pages/projects -H \"Authorization: Bearer [REDACTED]\" --json '{\"name\":\"example-site\",\"production_branch\":\"main\"}'" }
+  output: '{"result":{"id":"0123abcd-0000-4000-8000-0000000000aa","name":"example-site","subdomain":"example-site.pages.dev"},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.pages_project, value: 0123abcd-0000-4000-8000-0000000000aa, role: created }
+  matches: [cloudflare.pages_project:0123abcd-0000-4000-8000-0000000000aa]
+
+- name: curl create tunnel
+  tool: Bash
+  input: { command: "curl -X POST https://api.cloudflare.com/client/v4/accounts/0123456789abcdef0123456789abcdef/cfd_tunnel -H \"Authorization: Bearer [REDACTED]\" --json '{\"name\":\"example-dev\",\"config_src\":\"cloudflare\"}'" }
+  output: '{"result":{"id":"01234567-0000-4000-8000-0000000000f1","name":"example-dev","config_src":"cloudflare","status":"inactive","created_at":"2026-10-31T12:00:00Z"},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.tunnel, value: 01234567-0000-4000-8000-0000000000f1, role: created }
+  matches: [cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1]
+
+# ---- Cloudflare MCP ----
+- name: MCP execute that creates a D1 database and returns response.result
+  tool: mcp__cloudflare__execute
+  input:
+    code: |
+      async () => {
+        const response = await cloudflare.request({
+          method: "POST",
+          path: `/accounts/${accountId}/d1/database`,
+          body: { name: "example-db" },
+        });
+        return response.result;
+      }
+  output: '{"uuid":"01234567-89ab-4def-8123-456789abcdef","name":"example-db","created_at":"2026-10-31T09:00:00.000Z","version":"production"}'
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: created }
+  matches: [cloudflare.d1_database:01234567-89ab-4def-8123-456789abcdef]
+
+- name: MCP execute that only lists D1 databases is read-only
+  tool: mcp__claude_ai_Cloudflare__execute
+  input:
+    code: |
+      async () => {
+        const r = await cloudflare.request({ method: "GET", path: `/accounts/${accountId}/d1/database` });
+        return r.result.map((d) => d.name);
+      }
+  output: '["example-db"]'
+  expect: []
+
+- name: MCP execute that creates a KV namespace
+  tool: mcp__cloudflare__execute
+  input:
+    code: |
+      async () => {
+        const r = await cloudflare.request({ method: "POST", path: `/accounts/${accountId}/storage/kv/namespaces`, body: { title: "example-cache" } });
+        return r;
+      }
+  output: '{"success":true,"errors":[],"messages":[],"result":{"id":"0123456789abcdef0123456789abcd30","title":"example-cache","supports_url_encoding":true}}'
+  expect:
+    - { kind: cloudflare.kv_namespace, value: 0123456789abcdef0123456789abcd30, role: created }
+  matches: [cloudflare.kv_namespace:0123456789abcdef0123456789abcd30]
+
+- name: MCP endpoint tool post_d1_database (codemode=false)
+  tool: mcp__cloudflare__post_d1_database
+  input: { account_id: 0123456789abcdef0123456789abcdef, name: example-db }
+  output: '{"result":{"uuid":"01234567-89ab-4def-8123-456789abcdef","name":"example-db","created_at":"2026-10-31T09:00:00.000Z"},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: created }
+  matches: [cloudflare.d1_database:01234567-89ab-4def-8123-456789abcdef]
+
+- name: MCP read of a database references it
+  tool: mcp__cloudflare__get_d1_database
+  input: { account_id: 0123456789abcdef0123456789abcdef, database_id: 01234567-89ab-4def-8123-456789abcdef }
+  output: '{"result":{"uuid":"01234567-89ab-4def-8123-456789abcdef","name":"example-db"},"success":true,"errors":[],"messages":[]}'
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: referenced }
+
+# ---- Files ----
+- name: reading wrangler.toml references the D1 binding
+  tool: Bash
+  input: { command: "cat wrangler.toml" }
+  output: |
+    name = "example-api"
+    [[d1_databases]]
+    binding = "DB"
+    database_name = "example-db"
+    database_id = "01234567-89ab-4def-8123-456789abcdef"
+  expect:
+    - { kind: cloudflare.d1_database, value: 01234567-89ab-4def-8123-456789abcdef, role: referenced }

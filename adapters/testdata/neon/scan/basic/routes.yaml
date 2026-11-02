@@ -1,0 +1,28 @@
+# Org example-org with two projects (three pages of projects, the last empty):
+# waitlist-demo (Scale, no IP allow list) with a default branch, a week-old
+# child branch whose compute is active, and an older child whose compute is
+# idle; billing-prod (Scale, IP allow list). Data API on for main/neondb,
+# not provisioned (404) for agent-preview/neondb.
+- { method: GET, path: /api/v2/users/me/organizations, file: orgs.json }
+- { method: GET, path: /api/v2/projects, query: { org_id: org-example-12345678, limit: "400" }, file: projects-1.json }
+- { method: GET, path: /api/v2/projects, query: { org_id: org-example-12345678, limit: "400", cursor: example-project-123456 }, file: projects-2.json }
+- { method: GET, path: /api/v2/projects, query: { org_id: org-example-12345678, limit: "400", cursor: example-locked-654321 }, file: projects-3.json }
+- { method: GET, path: /api/v2/projects/example-project-123456, file: project-open.json }
+- { method: GET, path: /api/v2/projects/example-locked-654321, file: project-locked.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches, query: { limit: "1000" }, file: branches-open.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches, query: { limit: "1000", cursor: ZXhhbXBsZS1jdXJzb3ItMQ== }, file: branches-open-2.json }
+- { method: GET, path: /api/v2/projects/example-locked-654321/branches, query: { limit: "1000" }, file: branches-locked.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000001/endpoints, file: endpoints-1.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/endpoints, file: endpoints-2.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000003/endpoints, file: endpoints-3.json }
+- { method: GET, path: /api/v2/projects/example-locked-654321/branches/br-example-000010/endpoints, file: endpoints-empty.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000001/databases, file: databases-1.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/databases, file: databases-2.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000003/databases, file: databases-empty.json }
+- { method: GET, path: /api/v2/projects/example-locked-654321/branches/br-example-000010/databases, file: databases-empty.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000001/roles, file: roles-1.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/roles, file: roles-empty.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000003/roles, file: roles-empty.json }
+- { method: GET, path: /api/v2/projects/example-locked-654321/branches/br-example-000010/roles, file: roles-empty.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000001/data-api/neondb, file: data-api-1.json }
+- { method: GET, path: /api/v2/projects/example-project-123456/branches/br-example-000002/data-api/neondb, status: 404, body: '{"code":"","message":"data api not found"}' }

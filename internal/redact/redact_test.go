@@ -389,3 +389,56 @@ func TestStringPercentEncodedTokens(t *testing.T) {
 		t.Errorf("String(%q) = %q, want unchanged", keep, got)
 	}
 }
+
+// Token shapes of the providers added on 2026-11-01 (formats from each
+// provider's docs; see docs/research/<provider>.md).
+func TestNewProviderTokens(t *testing.T) {
+	ghs := "ghs_123456_" + strings.Repeat("eyJhbGciOiJSUzI1NiJ9.abcDEF-_", 18)
+	for _, tok := range []string{
+		ghs,
+		"github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJ",
+		"cfut_" + strings.Repeat("A1b2", 11),
+		"cfat_" + strings.Repeat("Z9y8", 11),
+		"cfk_" + strings.Repeat("0aB1", 11),
+		"eyJhIjoi" + strings.Repeat("QWxhZGRpbjpvcGVuIHNlc2FtZQ", 3) + "==",
+		"napi_" + strings.Repeat("abcd1234", 6),
+		"rnd_RUExipQ0123456789abcdef",
+		"pscale_tkn_" + strings.Repeat("aB3-", 9),
+		"pscale_pw_" + strings.Repeat("Xy7_", 9),
+		"sk_org_" + strings.Repeat("live0123", 3),
+		"ek_test_" + strings.Repeat("YWJj", 6),
+	} {
+		got := String("token: here " + tok + " end")
+		if strings.Contains(got, tok[6:20]) {
+			t.Errorf("%s… not redacted: %q", tok[:12], got)
+		}
+	}
+	if got := String("q=napi%5F" + strings.Repeat("abcd1234", 6)); strings.Contains(got, "abcd1234abcd") {
+		t.Errorf("encoded napi_ not redacted: %q", got)
+	}
+}
+
+// Resource ids whose kind ends in _key are ids, not secrets; real secret
+// labels stay redacted.
+func TestResourceIDsAreNotSecrets(t *testing.T) {
+	for _, s := range []string{
+		"github.deploy_key:4000001",
+		"see github.deploy_key:4000001 and vercel.sdk_key:prj_1/sdk",
+		`{"id":"github.deploy_key:4000001"}`,
+	} {
+		if got := String(s); got != s {
+			t.Errorf("%q -> %q", s, got)
+		}
+	}
+	for _, s := range []string{
+		"config.api_key:abcdef123456",
+		"app.db_password:hunter2-hunter2",
+		"deploy_key: 4000001secret",
+		`{"deploy_key":"ssh-ed25519 AAAAexample"}`,
+		"stripe.signing_key:abc123abc123",
+	} {
+		if got := String(s); got == s {
+			t.Errorf("%q was not redacted", s)
+		}
+	}
+}

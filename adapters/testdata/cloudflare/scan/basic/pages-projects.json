@@ -1,0 +1,139 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": [
+    {
+      "id": "0123abcd-0000-4000-8000-0000000000aa",
+      "name": "example-site",
+      "subdomain": "example-site.pages.dev",
+      "domains": [
+        "example-site.pages.dev"
+      ],
+      "created_on": "2026-10-31T10:30:00Z",
+      "production_branch": "main",
+      "uses_functions": true,
+      "build_config": {
+        "build_command": "npm run build",
+        "destination_dir": "dist",
+        "web_analytics_tag": "EXAMPLEtag",
+        "web_analytics_token": "MURETTO_FAKE_SECRET"
+      },
+      "deployment_configs": {
+        "preview": {
+          "env_vars": {
+            "PUBLIC_SITE_URL": {
+              "type": "plain_text",
+              "value": "MURETTO_FAKE_SECRET"
+            },
+            "STRIPE_SECRET_KEY": {
+              "type": "secret_text",
+              "value": "MURETTO_FAKE_SECRET"
+            }
+          },
+          "compatibility_date": "2026-10-01"
+        },
+        "production": {
+          "env_vars": {
+            "PUBLIC_SITE_URL": {
+              "type": "plain_text",
+              "value": "MURETTO_FAKE_SECRET"
+            },
+            "STRIPE_SECRET_KEY": {
+              "type": "secret_text",
+              "value": "MURETTO_FAKE_SECRET"
+            }
+          },
+          "compatibility_date": "2026-10-01"
+        }
+      },
+      "latest_deployment": {
+        "id": "0123abcd-0000-4000-8000-000000000001",
+        "short_id": "0123abcd",
+        "project_id": "0123abcd-0000-4000-8000-0000000000aa",
+        "project_name": "example-site",
+        "environment": "preview",
+        "url": "https://0123abcd.example-site.pages.dev",
+        "aliases": [
+          "https://feature-x.example-site.pages.dev"
+        ],
+        "created_on": "2026-10-31T11:00:00Z",
+        "modified_on": "2026-10-31T11:01:00Z",
+        "is_skipped": false,
+        "latest_stage": {
+          "name": "deploy",
+          "status": "success"
+        },
+        "deployment_trigger": {
+          "type": "ad_hoc",
+          "metadata": {
+            "branch": "feature-x"
+          }
+        },
+        "env_vars": {
+          "PUBLIC_SITE_URL": {
+            "type": "plain_text",
+            "value": "MURETTO_FAKE_SECRET"
+          },
+          "STRIPE_SECRET_KEY": {
+            "type": "secret_text",
+            "value": "MURETTO_FAKE_SECRET"
+          }
+        },
+        "build_config": {
+          "build_command": "npm run build",
+          "destination_dir": "dist",
+          "web_analytics_tag": "EXAMPLEtag",
+          "web_analytics_token": "MURETTO_FAKE_SECRET"
+        }
+      },
+      "canonical_deployment": {
+        "id": "0123abcd-0000-4000-8000-000000000001",
+        "short_id": "0123abcd",
+        "project_id": "0123abcd-0000-4000-8000-0000000000aa",
+        "project_name": "example-site",
+        "environment": "preview",
+        "url": "https://0123abcd.example-site.pages.dev",
+        "aliases": [
+          "https://feature-x.example-site.pages.dev"
+        ],
+        "created_on": "2026-10-31T11:00:00Z",
+        "modified_on": "2026-10-31T11:01:00Z",
+        "is_skipped": false,
+        "latest_stage": {
+          "name": "deploy",
+          "status": "success"
+        },
+        "deployment_trigger": {
+          "type": "ad_hoc",
+          "metadata": {
+            "branch": "feature-x"
+          }
+        },
+        "env_vars": {
+          "PUBLIC_SITE_URL": {
+            "type": "plain_text",
+            "value": "MURETTO_FAKE_SECRET"
+          },
+          "STRIPE_SECRET_KEY": {
+            "type": "secret_text",
+            "value": "MURETTO_FAKE_SECRET"
+          }
+        },
+        "build_config": {
+          "build_command": "npm run build",
+          "destination_dir": "dist",
+          "web_analytics_tag": "EXAMPLEtag",
+          "web_analytics_token": "MURETTO_FAKE_SECRET"
+        }
+      }
+    }
+  ],
+  "result_info": {
+    "page": 1,
+    "per_page": 10,
+    "count": 1,
+    "total_count": 1,
+    "total_pages": 1
+  }
+}

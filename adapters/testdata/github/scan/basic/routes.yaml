@@ -1,0 +1,35 @@
+# Bodies are built from the documented response shapes in GitHub's OpenAPI
+# description (api.github.com.json, 2026-11-01), with fake values. Five repos:
+# a public one with a Pages site, hooks, keys, an environment and variables;
+# a private one whose Pages site is public; three org repos (private,
+# visibility field absent, internal). Link headers cannot be set here, so
+# every list is a single page.
+- { path: /user, file: user.json }
+- { path: /user/repos, file: repos.json }
+- { path: /repos/octo-example/agent-landing/pages, file: pages-agent-landing.json }
+- { path: /repos/octo-example/private-notes/pages, file: pages-private-notes.json }
+- { path: /repos/example-org/internal-api/pages, file: pages-internal-api.json }
+- { path: /repos/example-org/legacy-tool/pages, status: 404, body: '{"message":"Not Found","documentation_url":"https://docs.github.com/rest/pages/pages#get-a-apiname-pages-site","status":"404"}' }
+- { path: /repos/example-org/docs-site/pages, file: pages-docs-site.json }
+- { path: /repos/octo-example/agent-landing/hooks, file: hooks-agent-landing.json }
+- { path: /repos/octo-example/private-notes/hooks, body: '[]' }
+- { path: /repos/example-org/internal-api/hooks, file: hooks-internal-api.json }
+- { path: /repos/example-org/legacy-tool/hooks, body: '[]' }
+- { path: /repos/example-org/docs-site/hooks, body: '[]' }
+- { path: /repos/octo-example/agent-landing/keys, file: keys-agent-landing.json }
+- { path: /repos/octo-example/private-notes/keys, body: '[]' }
+- { path: /repos/example-org/internal-api/keys, body: '[]' }
+- { path: /repos/example-org/legacy-tool/keys, body: '[]' }
+- { path: /repos/example-org/docs-site/keys, body: '[]' }
+- { path: /repos/octo-example/agent-landing/environments, file: envs-agent-landing.json }
+- { path: /repos/octo-example/private-notes/environments, body: '{"total_count":0,"environments":[]}' }
+- { path: /repos/example-org/internal-api/environments, body: '{"total_count":0,"environments":[]}' }
+- { path: /repos/example-org/legacy-tool/environments, body: '{"total_count":0,"environments":[]}' }
+- { path: /repos/example-org/docs-site/environments, body: '{"total_count":0,"environments":[]}' }
+- { path: /repos/octo-example/agent-landing/actions/variables, file: vars-agent-landing.json }
+- { path: /repos/octo-example/private-notes/actions/variables, body: '{"total_count":0,"variables":[]}' }
+- { path: /repos/example-org/internal-api/actions/variables, body: '{"total_count":0,"variables":[]}' }
+- { path: /repos/example-org/legacy-tool/actions/variables, body: '{"total_count":0,"variables":[]}' }
+- { path: /repos/example-org/docs-site/actions/variables, body: '{"total_count":0,"variables":[]}' }
+- { path: /orgs/example-org/hooks, file: org-hooks.json }
+- { path: /orgs/example-org/installations, file: installations.json }

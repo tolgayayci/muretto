@@ -1,0 +1,63 @@
+{
+  "type": "list",
+  "current_page": 1,
+  "next_page": null,
+  "prev_page": null,
+  "data": [
+    {
+      "id": "roleEXAMPLE01",
+      "type": "PostgresRole",
+      "name": "default",
+      "username": "postgres.exampleuser01",
+      "password": "MURETTO_FAKE_SECRET",
+      "access_host_url": "MURETTO_FAKE_SECRET",
+      "private_access_host_url": "MURETTO_FAKE_SECRET",
+      "database_name": "postgres",
+      "inherited_roles": ["postgres"],
+      "default": true,
+      "expired": false,
+      "expires_at": null,
+      "ttl": null,
+      "with_replication": false,
+      "disabled_at": null,
+      "deleted_at": null,
+      "created_at": "2026-10-28T09:00:00.000Z"
+    },
+    {
+      "id": "roleEXAMPLE02",
+      "type": "PostgresRole",
+      "name": "agent-admin-role",
+      "username": "agent-admin-role.exampleuser02",
+      "password": "MURETTO_FAKE_SECRET",
+      "access_host_url": "MURETTO_FAKE_SECRET",
+      "database_name": "postgres",
+      "inherited_roles": ["postgres"],
+      "default": false,
+      "expired": false,
+      "expires_at": null,
+      "ttl": null,
+      "with_replication": false,
+      "disabled_at": null,
+      "deleted_at": null,
+      "created_at": "2026-10-29T09:00:00.000Z"
+    },
+    {
+      "id": "roleEXAMPLE03",
+      "type": "PostgresRole",
+      "name": "reader-role",
+      "username": "reader-role.exampleuser03",
+      "password": null,
+      "access_host_url": "MURETTO_FAKE_SECRET",
+      "database_name": "postgres",
+      "inherited_roles": ["pg_read_all_data"],
+      "default": false,
+      "expired": false,
+      "expires_at": "2099-01-01T00:00:00.000Z",
+      "ttl": 2592000,
+      "with_replication": false,
+      "disabled_at": null,
+      "deleted_at": null,
+      "created_at": "2026-10-29T10:00:00.000Z"
+    }
+  ]
+}

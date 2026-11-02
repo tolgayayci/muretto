@@ -1,0 +1,23 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "we_EXAMPLEPREVIEW000000001",
+      "object": "webhook_endpoint",
+      "api_version": null,
+      "application": null,
+      "created": 1793000000,
+      "description": null,
+      "enabled_events": [
+        "checkout.session.completed"
+      ],
+      "livemode": true,
+      "metadata": {},
+      "secret": "MURETTO_FAKE_SECRET",
+      "status": "enabled",
+      "url": "https://example-app-git-feat-example.vercel.app/api/webhook"
+    }
+  ],
+  "has_more": false,
+  "url": "/v1/webhook_endpoints"
+}

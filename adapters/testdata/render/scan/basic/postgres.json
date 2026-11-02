@@ -1,0 +1,196 @@
+[
+  {
+    "cursor": "cursorDPGEXAMPLE01",
+    "postgres": {
+      "id": "dpg-example0000000000001",
+      "name": "example-db",
+      "ipAllowList": [
+        {
+          "cidrBlock": "0.0.0.0/0",
+          "description": "everywhere"
+        }
+      ],
+      "createdAt": "2026-10-28T09:16:00.000000Z",
+      "updatedAt": "2026-10-28T09:16:00.000000Z",
+      "expiresAt": "2026-10-30T09:16:00.000000Z",
+      "databaseName": "example_db",
+      "databaseUser": "example_db_user",
+      "highAvailabilityEnabled": false,
+      "owner": {
+        "id": "tea-example0000000000001",
+        "name": "Example Team",
+        "email": "team@example.com",
+        "type": "team"
+      },
+      "plan": "free",
+      "region": "oregon",
+      "readReplicas": [],
+      "role": "primary",
+      "status": "available",
+      "version": "18",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "dashboardUrl": "https://dashboard.render.com/d/dpg-example0000000000001",
+      "diskAutoscalingEnabled": false,
+      "connectionPool": "none",
+      "connectionInfo": {
+        "password": "MURETTO_FAKE_SECRET",
+        "externalConnectionString": "MURETTO_FAKE_SECRET"
+      },
+      "password": "MURETTO_FAKE_SECRET",
+      "internalConnectionString": "MURETTO_FAKE_SECRET",
+      "externalConnectionString": "MURETTO_FAKE_SECRET",
+      "psqlCommand": "MURETTO_FAKE_SECRET"
+    }
+  },
+  {
+    "cursor": "cursorDPGEXAMPLE02",
+    "postgres": {
+      "id": "dpg-example0000000000002",
+      "name": "example-prod-db",
+      "ipAllowList": [
+        {
+          "cidrBlock": "203.0.113.5/32",
+          "description": "office"
+        }
+      ],
+      "createdAt": "2026-09-01T08:00:00.000000Z",
+      "updatedAt": "2026-10-01T08:00:00.000000Z",
+      "databaseName": "example_prod",
+      "databaseUser": "example_prod_user",
+      "highAvailabilityEnabled": false,
+      "owner": {
+        "id": "tea-example0000000000001",
+        "name": "Example Team",
+        "email": "team@example.com",
+        "type": "team"
+      },
+      "plan": "basic_256mb",
+      "region": "frankfurt",
+      "readReplicas": [],
+      "role": "primary",
+      "status": "available",
+      "version": "17",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "dashboardUrl": "https://dashboard.render.com/d/dpg-example0000000000002",
+      "diskAutoscalingEnabled": true,
+      "connectionPool": "pgbouncer"
+    }
+  },
+  {
+    "cursor": "cursorDPGEXAMPLE03",
+    "postgres": {
+      "id": "dpg-example0000000000003",
+      "name": "example-many-ips-db",
+      "ipAllowList": [
+        {
+          "cidrBlock": "203.0.113.1/32",
+          "description": "a"
+        },
+        {
+          "cidrBlock": "203.0.113.2/32",
+          "description": "b"
+        },
+        {
+          "cidrBlock": "203.0.113.3/32",
+          "description": "c"
+        },
+        {
+          "cidrBlock": "203.0.113.4/32",
+          "description": "d"
+        },
+        {
+          "cidrBlock": "203.0.113.5/32",
+          "description": "e"
+        },
+        {
+          "cidrBlock": "0.0.0.0/0",
+          "description": "f"
+        }
+      ],
+      "createdAt": "2026-10-30T12:00:00.000000Z",
+      "updatedAt": "2026-10-30T12:00:00.000000Z",
+      "databaseName": "example_many",
+      "databaseUser": "example_many_user",
+      "highAvailabilityEnabled": false,
+      "owner": {
+        "id": "tea-example0000000000001",
+        "name": "Example Team",
+        "email": "team@example.com",
+        "type": "team"
+      },
+      "plan": "free",
+      "region": "oregon",
+      "readReplicas": [],
+      "role": "primary",
+      "status": "available",
+      "version": "18",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "dashboardUrl": "https://dashboard.render.com/d/dpg-example0000000000003",
+      "diskAutoscalingEnabled": false,
+      "connectionPool": "none"
+    }
+  },
+  {
+    "cursor": "cursorDPGEXAMPLE04",
+    "postgres": {
+      "id": "dpg-example0000000000004",
+      "name": "example-closed-db",
+      "ipAllowList": [],
+      "createdAt": "2026-08-01T08:00:00.000000Z",
+      "updatedAt": "2026-08-01T08:00:00.000000Z",
+      "databaseName": "example_closed",
+      "databaseUser": "example_closed_user",
+      "highAvailabilityEnabled": true,
+      "owner": {
+        "id": "tea-example0000000000001",
+        "name": "Example Team",
+        "email": "team@example.com",
+        "type": "team"
+      },
+      "plan": "pro_4gb",
+      "region": "virginia",
+      "readReplicas": [],
+      "role": "primary",
+      "status": "available",
+      "version": "16",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "dashboardUrl": "https://dashboard.render.com/d/dpg-example0000000000004",
+      "diskAutoscalingEnabled": false,
+      "connectionPool": "none"
+    }
+  },
+  {
+    "cursor": "cursorDPGEXAMPLE05",
+    "postgres": {
+      "id": "dpg-example0000000000005",
+      "name": "example-far-expiry-db",
+      "createdAt": "2026-09-01T08:00:00.000000Z",
+      "updatedAt": "2026-10-01T08:00:00.000000Z",
+      "databaseName": "example_prod",
+      "databaseUser": "example_prod_user",
+      "highAvailabilityEnabled": false,
+      "owner": {
+        "id": "tea-example0000000000001",
+        "name": "Example Team",
+        "email": "team@example.com",
+        "type": "team"
+      },
+      "plan": "free",
+      "region": "frankfurt",
+      "readReplicas": [],
+      "role": "primary",
+      "status": "available",
+      "version": "17",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "dashboardUrl": "https://dashboard.render.com/d/dpg-example0000000000005",
+      "diskAutoscalingEnabled": true,
+      "connectionPool": "pgbouncer",
+      "expiresAt": "2099-01-01T00:00:00.000000Z"
+    }
+  }
+]

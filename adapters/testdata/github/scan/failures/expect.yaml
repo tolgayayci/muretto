@@ -1,0 +1,18 @@
+account: { id: "1000001", name: octo-example, slug: octo-example }
+resources: [github.repo:2000001]
+findings:
+  public_repo:github.repo:2000001: exposed
+checks:
+  - github.repo|||ok
+  - github.repo||public_repo|ok
+  - github.organization|||ok
+  - github.pages_site|2000001||ok
+  - github.pages_site|2000001|public_pages_site|ok
+  - github.pages_site|2000001|http_pages_site|ok
+  - github.repo_webhook|2000001||error:provider
+  - github.repo_webhook|2000001|insecure_repo_webhook|error:provider
+  - github.deploy_key|2000001||error:permission
+  - github.deploy_key|2000001|writable_deploy_key|error:permission
+  - github.environment|2000001||ok
+  - github.actions_variable|2000001||ok
+  - github.actions_variable|2000001|secret_named_actions_variable|ok

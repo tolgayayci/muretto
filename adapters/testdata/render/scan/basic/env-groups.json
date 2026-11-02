@@ -1,0 +1,12 @@
+[
+  {
+    "id": "evg-example0000000000001",
+    "name": "example-shared",
+    "ownerId": "tea-example0000000000001",
+    "createdAt": "2026-10-28T09:18:00.000000Z",
+    "updatedAt": "2026-10-28T09:18:00.000000Z",
+    "serviceLinks": [{ "id": "srv-example0000000000001", "name": "example-api", "type": "web_service" }],
+    "envVars": [{ "key": "STRIPE_SECRET_KEY", "value": "MURETTO_FAKE_SECRET" }],
+    "secretFiles": [{ "name": "credentials.json", "content": "MURETTO_FAKE_SECRET" }]
+  }
+]

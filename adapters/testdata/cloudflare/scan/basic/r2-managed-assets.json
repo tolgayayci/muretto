@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "bucketId": "0123456789abcdef0123456789abcd01",
+    "domain": "pub-0123456789abcdef0123456789abcd01.r2.dev",
+    "enabled": true
+  }
+}

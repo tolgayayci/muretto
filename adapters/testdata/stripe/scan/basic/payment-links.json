@@ -1,0 +1,97 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "plink_EXAMPLELIVE0001",
+      "object": "payment_link",
+      "active": true,
+      "after_completion": {
+        "hosted_confirmation": {
+          "custom_message": null
+        },
+        "type": "hosted_confirmation"
+      },
+      "allow_promotion_codes": false,
+      "application_fee_amount": null,
+      "application_fee_percent": null,
+      "automatic_tax": {
+        "enabled": false,
+        "liability": null
+      },
+      "billing_address_collection": "auto",
+      "currency": "usd",
+      "custom_fields": [],
+      "customer_creation": "if_required",
+      "livemode": true,
+      "metadata": {},
+      "on_behalf_of": null,
+      "payment_method_types": null,
+      "shipping_options": [],
+      "submit_type": "auto",
+      "transfer_data": null,
+      "url": "https://buy.stripe.com/EXAMPLElive0001"
+    },
+    {
+      "id": "plink_EXAMPLEOFF00001",
+      "object": "payment_link",
+      "active": false,
+      "after_completion": {
+        "hosted_confirmation": {
+          "custom_message": null
+        },
+        "type": "hosted_confirmation"
+      },
+      "allow_promotion_codes": false,
+      "application_fee_amount": null,
+      "application_fee_percent": null,
+      "automatic_tax": {
+        "enabled": false,
+        "liability": null
+      },
+      "billing_address_collection": "auto",
+      "currency": "usd",
+      "custom_fields": [],
+      "customer_creation": "if_required",
+      "livemode": true,
+      "metadata": {},
+      "on_behalf_of": null,
+      "payment_method_types": null,
+      "shipping_options": [],
+      "submit_type": "auto",
+      "transfer_data": null,
+      "url": "https://buy.stripe.com/EXAMPLEoff00001"
+    },
+    {
+      "id": "plink_EXAMPLETEST0001",
+      "object": "payment_link",
+      "active": true,
+      "after_completion": {
+        "hosted_confirmation": {
+          "custom_message": null
+        },
+        "type": "hosted_confirmation"
+      },
+      "allow_promotion_codes": false,
+      "application_fee_amount": null,
+      "application_fee_percent": null,
+      "automatic_tax": {
+        "enabled": false,
+        "liability": null
+      },
+      "billing_address_collection": "auto",
+      "currency": "usd",
+      "custom_fields": [],
+      "customer_creation": "if_required",
+      "livemode": false,
+      "metadata": {},
+      "on_behalf_of": null,
+      "payment_method_types": null,
+      "shipping_options": [],
+      "submit_type": "auto",
+      "transfer_data": null,
+      "url": "https://buy.stripe.com/test_EXAMPLEtest0001"
+    }
+  ],
+  "has_more": false,
+  "url": "/v1/payment_links"
+}

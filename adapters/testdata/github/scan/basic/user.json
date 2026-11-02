@@ -1,0 +1,11 @@
+{
+ "login": "octo-example",
+ "id": 1000001,
+ "node_id": "MDQ6VXNlcjEwMDAwMDE=",
+ "type": "User",
+ "site_admin": false,
+ "name": "Octo Example",
+ "email": "octo@example.com",
+ "user_view_type": "public",
+ "html_url": "https://github.com/octo-example"
+}

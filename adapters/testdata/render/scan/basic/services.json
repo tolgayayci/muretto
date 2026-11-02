@@ -1,0 +1,65 @@
+[
+  {
+    "cursor": "cursorSRVEXAMPLE01",
+    "service": {
+      "id": "srv-example0000000000001",
+      "name": "example-api",
+      "ownerId": "tea-example0000000000001",
+      "type": "web_service",
+      "repo": "https://github.com/example-org/example-api",
+      "branch": "main",
+      "autoDeploy": "yes",
+      "createdAt": "2026-10-28T09:15:00.000000Z",
+      "updatedAt": "2026-10-28T09:20:00.000000Z",
+      "dashboardUrl": "https://dashboard.render.com/web/srv-example0000000000001",
+      "slug": "example-api",
+      "suspended": "not_suspended",
+      "suspenders": [],
+      "notifyOnFail": "default",
+      "rootDir": "",
+      "envVars": [{ "key": "DATABASE_URL", "value": "MURETTO_FAKE_SECRET" }],
+      "secretFiles": [{ "name": ".env", "content": "MURETTO_FAKE_SECRET" }],
+      "serviceDetails": {
+        "env": "node",
+        "runtime": "node",
+        "plan": "free",
+        "region": "oregon",
+        "numInstances": 1,
+        "healthCheckPath": "",
+        "openPorts": [{ "port": 10000, "protocol": "TCP" }],
+        "url": "https://example-api.onrender.com",
+        "buildPlan": "starter",
+        "previews": { "generation": "off" },
+        "renderSubdomainPolicy": "enabled",
+        "envSpecificDetails": { "buildCommand": "npm install", "startCommand": "npm start" }
+      }
+    }
+  },
+  {
+    "cursor": "cursorSRVEXAMPLE02",
+    "service": {
+      "id": "srv-example0000000000002",
+      "name": "example-site",
+      "ownerId": "tea-example0000000000001",
+      "type": "static_site",
+      "repo": "https://github.com/example-org/example-site",
+      "branch": "main",
+      "autoDeploy": "yes",
+      "createdAt": "2026-10-29T10:00:00.000000Z",
+      "updatedAt": "2026-10-29T10:00:00.000000Z",
+      "dashboardUrl": "https://dashboard.render.com/static/srv-example0000000000002",
+      "slug": "example-site",
+      "suspended": "suspended",
+      "suspenders": ["user"],
+      "notifyOnFail": "default",
+      "rootDir": "",
+      "serviceDetails": {
+        "buildCommand": "npm run build",
+        "publishPath": "dist",
+        "url": "https://example-site.onrender.com",
+        "buildPlan": "starter",
+        "previews": { "generation": "automatic" }
+      }
+    }
+  }
+]

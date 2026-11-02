@@ -1,0 +1,11 @@
+# One Vitess database (two branches, passwords, a deploy request) and one
+# Postgres database (one branch with roles) in example-org. Bodies are built
+# from the documented response shapes ({type: list, current_page, next_page,
+# prev_page, data}); no test account was recorded yet.
+- { method: GET, path: /v1/organizations/example-org/databases, query: { per_page: "100" }, file: databases.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches, query: { per_page: "100" }, file: branches-db.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-pg/branches, query: { per_page: "100" }, file: branches-pg.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches/main/passwords, query: { per_page: "100" }, file: passwords-main.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches/feature-x/passwords, query: { per_page: "100" }, file: empty.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-pg/branches/main/roles, query: { per_page: "100" }, file: roles-pg-main.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/deploy-requests, query: { per_page: "100" }, file: deploy-requests-db.json }

@@ -1,0 +1,22 @@
+account: { id: 0123456789abcdef0123456789abcdef, name: Example Account }
+resources:
+  - cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1
+fields:
+  cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1:
+    config_source: <absent>
+findings: {}
+checks:
+  - cloudflare.r2_bucket|||error:permission
+  - cloudflare.r2_bucket||public_r2_bucket|error:permission
+  - cloudflare.worker|||error:provider
+  - cloudflare.worker||public_worker|error:provider
+  - cloudflare.worker||public_worker_preview|error:provider
+  - cloudflare.pages_project|||ok
+  - cloudflare.d1_database|||ok
+  - cloudflare.kv_namespace|||ok
+  - cloudflare.zone|||ok
+  - cloudflare.tunnel|||ok
+  - cloudflare.tunnel_route|01234567-0000-4000-8000-0000000000f1||error:permission
+  - cloudflare.tunnel_route|01234567-0000-4000-8000-0000000000f1|localhost_tunnel_route|error:permission
+  - cloudflare.tunnel_route|01234567-0000-4000-8000-0000000000f1|admin_port_tunnel_route|error:permission
+forbidden: ["192.0.2.10"]

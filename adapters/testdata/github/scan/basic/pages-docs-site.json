@@ -1,0 +1,15 @@
+{
+ "url": "https://api.github.com/repos/example-org/docs-site/pages",
+ "status": "built",
+ "cname": null,
+ "custom_404": false,
+ "html_url": "https://example-org.github.io/docs-site/",
+ "build_type": "workflow",
+ "source": {
+  "branch": "main",
+  "path": "/"
+ },
+ "https_enforced": true,
+ "protected_domain_state": null,
+ "pending_domain_unverified_at": null
+}

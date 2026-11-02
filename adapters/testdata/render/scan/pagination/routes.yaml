@@ -1,0 +1,14 @@
+# Services over two pages: page 1 ends with cursorSRVEXAMPLE02, which asks
+# for page 2 (one worker); its cursorSRVEXAMPLE03 asks for an empty page,
+# which ends the list. Datastores and blueprints are empty.
+- { path: /v1/owners, query: { limit: "100" }, file: owners.json }
+- { path: /v1/owners, query: { limit: "100", cursor: cursorOWNEREXAMPLE01 }, body: "[]" }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100" }, file: services-1.json }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorSRVEXAMPLE02 }, file: services-2.json }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorSRVEXAMPLE03 }, body: "[]" }
+- { path: /v1/postgres, query: { ownerId: tea-example0000000000001, limit: "100" }, body: "[]" }
+- { path: /v1/key-value, query: { ownerId: tea-example0000000000001, limit: "100" }, body: "[]" }
+- { path: /v1/blueprints, query: { ownerId: tea-example0000000000001, limit: "100" }, body: "[]" }
+- { path: /v1/services/srv-example0000000000001/custom-domains, query: { limit: "100" }, body: "[]" }
+- { path: /v1/services/srv-example0000000000002/custom-domains, query: { limit: "100" }, body: "[]" }
+- { path: /v1/services/srv-example0000000000003/custom-domains, query: { limit: "100" }, body: "[]" }

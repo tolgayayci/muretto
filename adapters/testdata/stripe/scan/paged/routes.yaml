@@ -1,0 +1,10 @@
+# Pagination: page 1 says has_more: true, so the next request carries
+# starting_after = the last item's id (API reference, Pagination).
+- { path: /v1/account, file: account.json }
+- { path: /v1/products, query: { limit: "100" }, file: products-1.json }
+- { path: /v1/products, query: { limit: "100", starting_after: prod_EXAMPLEPAGE0002 }, file: products-2.json }
+- { path: /v1/webhook_endpoints, query: { limit: "100" }, file: webhook-endpoints-1.json }
+- { path: /v1/webhook_endpoints, query: { limit: "100", starting_after: we_EXAMPLEPAGE000000001 }, file: webhook-endpoints-2.json }
+- { path: /v1/prices, body: '{"object":"list","data":[],"has_more":false,"url":"/v1/prices"}' }
+- { path: /v1/payment_links, body: '{"object":"list","data":[],"has_more":false,"url":"/v1/payment_links"}' }
+- { path: /v1/billing_portal/configurations, body: '{"object":"list","data":[],"has_more":false,"url":"/v1/billing_portal/configurations"}' }

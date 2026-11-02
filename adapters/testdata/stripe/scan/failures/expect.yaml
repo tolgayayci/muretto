@@ -1,0 +1,26 @@
+account: { id: "acct_EXAMPLE0000000001:live", name: Example Shop (live), slug: acct_EXAMPLE0000000001 }
+
+resources:
+  - stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001
+  - stripe.product:prod_EXAMPLELIVE0001
+
+findings:
+  ephemeral_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001: exposed
+  all_events_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPREVIEW000000001: not_exposed
+  live_product:stripe.product:prod_EXAMPLELIVE0001: exposed
+
+checks:
+  - stripe.webhook_endpoint|||ok
+  - stripe.webhook_endpoint||ephemeral_webhook_endpoint|ok
+  - stripe.webhook_endpoint||all_events_webhook_endpoint|ok
+  - stripe.product|||ok
+  - stripe.product||live_product|ok
+  - stripe.price|||error:provider
+  - stripe.price|||error:provider  # active=false list
+  - stripe.price||live_price|error:provider
+  - stripe.price||live_price|error:provider  # active=false list
+  - stripe.payment_link|||error:permission
+  - stripe.payment_link||live_payment_link|error:permission
+  - stripe.billing_portal_configuration|||ok
+
+forbidden: [MURETTO_FAKE_SECRET]

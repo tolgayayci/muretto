@@ -1,0 +1,16 @@
+{
+ "url": "https://api.github.com/repos/octo-example/agent-landing/pages",
+ "status": "built",
+ "cname": null,
+ "custom_404": false,
+ "html_url": "https://octo-example.github.io/agent-landing/",
+ "build_type": "workflow",
+ "source": {
+  "branch": "main",
+  "path": "/"
+ },
+ "https_enforced": true,
+ "protected_domain_state": null,
+ "pending_domain_unverified_at": null,
+ "public": true
+}

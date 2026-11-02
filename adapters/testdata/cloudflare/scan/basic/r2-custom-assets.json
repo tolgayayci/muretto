@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "domains": [
+      {
+        "domain": "assets.example.com",
+        "enabled": true,
+        "status": {
+          "ownership": "active",
+          "ssl": "active"
+        },
+        "minTLS": "1.2",
+        "zoneId": "0123456789abcdef0123456789abcd10",
+        "zoneName": "example.com"
+      }
+    ]
+  }
+}

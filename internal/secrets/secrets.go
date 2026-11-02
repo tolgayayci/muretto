@@ -100,12 +100,26 @@ func (s *Store) get(env, key string) (string, Source, error) {
 	return v, SourceKeychain, nil
 }
 
-// Set stores a token in the keychain. It refuses when no keychain exists.
+// Set stores a token in the keychain. It refuses when no keychain exists or
+// the keychain won't take the item (a locked macOS keychain over SSH).
 func (s *Store) Set(key, value string) error {
 	if err := s.available(); err != nil {
 		return err
 	}
-	return s.timed(func() error { return s.Backend.Set(Service, key, value) })
+	err := s.timed(func() error { return s.Backend.Set(Service, key, value) })
+	if err != nil && !errors.Is(err, ErrUnavailable) {
+		return fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	return err
+}
+
+// Check stores and removes a probe item, so a caller can find out before
+// asking for an approval that the keychain will keep the token.
+func (s *Store) Check() error {
+	if err := s.Set("check", "ok"); err != nil {
+		return err
+	}
+	return s.Delete("check")
 }
 
 // Delete removes a token; a missing token is not an error.
@@ -122,7 +136,20 @@ func (s *Store) Delete(key string) error {
 
 // RefuseMessage explains what to do when no keychain is available.
 func RefuseMessage(env string) string {
-	return fmt.Sprintf("No OS keychain is available. Muretto never stores tokens in files. Set %s in the environment instead.", env)
+	return fmt.Sprintf("No OS keychain is available. Muretto never stores tokens in files. Set %s in the environment instead.%s", env, sshHint())
+}
+
+// LoginRefuseMessage explains why login can't keep its token. An env var
+// doesn't help here: login is the only way to get a sync token.
+func LoginRefuseMessage() string {
+	return "No OS keychain is available to keep the login token. Muretto never stores tokens in files." + sshHint()
+}
+
+func sshHint() string {
+	if runtime.GOOS != "darwin" {
+		return ""
+	}
+	return " Over SSH the macOS keychain stays locked: run `security unlock-keychain` first."
 }
 
 func (s *Store) available() error {

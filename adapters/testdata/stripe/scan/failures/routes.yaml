@@ -1,0 +1,8 @@
+# A restricted key without Payment Links read (403 with an
+# invalid_request_error, docs.stripe.com/keys/restricted-api-keys; message text is a placeholder) and a Stripe-side 500 on prices.
+- { path: /v1/account, file: account.json }
+- { path: /v1/webhook_endpoints, query: { limit: "100" }, file: webhook-endpoints.json }
+- { path: /v1/products, query: { limit: "100" }, file: products.json }
+- { path: /v1/prices, status: 500, body: '{"error":{"message":"An unknown error occurred","type":"api_error"}}' }
+- { path: /v1/payment_links, status: 403, body: '{"error":{"message":"EXAMPLE: this restricted key lacks Payment Links read","type":"invalid_request_error"}}' }
+- { path: /v1/billing_portal/configurations, body: '{"object":"list","data":[],"has_more":false,"url":"/v1/billing_portal/configurations"}' }

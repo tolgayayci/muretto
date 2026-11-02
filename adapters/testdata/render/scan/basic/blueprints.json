@@ -1,0 +1,16 @@
+[
+  {
+    "cursor": "cursorEXSEXAMPLE01",
+    "blueprint": {
+      "id": "exs-example0000000000001",
+      "ownerId": "tea-example0000000000001",
+      "name": "example-stack",
+      "status": "created",
+      "autoSync": true,
+      "repo": "https://github.com/example-org/example-api",
+      "branch": "main",
+      "path": "render.yaml",
+      "lastSync": "2026-10-28T09:19:00.000000Z"
+    }
+  }
+]

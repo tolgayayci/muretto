@@ -1,0 +1,25 @@
+{
+  "type": "list",
+  "current_page": 1,
+  "next_page": null,
+  "prev_page": null,
+  "data": [
+    {
+      "id": "brEXAMPLE0003",
+      "type": "PostgresBranch",
+      "name": "main",
+      "kind": "postgresql",
+      "state": "ready",
+      "ready": true,
+      "production": true,
+      "safe_migrations": false,
+      "deletion_protected": true,
+      "parent_branch": null,
+      "html_url": "https://app.planetscale.com/example-org/example-pg/main",
+      "region": { "id": "regEXAMPLE02", "slug": "eu-central" },
+      "created_at": "2026-10-28T09:00:00.000Z",
+      "updated_at": "2026-10-28T09:00:00.000Z",
+      "deleted_at": null
+    }
+  ]
+}

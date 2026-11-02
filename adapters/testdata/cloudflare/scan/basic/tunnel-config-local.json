@@ -1,0 +1,12 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "tunnel_id": "01234567-0000-4000-8000-0000000000f2",
+    "account_id": "0123456789abcdef0123456789abcdef",
+    "version": 0,
+    "source": "local",
+    "config": null
+  }
+}

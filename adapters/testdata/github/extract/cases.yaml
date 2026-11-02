@@ -1,0 +1,228 @@
+# Extract cases built from the output documented in docs/research/github.md
+# ("Creation paths"): gh CLI source (cli/cli trunk, v2.103.3), GitHub MCP
+# server source (github/github-mcp-server main) and the REST create responses
+# in GitHub's OpenAPI description. All ids and names are fakes.
+
+- name: gh repo create without a terminal prints only the URL (Claude Code)
+  tool: Bash
+  input: { command: "gh repo create agent-landing --public --source . --push" }
+  output: |
+    https://github.com/octo-example/agent-landing
+  expect:
+    - { kind: github.repo, value: octo-example/agent-landing, role: created }
+  matches: [github.repo:2000001]
+
+- name: gh repo create in a terminal prints the success line and the URL
+  tool: Bash
+  input: { command: "gh repo create example-org/internal-api --private" }
+  output: |
+    ✓ Created repository example-org/internal-api on github.com
+      https://github.com/example-org/internal-api
+  expect:
+    - { kind: github.repo, value: example-org/internal-api, role: created }
+  matches: [github.repo:2000003]
+
+- name: gh repo create from a template prints the success line
+  tool: Bash
+  input: { command: "gh repo create Example-Org/Docs-Site --internal --template example-org/docs-template" }
+  output: |
+    ✓ Created repository example-org/docs-site on github.com
+      https://github.com/example-org/docs-site
+  expect:
+    - { kind: github.repo, value: example-org/docs-site, role: created }
+  matches: [github.repo:2000005]
+
+- name: gh repo create that failed proves nothing
+  tool: Bash
+  status: error
+  input: { command: "gh repo create agent-landing --public" }
+  output: "GraphQL: Name already exists on this account (createRepository)"
+  expect: []
+
+- name: gh repo create without a visibility flag fails without a terminal
+  tool: Bash
+  status: error
+  input: { command: "gh repo create agent-landing" }
+  output: "--public, --private, or --internal required when not running interactively"
+  expect: []
+
+- name: gh repo view is read-only
+  tool: Bash
+  input: { command: "gh repo view octo-example/agent-landing --json url" }
+  output: '{"url":"https://github.com/octo-example/agent-landing"}'
+  expect: []
+
+- name: gh repo list is read-only
+  tool: Bash
+  input: { command: "gh repo list octo-example" }
+  output: |
+    octo-example/agent-landing	Example repository	public	2026-10-30T09:15:00Z
+    octo-example/private-notes	Example repository	private	2026-10-30T09:20:00Z
+  expect: []
+
+- name: gh repo fork without a terminal prints the new fork's URL
+  tool: Bash
+  input: { command: "gh repo fork example-upstream/private-notes --clone=false" }
+  output: |
+    https://github.com/octo-example/private-notes
+  expect:
+    - { kind: github.repo, value: octo-example/private-notes, role: created }
+  matches: [github.repo:2000002]
+
+- name: gh repo fork in a terminal prints Created fork
+  tool: Bash
+  input: { command: "gh repo fork example-upstream/private-notes --clone=false" }
+  output: "✓ Created fork octo-example/private-notes\n"
+  expect:
+    - { kind: github.repo, value: octo-example/private-notes, role: created }
+  matches: [github.repo:2000002]
+
+- name: gh repo fork of an existing fork proves nothing
+  tool: Bash
+  input: { command: "gh repo fork example-upstream/private-notes --clone=false" }
+  output: "octo-example/private-notes already exists\n"
+  expect: []
+
+- name: gh variable set with -R (no output without a terminal)
+  tool: Bash
+  input: { command: "gh variable set stripe_secret_key --body \"$VALUE\" -R octo-example/agent-landing" }
+  output: ""
+  expect:
+    - { kind: github.actions_variable, value: STRIPE_SECRET_KEY, container: octo-example/agent-landing, role: created }
+  matches: [github.actions_variable:2000001/STRIPE_SECRET_KEY]
+
+- name: gh variable set with --repo= in a terminal
+  tool: Bash
+  input: { command: "gh variable set SITE_URL --repo=Octo-Example/agent-landing --body https://example.com" }
+  output: "✓ Created variable SITE_URL for octo-example/agent-landing\n"
+  expect:
+    - { kind: github.actions_variable, value: SITE_URL, container: octo-example/agent-landing, role: created }
+  matches: [github.actions_variable:2000001/SITE_URL]
+
+- name: gh variable set for an organization is not a repository variable
+  tool: Bash
+  input: { command: "gh variable set SITE_URL --org example-org --body https://example.com" }
+  output: ""
+  expect: []
+
+- name: gh variable list is read-only
+  tool: Bash
+  input: { command: "gh variable list -R octo-example/agent-landing" }
+  output: "SITE_URL\thttps://example.com\t2026-10-30T09:46:00Z\n"
+  expect: []
+
+- name: gh repo deploy-key add only points at the repository
+  tool: Bash
+  input: { command: "gh repo deploy-key add deploy.pub --allow-write --title deploy-bot -R octo-example/agent-landing" }
+  output: ""
+  expect:
+    - { kind: github.repo, value: octo-example/agent-landing, role: referenced }
+
+- name: gh api POST user/repos prints the created repository
+  tool: Bash
+  input: { command: "gh api user/repos -f name=private-notes -F private=true" }
+  output: '{"id":2000002,"node_id":"R_EXAMPLE2000002","name":"private-notes","full_name":"octo-example/private-notes","private":true,"html_url":"https://github.com/octo-example/private-notes","visibility":"private","created_at":"2026-10-30T09:20:00Z"}'
+  expect:
+    - { kind: github.repo, value: "2000002", role: created }
+  matches: [github.repo:2000002]
+
+- name: curl POST orgs/{org}/repos prints the created repository
+  tool: Bash
+  input: { command: "curl -sS -X POST -H \"Authorization: Bearer $GITHUB_TOKEN\" https://api.github.com/orgs/example-org/repos -d '{\"name\":\"internal-api\",\"private\":true}'" }
+  output: |
+    {
+      "id": 2000003,
+      "name": "internal-api",
+      "full_name": "example-org/internal-api",
+      "private": true,
+      "html_url": "https://github.com/example-org/internal-api",
+      "created_at": "2026-09-01T12:00:00Z"
+    }
+  expect:
+    - { kind: github.repo, value: "2000003", role: created }
+  matches: [github.repo:2000003]
+
+- name: curl POST that GitHub rejected still exits 0 and proves nothing
+  tool: Bash
+  input: { command: "curl -sS -X POST https://api.github.com/user/repos -d '{\"name\":\"agent-landing\"}'" }
+  output: '{"message":"Repository creation failed.","errors":[{"resource":"Repository","code":"custom","field":"name","message":"name already exists on this account"}],"documentation_url":"https://docs.github.com/rest/repos/repos#create-a-repository-for-the-authenticated-user","status":"422"}'
+  expect: []
+
+- name: gh api GET user/repos is a list, not a creation
+  tool: Bash
+  input: { command: "gh api user/repos --paginate" }
+  output: '[{"id":2000001,"full_name":"octo-example/agent-landing","private":false}]'
+  expect: []
+
+- name: gh api POST a repository webhook
+  tool: Bash
+  input: { command: "gh api repos/octo-example/agent-landing/hooks -f name=web -f config[url]=https://hooks.example.com/x -f config[insecure_ssl]=1" }
+  output: '{"type":"Repository","id":3000001,"name":"web","active":true,"events":["push"],"config":{"content_type":"form","insecure_ssl":"1","url":"https://hooks.example.com/x"},"updated_at":"2026-10-30T09:30:00Z","created_at":"2026-10-30T09:30:00Z","url":"https://api.github.com/repos/octo-example/agent-landing/hooks/3000001","test_url":"https://api.github.com/repos/octo-example/agent-landing/hooks/3000001/test","ping_url":"https://api.github.com/repos/octo-example/agent-landing/hooks/3000001/pings","deliveries_url":"https://api.github.com/repos/octo-example/agent-landing/hooks/3000001/deliveries","last_response":{"code":null,"status":"unused","message":null}}'
+  expect:
+    - { kind: github.repo_webhook, value: "3000001", role: created }
+  matches: [github.repo_webhook:3000001]
+
+- name: gh api GET repository webhooks is read-only
+  tool: Bash
+  input: { command: "gh api repos/octo-example/agent-landing/hooks" }
+  output: '[{"type":"Repository","id":3000001,"name":"web","ping_url":"https://api.github.com/repos/octo-example/agent-landing/hooks/3000001/pings"}]'
+  expect: []
+
+- name: curl POST an organization webhook
+  tool: Bash
+  input: { command: "curl -sS -X POST https://api.github.com/orgs/example-org/hooks -H \"Authorization: Bearer $GITHUB_TOKEN\" -d @hook.json" }
+  output: '{"id":3000010,"url":"https://api.github.com/orgs/example-org/hooks/3000010","ping_url":"https://api.github.com/orgs/example-org/hooks/3000010/pings","deliveries_url":"https://api.github.com/orgs/example-org/hooks/3000010/deliveries","name":"web","events":["push"],"active":true,"config":{"content_type":"json","insecure_ssl":1},"updated_at":"2026-10-30T09:50:00Z","created_at":"2026-10-30T09:50:00Z","type":"Organization"}'
+  expect:
+    - { kind: github.org_webhook, value: "3000010", role: created }
+  matches: [github.org_webhook:3000010]
+
+- name: gh api POST a deploy key
+  tool: Bash
+  input: { command: "gh api repos/octo-example/agent-landing/keys -f title=deploy-bot -f key=\"$(cat deploy.pub)\" -F read_only=false" }
+  output: '{"id":4000001,"key":"ssh-ed25519 AAAAEXAMPLE","url":"https://api.github.com/repos/octo-example/agent-landing/keys/4000001","title":"deploy-bot","verified":true,"created_at":"2026-10-30T09:40:00Z","read_only":false,"added_by":"octo-example","last_used":null,"enabled":true}'
+  expect:
+    - { kind: github.deploy_key, value: "4000001", role: created }
+  matches: [github.deploy_key:4000001]
+
+- name: gh api PUT an environment
+  tool: Bash
+  input: { command: "gh api -X PUT repos/octo-example/agent-landing/environments/github-pages" }
+  output: '{"id":5000001,"node_id":"EN_EXAMPLE5000001","name":"github-pages","url":"https://api.github.com/repos/octo-example/agent-landing/environments/github-pages","html_url":"https://github.com/octo-example/agent-landing/deployments/activity_log?environments_filter=github-pages","created_at":"2026-10-30T09:16:00Z","updated_at":"2026-10-30T09:16:00Z","protection_rules":[],"deployment_branch_policy":null}'
+  expect:
+    - { kind: github.environment, value: "5000001", role: created }
+  matches: [github.environment:5000001]
+
+- name: MCP create_repository returns the minimal id and url
+  tool: mcp__github__create_repository
+  input: { name: agent-landing, private: false }
+  output: '{"id":"2000001","url":"https://github.com/octo-example/agent-landing"}'
+  expect:
+    - { kind: github.repo, value: "2000001", role: created }
+  matches: [github.repo:2000001]
+
+- name: MCP create_repository through the claude.ai connector name
+  tool: mcp__claude_ai_GitHub__create_repository
+  input: { name: internal-api, organization: example-org }
+  output: '{"id":"2000003","url":"https://github.com/example-org/internal-api"}'
+  expect:
+    - { kind: github.repo, value: "2000003", role: created }
+  matches: [github.repo:2000003]
+
+- name: MCP create_repository error proves nothing
+  tool: mcp__github__create_repository
+  input: { name: agent-landing }
+  output: 'failed to create repository: POST https://api.github.com/user/repos: 422 Repository creation failed. [{Resource:Repository Field:name Code:custom Message:name already exists on this account}]'
+  expect: []
+
+- name: MCP fork_repository may return an existing fork, so it only references
+  tool: mcp__github__fork_repository
+  input: { owner: example-upstream, repo: private-notes }
+  output: '{"id":"2000002","url":"https://github.com/octo-example/private-notes"}'
+  expect:
+    - { kind: github.repo, value: "2000002", role: referenced }
+
+- name: MCP fork_repository still in progress proves nothing
+  tool: mcp__github__fork_repository
+  input: { owner: example-upstream, repo: private-notes }
+  output: "Fork is in progress"
+  expect: []

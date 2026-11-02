@@ -1,0 +1,7 @@
+# Databases span two pages: next_page 2 is sent back as ?page=2.
+- { method: GET, path: /v1/organizations/example-org/databases, query: { per_page: "100" }, file: databases-1.json }
+- { method: GET, path: /v1/organizations/example-org/databases, query: { per_page: "100", page: "2" }, file: databases-2.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches, query: { per_page: "100" }, file: ../basic/empty.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db-2/branches, query: { per_page: "100" }, file: ../basic/empty.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/deploy-requests, query: { per_page: "100" }, file: ../basic/empty.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db-2/deploy-requests, query: { per_page: "100" }, file: ../basic/empty.json }

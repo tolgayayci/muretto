@@ -1,0 +1,20 @@
+account: { id: example-org, name: example-org, slug: example-org }
+
+resources:
+  - planetscale.database:example-org/example-db
+  - planetscale.database:example-org/example-db-2
+
+fields:
+  planetscale.database:example-org/example-db-2:
+    _status: sleeping
+
+findings: {}
+
+checks:
+  - planetscale.database|||ok
+  - planetscale.branch|example-org/example-db||ok
+  - planetscale.branch|example-org/example-db-2||ok
+  - planetscale.branch|example-org/example-db|unprotected_production_branch|ok
+  - planetscale.branch|example-org/example-db-2|unprotected_production_branch|ok
+  - planetscale.deploy_request|example-org/example-db||ok
+  - planetscale.deploy_request|example-org/example-db-2||ok

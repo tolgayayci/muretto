@@ -1,0 +1,33 @@
+account: { id: "acct_EXAMPLE0000000001:live", name: Example Shop (live), slug: acct_EXAMPLE0000000001 }
+
+resources:
+  - stripe.product:prod_EXAMPLEPAGE0001
+  - stripe.product:prod_EXAMPLEPAGE0002
+  - stripe.product:prod_EXAMPLEPAGE0003
+  - stripe.webhook_endpoint:we_EXAMPLEPAGE000000001
+  - stripe.webhook_endpoint:we_EXAMPLEPAGE000000002
+
+findings:
+  live_product:stripe.product:prod_EXAMPLEPAGE0001: not_exposed
+  live_product:stripe.product:prod_EXAMPLEPAGE0002: not_exposed
+  live_product:stripe.product:prod_EXAMPLEPAGE0003: not_exposed
+  ephemeral_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPAGE000000001: not_exposed
+  ephemeral_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPAGE000000002: exposed
+  all_events_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPAGE000000001: not_exposed
+  all_events_webhook_endpoint:stripe.webhook_endpoint:we_EXAMPLEPAGE000000002: not_exposed
+
+checks:
+  - stripe.webhook_endpoint|||ok
+  - stripe.webhook_endpoint||ephemeral_webhook_endpoint|ok
+  - stripe.webhook_endpoint||all_events_webhook_endpoint|ok
+  - stripe.product|||ok
+  - stripe.product||live_product|ok
+  - stripe.price|||ok
+  - stripe.price|||ok  # active=false list
+  - stripe.price||live_price|ok
+  - stripe.price||live_price|ok  # active=false list
+  - stripe.payment_link|||ok
+  - stripe.payment_link||live_payment_link|ok
+  - stripe.billing_portal_configuration|||ok
+
+forbidden: [MURETTO_FAKE_SECRET]

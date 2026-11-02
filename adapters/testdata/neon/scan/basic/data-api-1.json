@@ -1,0 +1,1 @@
+{"url":"https://ep-example-000001.apirest.us-east-2.aws.neon.tech/neondb/rest/v1","status":"active","settings":{"db_aggregates_enabled":true,"db_anon_role":"anonymous","db_schemas":["public"],"jwt_role_claim_key":".role"},"available_schemas":["auth","public"]}

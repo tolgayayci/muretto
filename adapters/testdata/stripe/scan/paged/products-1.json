@@ -1,0 +1,47 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "prod_EXAMPLEPAGE0001",
+      "object": "product",
+      "active": true,
+      "created": 1793000300,
+      "default_price": null,
+      "description": null,
+      "images": [],
+      "marketing_features": [],
+      "livemode": false,
+      "metadata": {},
+      "name": "Example Page One A",
+      "package_dimensions": null,
+      "shippable": null,
+      "statement_descriptor": null,
+      "tax_code": null,
+      "unit_label": null,
+      "updated": 1793000300,
+      "url": null
+    },
+    {
+      "id": "prod_EXAMPLEPAGE0002",
+      "object": "product",
+      "active": true,
+      "created": 1793000200,
+      "default_price": null,
+      "description": null,
+      "images": [],
+      "marketing_features": [],
+      "livemode": false,
+      "metadata": {},
+      "name": "Example Page One B",
+      "package_dimensions": null,
+      "shippable": null,
+      "statement_descriptor": null,
+      "tax_code": null,
+      "unit_label": null,
+      "updated": 1793000200,
+      "url": null
+    }
+  ],
+  "has_more": true,
+  "url": "/v1/products"
+}

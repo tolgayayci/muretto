@@ -1,0 +1,20 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "buckets": [
+      {
+        "name": "example-private",
+        "creation_date": "2026-10-30T09:10:00.000Z",
+        "location": "ENAM",
+        "storage_class": "InfrequentAccess",
+        "jurisdiction": "default"
+      }
+    ]
+  },
+  "result_info": {
+    "per_page": 1000,
+    "total_count": 3
+  }
+}

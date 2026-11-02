@@ -1,0 +1,29 @@
+account: { id: org-example-12345678, name: Example Org, slug: example-org }
+
+resources:
+  - neon.project:example-project-123456
+  - neon.project:example-locked-654321
+  - neon.branch:example-project-123456/br-example-000002
+  - neon.database:example-project-123456/br-example-000002/neondb
+
+fields:
+  neon.database:example-project-123456/br-example-000002/neondb:
+    database_name: neondb
+
+findings:
+  open_project:neon.project:example-project-123456: unknown # GET /projects/{id} failed: settings unknown
+  open_project:neon.project:example-locked-654321: not_exposed
+  api_exposed_database:neon.database:example-project-123456/br-example-000002/neondb: unknown # Data API call failed (403)
+
+checks:
+  - neon.project|||ok
+  - neon.project||open_project|ok
+  - neon.branch|example-project-123456||ok
+  - neon.branch|example-locked-654321||error:permission
+  - neon.endpoint|example-project-123456/br-example-000002||error:permission
+  - neon.endpoint|example-project-123456/br-example-000002|long_running_endpoint|error:permission
+  - neon.database|example-project-123456/br-example-000002||ok
+  - neon.database|example-project-123456/br-example-000002|api_exposed_database|ok
+  - neon.role|example-project-123456/br-example-000002||error:provider
+
+forbidden: [MURETTO_FAKE_SECRET]

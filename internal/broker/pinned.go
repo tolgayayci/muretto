@@ -76,6 +76,79 @@ var deniedPaths = []struct{ host, pattern string }{
 	// Vercel (docs/research/vercel.md §3.4).
 	{"api.vercel.com", "/*/projects/*/env/*"}, // one env var: decrypted value
 	{"api.vercel.com", "/v1/env/**"},          // shared env vars carry values
+	// GitHub (docs/research/github.md "Never call").
+	{"api.github.com", "/repos/*/*/actions/variables/*"},        // one variable: plaintext value
+	{"api.github.com", "/orgs/*/actions/variables/*"},           // one org variable: plaintext value
+	{"api.github.com", "/repos/*/*/environments/*/variables/*"}, // one environment variable
+	{"api.github.com", "/repos/*/*/contents/**"},                // source code
+	{"api.github.com", "/repos/*/*/git/blobs/**"},               // source code
+	{"api.github.com", "/repos/*/*/tarball/**"},                 // source archive
+	{"api.github.com", "/repos/*/*/zipball/**"},                 // source archive
+	{"api.github.com", "/repos/*/*/readme/**"},                  // file contents
+	{"api.github.com", "/repos/*/*/actions/runs/*/logs"},        // logs may hold secrets
+	{"api.github.com", "/repos/*/*/actions/jobs/*/logs"},        // logs may hold secrets
+	{"api.github.com", "/repos/*/*/actions/artifacts/**"},       // build artifacts
+	// Cloudflare (docs/research/cloudflare.md "Never call"); a Read token
+	// can read these.
+	{"api.cloudflare.com", "/client/v4/accounts/*/r2/buckets/*/objects/**"},                         // object contents
+	{"api.cloudflare.com", "/client/v4/accounts/*/storage/kv/namespaces/*/values/**"},               // KV values
+	{"api.cloudflare.com", "/client/v4/accounts/*/storage/kv/namespaces/*/bulk/**"},                 // KV values
+	{"api.cloudflare.com", "/client/v4/accounts/*/workers/scripts/*"},                               // script source
+	{"api.cloudflare.com", "/client/v4/accounts/*/workers/scripts/*/content/**"},                    // script source
+	{"api.cloudflare.com", "/client/v4/accounts/*/workers/scripts/*/versions/*"},                    // version modules
+	{"api.cloudflare.com", "/client/v4/accounts/*/workers/workers/*/versions/**"},                   // version modules
+	{"api.cloudflare.com", "/client/v4/accounts/*/workers/dispatch/namespaces/*/scripts/*/content"}, // script source
+	{"api.cloudflare.com", "/client/v4/accounts/*/cfd_tunnel/*/token"},                              // tunnel run token
+	{"api.cloudflare.com", "/client/v4/accounts/*/cfd_tunnel/*/management"},                         // management token
+	{"api.cloudflare.com", "/client/v4/accounts/*/pages/projects/*/upload-token"},                   // upload JWT
+	{"api.cloudflare.com", "/client/v4/accounts/*/d1/database/*/query"},                             // data
+	{"api.cloudflare.com", "/client/v4/accounts/*/d1/database/*/raw"},                               // data
+	{"api.cloudflare.com", "/client/v4/accounts/*/d1/database/*/export"},                            // data
+	{"api.cloudflare.com", "/client/v4/accounts/*/hyperdrive/configs/**"},                           // origin passwords
+	// Neon (docs/research/neon.md "Never call").
+	{"console.neon.tech", "/api/v2/projects/*/connection_uri"},                     // connection string with password
+	{"console.neon.tech", "/api/v2/projects/*/branches/*/roles/*/reveal_password"}, // role password
+	{"console.neon.tech", "/api/v2/projects/*/branches/*/roles/*/reset_password"},  // writes, returns a password
+	{"console.neon.tech", "/api/v2/projects/*/branches/*/credentials/**"},          // credentials
+	{"console.neon.tech", "/api/v2/projects/*/branches/*/realtime/**"},             // realtime secrets
+	{"console.neon.tech", "/api/v2/projects/*/branches/*/auth/**"},                 // auth secrets
+	{"console.neon.tech", "/api/v2/api_keys/**"},                                   // API keys
+	{"console.neon.tech", "/api/v2/organizations/*/api_keys/**"},                   // org API keys
+	// Stripe (docs/research/stripe.md "Never call").
+	{"api.stripe.com", "/v1/apps/secrets/**"},   // plaintext app secrets
+	{"api.stripe.com", "/v1/ephemeral_keys/**"}, // ephemeral keys
+	{"api.stripe.com", "/v1/accounts/**"},       // Connect accounts: PII, not used
+	{"api.stripe.com", "/v1/issuing/cards/**"},  // card details
+	{"api.stripe.com", "/v2/core/vault/**"},     // vaulted data
+	// Render (docs/research/render.md "Never call").
+	{"api.render.com", "/v1/postgres/*/connection-info"},
+	{"api.render.com", "/v1/postgres/*/credentials/**"},
+	{"api.render.com", "/v1/postgres/*/export/**"},
+	{"api.render.com", "/v1/key-value/*/connection-info"},
+	{"api.render.com", "/v1/redis/*/connection-info"},
+	{"api.render.com", "/v1/services/*/env-vars/**"},
+	{"api.render.com", "/v1/services/*/secret-files/**"},
+	{"api.render.com", "/v1/env-groups/*"}, // one group, with values
+	{"api.render.com", "/v1/env-groups/*/env-vars/**"},
+	{"api.render.com", "/v1/env-groups/*/secret-files/**"},
+	{"api.render.com", "/v1/build-sources/*/env-vars/**"},
+	{"api.render.com", "/v1/build-sources/*/secret-files/**"},
+	// PlanetScale (docs/research/planetscale.md "Never call").
+	{"api.planetscale.com", "/v1/organizations/*/databases/*/webhooks/**"},        // webhook secrets
+	{"api.planetscale.com", "/v1/organizations/*/oauth-applications/*/tokens/**"}, // OAuth tokens
+	{"api.planetscale.com", "/v1/organizations/*/databases/*/branches/*/roles/*"}, // one role: connection details
+}
+
+// DeniedPattern reports the deny-list entry an endpoint path pattern (with
+// {param} segments) falls under, or "". Generators use it to leave out
+// endpoints the broker would always refuse.
+func DeniedPattern(host, pathPattern string) string {
+	h, err := CanonicalHost(host)
+	if err != nil {
+		return ""
+	}
+	segs := strings.Split(strings.Trim(strings.ToLower(pathPattern), "/"), "/")
+	return denied(h, segs)
 }
 
 func denied(host string, segs []string) string {

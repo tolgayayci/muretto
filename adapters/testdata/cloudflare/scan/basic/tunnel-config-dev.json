@@ -1,0 +1,57 @@
+{
+  "success": true,
+  "errors": [],
+  "messages": [],
+  "result": {
+    "tunnel_id": "01234567-0000-4000-8000-0000000000f1",
+    "account_id": "0123456789abcdef0123456789abcdef",
+    "version": 3,
+    "source": "cloudflare",
+    "created_at": "2026-10-31T12:10:00Z",
+    "config": {
+      "ingress": [
+        {
+          "hostname": "dev.example.com",
+          "service": "http://localhost:8080"
+        },
+        {
+          "hostname": "db.example.com",
+          "service": "tcp://10.0.0.5:5432"
+        },
+        {
+          "hostname": "app.example.com",
+          "service": "https://10.0.0.7:443",
+          "originRequest": {
+            "access": {
+              "required": true,
+              "teamName": "example-team",
+              "audTag": [
+                "EXAMPLEaudtag"
+              ]
+            }
+          }
+        },
+        {
+          "hostname": "admin.example.com",
+          "path": "/ssh",
+          "service": "ssh://localhost:22",
+          "originRequest": {
+            "access": {
+              "required": true,
+              "teamName": "example-team",
+              "audTag": [
+                "EXAMPLEaudtag"
+              ]
+            }
+          }
+        },
+        {
+          "service": "http_status:404"
+        }
+      ],
+      "warp-routing": {
+        "enabled": false
+      }
+    }
+  }
+}

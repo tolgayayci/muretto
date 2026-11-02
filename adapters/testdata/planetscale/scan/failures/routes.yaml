@@ -1,0 +1,9 @@
+# Failed calls must become error checks (so rules say unknown), never
+# "nothing found". PlanetScale answers a missing service-token permission
+# with 404 {"code":"not_found"} on some endpoints and 403 on others.
+- { method: GET, path: /v1/organizations/example-org/databases, query: { per_page: "100" }, file: ../basic/databases.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches, query: { per_page: "100" }, file: ../basic/branches-db.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-pg/branches, query: { per_page: "100" }, status: 403, body: '{"code":"forbidden","message":"You do not have access to this resource"}' }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches/main/passwords, query: { per_page: "100" }, status: 500, body: '{"code":"internal_server_error","message":"Internal server error"}' }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/branches/feature-x/passwords, query: { per_page: "100" }, file: ../basic/empty.json }
+- { method: GET, path: /v1/organizations/example-org/databases/example-db/deploy-requests, query: { per_page: "100" }, status: 403, body: '{"code":"forbidden","message":"You do not have access to this resource"}' }

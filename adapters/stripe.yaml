@@ -1,0 +1,483 @@
+# Stripe adapter. Every endpoint, field and output string here comes from
+# docs/research/stripe.md (checked 2026-11-01). Format: docs/WRITING_AN_ADAPTER.md.
+# Not yet verified live.
+format: 1
+provider: stripe
+display_name: Stripe
+
+api:
+  base_url: https://api.stripe.com
+  auth: { header: Authorization, scheme: Bearer }
+
+mcp_servers: [stripe]
+
+token_help: |
+  Create a restricted API key (rk_test_… in a sandbox, rk_live_… in live mode):
+  dashboard.stripe.com/apikeys > Create restricted key, named e.g.
+  muretto-readonly, starting from zero permissions. Set Read (never Write) on:
+  Webhook Endpoints, Products, Prices, Payment Links, Customer portal, and the
+  account read Stripe asks for to retrieve your own account. Leave everything
+  else at None. With these permissions the key can only read those resources;
+  Muretto only ever sends allowlisted GET requests, enforced in code
+  (internal/broker). Sandbox and live mode have separate keys and data:
+  connect each as its own Muretto account (named "<account> (live)" or
+  "<account> (test)" from the key's prefix).
+
+# Every endpoint pins the API version so response shapes do not follow the
+# account's default version. Lists are newest first; pages are fetched with
+# starting_after = the last item's id while has_more is true.
+endpoints:
+  account:
+    path: /v1/account
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    # Personal and banking details: never stored, never needed.
+    strip: [email, individual, company, external_accounts, tos_acceptance, business_profile.support_email, business_profile.support_phone, business_profile.support_address]
+  webhook_endpoints:
+    path: /v1/webhook_endpoints
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    query: { limit: "100" }
+    pagination: { style: last_item, param: starting_after, items: data, field: id, more: has_more }
+    strip: ["data[].secret"] # signing secret (whsec_); documented as create-only, stripped anyway
+  products:
+    path: /v1/products
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    query: { limit: "100" }
+    pagination: { style: last_item, param: starting_after, items: data, field: id, more: has_more }
+  prices:
+    path: /v1/prices
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    query: { limit: "100" }
+    pagination: { style: last_item, param: starting_after, items: data, field: id, more: has_more }
+  prices_inactive: # the plain list returns active prices only
+    path: /v1/prices
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    query: { active: "false", limit: "100" }
+    pagination: { style: last_item, param: starting_after, items: data, field: id, more: has_more }
+  payment_links:
+    path: /v1/payment_links
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    query: { limit: "100" }
+    pagination: { style: last_item, param: starting_after, items: data, field: id, more: has_more }
+  billing_portal_configurations:
+    path: /v1/billing_portal/configurations
+    headers: { Stripe-Version: "2026-10-28.endive" }
+    query: { limit: "100" }
+    pagination: { style: last_item, param: starting_after, items: data, field: id, more: has_more }
+
+# The key's own account (never /v1/accounts, which lists Connect accounts).
+# Live and test keys of one classic account reach the same acct_ id, so the
+# key's mode (from its prefix; the key never reaches a template) is part of
+# the Muretto account id. A key matching neither mode yields no account.
+accounts:
+  endpoint: account
+  items: $
+  token_modes: { live: '^(sk|rk)_live_', test: '^(sk|rk)_test_' }
+  id: "{id}:{token_mode}"
+  name: "{settings.dashboard.display_name|or:business_profile.name|or:id} ({token_mode})"
+  slug: "{id}" # the plain acct_ id
+
+kinds:
+  - kind: webhook_endpoint
+    sources:
+      - endpoint: webhook_endpoints
+        items: data
+        checks_rules: [ephemeral_webhook_endpoint, all_events_webhook_endpoint]
+        id: "{id}"
+        name: "{url}"
+        status: "{status|lower}"
+        url: "https://dashboard.stripe.com/webhooks/{id}"
+        created_at: { value: "{created}", format: epoch_s }
+        attributes:
+          - livemode
+          - enabled_events
+          - api_version
+          - application
+          - { name: endpoint_url, field: url }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "stripe webhook_endpoints delete {provider_id}"
+      note: Add --live for a live-mode endpoint. Deleting stops event delivery to that URL.
+
+  - kind: product
+    sources:
+      - endpoint: products
+        items: data
+        checks_rules: [live_product]
+        id: "{id}"
+        name: "{name}"
+        url: "https://dashboard.stripe.com/products/{id}"
+        created_at: { value: "{created}", format: epoch_s }
+        attributes:
+          - active
+          - livemode
+          - default_price
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "stripe products update {provider_id} --active=false"
+      note: Archives the product (add --live in live mode). A product with prices cannot be deleted; archived products stay in the account.
+
+  - kind: price
+    sources:
+      - endpoint: prices
+        items: data
+        checks_rules: [live_price]
+        id: "{id}"
+        name: "{nickname|or:id}"
+        url: "https://dashboard.stripe.com/prices/{id}"
+        created_at: { value: "{created}", format: epoch_s }
+        attributes:
+          - active
+          - livemode
+          - type
+          - currency
+          - unit_amount
+          - lookup_key
+          - { name: product_id, field: product }
+          - { name: recurring_interval, field: recurring.interval }
+      - endpoint: prices_inactive
+        items: data
+        checks_rules: [live_price]
+        id: "{id}"
+        name: "{nickname|or:id}"
+        url: "https://dashboard.stripe.com/prices/{id}"
+        created_at: { value: "{created}", format: epoch_s }
+        attributes:
+          - active
+          - livemode
+          - type
+          - currency
+          - unit_amount
+          - lookup_key
+          - { name: product_id, field: product }
+          - { name: recurring_interval, field: recurring.interval }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "stripe prices update {provider_id} --active=false"
+      note: Prices cannot be deleted through the API; this archives it (add --live in live mode).
+
+  - kind: payment_link
+    sources:
+      - endpoint: payment_links
+        items: data
+        checks_rules: [live_payment_link]
+        id: "{id}"
+        name: "{url|or:id}"
+        url: "{url}"
+        attributes:
+          - active
+          - livemode
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "stripe payment_links update {provider_id} --active=false"
+      note: Payment links cannot be deleted; a deactivated link shows customers a "deactivated" page. Add --live in live mode.
+
+  - kind: billing_portal_configuration
+    sources:
+      - endpoint: billing_portal_configurations
+        items: data
+        id: "{id}"
+        name: "{name|or:id}"
+        created_at: { value: "{created}", format: epoch_s }
+        attributes:
+          - active
+          - livemode
+          - is_default
+          - { name: login_page_enabled, field: login_page.enabled }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "stripe billing_portal configurations update {provider_id} --active=false"
+      note: Portal configurations cannot be deleted; this deactivates it (add --live in live mode). The default configuration cannot be deactivated.
+
+rules:
+  - id: ephemeral_webhook_endpoint
+    kind: webhook_endpoint
+    severity: medium
+    signal: api_field
+    applies: { field: livemode, equals: "true" }
+    # Hosts documented as tunnels to a developer machine or as preview /
+    # per-deployment URLs (docs/research/stripe.md, Exposure). Production
+    # defaults (<project>.vercel.app, <site>.netlify.app, <project>.pages.dev)
+    # do not match.
+    exposed:
+      field: endpoint_url
+      matches: '(?i)^https?://(?:[^/?#@]*@)?(?:(?:[a-z0-9-]+\.)+(?:ngrok-free\.app|ngrok-free\.dev|ngrok-free\.pizza|ngrok\.app|ngrok\.dev|ngrok\.io|ngrok\.pizza|trycloudflare\.com|localtunnel\.me)|[a-z0-9-]+-git-[a-z0-9-]+\.vercel\.app|[a-z0-9-]+-[a-z0-9]{9}-[a-z0-9-]+\.vercel\.app|[a-z0-9-]+--[a-z0-9-]+\.netlify\.app|[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev)(?::[0-9]+)?(?:[/?#]|$)'
+    title: "Live webhook to a temporary host: {endpoint_url|or:provider_id}"
+    explanation: >-
+      This live-mode webhook endpoint sends live account events to
+      {endpoint_url}, a tunnel or preview-deployment host. The API reports the
+      URL only; such hosts are documented for testing and can change, stop or
+      point at a developer's machine.
+    caveat: >-
+      Decided from the URL host alone. The API cannot see whether the host
+      still answers, who controls it, or whether it verifies signatures. A
+      custom domain that points at a tunnel or preview is not detected.
+    fix:
+      kind: steps
+      text: |
+        Point live events at a stable production URL, then remove this endpoint:
+          stripe webhook_endpoints create --live --url=https://<your-production-host>/<path> -d "enabled_events[]=<event>"
+          stripe webhook_endpoints delete {provider_id} --live
+        For local testing use a sandbox and `stripe listen --forward-to`, which needs no endpoint.
+      docs_url: https://docs.stripe.com/webhooks
+
+  - id: all_events_webhook_endpoint
+    kind: webhook_endpoint
+    severity: low
+    signal: api_field
+    applies: { field: livemode, equals: "true" }
+    exposed: { field: enabled_events, contains_any: ["*"] }
+    title: "Live webhook subscribed to every event: {endpoint_url|or:provider_id}"
+    explanation: >-
+      This live-mode webhook endpoint is subscribed to "*", so Stripe sends it
+      every event type the account produces, not only the ones its handler uses.
+    caveat: >-
+      The API cannot see which events the handler actually needs.
+    fix:
+      kind: steps
+      text: |
+        List only the events the handler uses:
+          stripe webhook_endpoints update {provider_id} --live -d "enabled_events[]=<event>" -d "enabled_events[]=<event>"
+      docs_url: https://docs.stripe.com/webhooks#events-overview
+
+  - id: live_product
+    kind: product
+    severity: info
+    signal: api_field
+    exposed: { field: livemode, equals: "true" }
+    title: "Live-mode product: {name|or:provider_id}"
+    explanation: >-
+      The API reports this product in live mode, where it can be sold to real
+      customers.
+    caveat: Inventory only. The API does not say who created it; Muretto's attribution does.
+    fix:
+      kind: command
+      text: "stripe products update {provider_id} --active=false --live"
+      docs_url: https://docs.stripe.com/api/products/update
+
+  - id: live_price
+    kind: price
+    severity: info
+    signal: api_field
+    exposed:
+      all:
+        - { field: livemode, equals: "true" }
+        - { field: active, equals: "true" }
+    title: "Live-mode price: {name|or:provider_id}"
+    explanation: >-
+      The API reports this active price in live mode, where real customers can
+      be charged it.
+    caveat: Inventory only. The API does not say who created it; Muretto's attribution does.
+    fix:
+      kind: command
+      text: "stripe prices update {provider_id} --active=false --live"
+      docs_url: https://docs.stripe.com/api/prices/update
+
+  - id: live_payment_link
+    kind: payment_link
+    severity: info
+    signal: api_field
+    exposed:
+      all:
+        - { field: livemode, equals: "true" }
+        - { field: active, equals: "true" }
+    title: "Active live payment link: {name|or:provider_id}"
+    explanation: >-
+      The API reports this payment link as active in live mode: its public URL
+      takes real payments from anyone who has it.
+    caveat: Inventory only. The API cannot see where the link was shared.
+    fix:
+      kind: command
+      text: "stripe payment_links update {provider_id} --active=false --live"
+      docs_url: https://docs.stripe.com/api/payment-link/update
+
+signatures:
+  # ---- Stripe CLI resource commands and `stripe post`. The CLI prints the
+  # API's JSON object, which starts with "id" then "object" (CLI reference and
+  # API reference examples). Matching both keys keeps a chained command from
+  # attributing one object's id to another kind. ----
+  - id: stripe.cli.webhook_endpoint_create
+    kind: webhook_endpoint
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:webhook_endpoints\s+create\b|post\s+[''"]?/?v1/webhook_endpoints(?:[''"\s?]|$))']
+    extract:
+      - from: output
+        pattern: '"id"\s*:\s*"(?P<id>we_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"webhook_endpoint"'
+        value: "{id}"
+
+  - id: stripe.cli.product_create
+    kind: product
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:products\s+create\b|post\s+[''"]?/?v1/products(?:[''"\s?]|$))']
+    extract:
+      - from: output # product ids may be caller-chosen, so not only prod_…
+        pattern: '"id"\s*:\s*"(?P<id>[A-Za-z0-9_-]+)"\s*,\s*"object"\s*:\s*"product"'
+        value: "{id}"
+      - kind: price # default_price_data creates the default price too
+        from: output
+        pattern: '"default_price"\s*:\s*"(?P<id>price_[A-Za-z0-9]+)"'
+        value: "{id}"
+
+  - id: stripe.cli.price_create
+    kind: price
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:prices\s+create\b|post\s+[''"]?/?v1/prices(?:[''"\s?]|$))']
+    extract:
+      - from: output
+        pattern: '"id"\s*:\s*"(?P<id>price_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"price"'
+        value: "{id}"
+
+  # prices create with product_data[...] creates the product in the same call.
+  - id: stripe.cli.price_create_product_data
+    kind: product
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:prices\s+create\b|post\s+[''"]?/?v1/prices(?:[''"\s?]|$))', 'product_data\[']
+    extract:
+      - from: output
+        pattern: '"object"\s*:\s*"price"[\s\S]*?"product"\s*:\s*"(?P<id>prod_[A-Za-z0-9]+)"'
+        value: "{id}"
+
+  - id: stripe.cli.payment_link_create
+    kind: payment_link
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:payment_links\s+create\b|post\s+[''"]?/?v1/payment_links(?:[''"\s?]|$))']
+    extract:
+      - from: output
+        pattern: '"id"\s*:\s*"(?P<id>plink_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"payment_link"'
+        value: "{id}"
+
+  - id: stripe.cli.billing_portal_configuration_create
+    kind: billing_portal_configuration
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:billing_portal\s+configurations\s+create\b|post\s+[''"]?/?v1/billing_portal/configurations(?:[''"\s?]|$))']
+    extract:
+      - from: output
+        pattern: '"id"\s*:\s*"(?P<id>bpc_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"billing_portal\.configuration"'
+        value: "{id}"
+
+  # Reads print the same objects: ids seen are only referenced.
+  - id: stripe.cli.read
+    kind: webhook_endpoint
+    role: referenced
+    when:
+      tool: ^Bash$
+      command: ['\bstripe\s+(?:(?:webhook_endpoints|products|prices|payment_links|billing_portal\s+configurations)\s+(?:list|retrieve)\b|get\s)']
+    extract:
+      - { from: output, pattern: '"id"\s*:\s*"(?P<id>we_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"webhook_endpoint"', value: "{id}" }
+      - { kind: product, from: output, pattern: '"id"\s*:\s*"(?P<id>[A-Za-z0-9_-]+)"\s*,\s*"object"\s*:\s*"product"', value: "{id}" }
+      - { kind: price, from: output, pattern: '"id"\s*:\s*"(?P<id>price_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"price"', value: "{id}" }
+      - { kind: payment_link, from: output, pattern: '"id"\s*:\s*"(?P<id>plink_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"payment_link"', value: "{id}" }
+      - { kind: billing_portal_configuration, from: output, pattern: '"id"\s*:\s*"(?P<id>bpc_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"billing_portal\.configuration"', value: "{id}" }
+
+  # ---- curl POST to the collection URL (API reference curl examples). A
+  # POST to /v1/<collection>/<id> is an update and does not match. ----
+  - id: stripe.api.create
+    kind: webhook_endpoint
+    role: created
+    when:
+      tool: ^Bash$
+      command:
+        - '\bcurl\b'
+        - 'api\.stripe\.com/v1/(?:webhook_endpoints|products|prices|payment_links|billing_portal/configurations)(?:[?#''"\s]|$)'
+        - '(?:-X\s*POST\b|--request[=\s]+POST\b|\s-d[\s''"@]|\s--data(?:-raw|-binary|-urlencode)?[=\s])'
+    extract:
+      - { from: output, pattern: '"id"\s*:\s*"(?P<id>we_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"webhook_endpoint"', value: "{id}" }
+      - { kind: product, from: output, pattern: '"id"\s*:\s*"(?P<id>[A-Za-z0-9_-]+)"\s*,\s*"object"\s*:\s*"product"', value: "{id}" }
+      - { kind: price, from: output, pattern: '"id"\s*:\s*"(?P<id>price_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"price"', value: "{id}" }
+      - { kind: payment_link, from: output, pattern: '"id"\s*:\s*"(?P<id>plink_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"payment_link"', value: "{id}" }
+      - { kind: billing_portal_configuration, from: output, pattern: '"id"\s*:\s*"(?P<id>bpc_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"billing_portal\.configuration"', value: "{id}" }
+
+  # ---- Stripe MCP (mcp.stripe.com). Creation goes through the generic
+  # stripe_api_write tool (POST/PATCH/PUT/DELETE on any method). Only a POST
+  # to a collection path is a create; a path ending in an id is an update.
+  # The input field names (method, path) are not published: UNVERIFIED until a
+  # transcript is captured. If they differ, this never fires and the ids fall
+  # through to stripe.mcp.read (referenced), never to a false "created". ----
+  - id: stripe.mcp.api_write
+    kind: webhook_endpoint
+    role: created
+    when:
+      mcp_tools: [stripe_api_write]
+      input_matches:
+        method: '(?i)^post$'
+        path: '^/?v1/(?:webhook_endpoints|products|prices|payment_links|billing_portal/configurations)/?$'
+      result_lacks: [error, deleted]
+    extract:
+      - { from: output, pattern: '"id"\s*:\s*"(?P<id>we_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"webhook_endpoint"', value: "{id}" }
+      - { kind: product, from: output, pattern: '"id"\s*:\s*"(?P<id>[A-Za-z0-9_-]+)"\s*,\s*"object"\s*:\s*"product"', value: "{id}" }
+      - { kind: price, from: output, pattern: '"id"\s*:\s*"(?P<id>price_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"price"', value: "{id}" }
+      - { kind: payment_link, from: output, pattern: '"id"\s*:\s*"(?P<id>plink_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"payment_link"', value: "{id}" }
+      - { kind: billing_portal_configuration, from: output, pattern: '"id"\s*:\s*"(?P<id>bpc_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"billing_portal\.configuration"', value: "{id}" }
+
+  # The older local server (@stripe/mcp, github.com/stripe/ai manifest.json)
+  # and the agent toolkit name their create tools per resource.
+  - id: stripe.mcp.create_tool
+    kind: product
+    role: created
+    when: { mcp_tools: [create_product, create_price, create_payment_link], result_lacks: [error] }
+    extract:
+      - { from: output, pattern: '"id"\s*:\s*"(?P<id>[A-Za-z0-9_-]+)"\s*,\s*"object"\s*:\s*"product"', value: "{id}" }
+      - { kind: price, from: output, pattern: '"id"\s*:\s*"(?P<id>price_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"price"', value: "{id}" }
+      - { kind: payment_link, from: output, pattern: '"id"\s*:\s*"(?P<id>plink_[A-Za-z0-9]+)"\s*,\s*"object"\s*:\s*"payment_link"', value: "{id}" }
+
+  # Every other Stripe MCP call (stripe_api_read, list_products, …): ids seen
+  # were only read.
+  - id: stripe.mcp.read
+    kind: webhook_endpoint
+    role: referenced
+    when: { mcp_tools: ["*"] }
+    extract:
+      - { from: output, pattern: '\b(?P<id>we_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: payment_link, from: output, pattern: '\b(?P<id>plink_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: price, from: output, pattern: '\b(?P<id>price_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: product, from: output, pattern: '\b(?P<id>prod_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: billing_portal_configuration, from: output, pattern: '\b(?P<id>bpc_[A-Za-z0-9]{8,})\b', value: "{id}" }
+
+  # ---- Stripe Projects: Stripe itself is the `stripe/livemode` service
+  # (projects.dev/llms.txt). Its output is undocumented and it is not shown to
+  # create any of these kinds, so ids it prints are only referenced. ----
+  - id: stripe.stripe_projects.add
+    kind: webhook_endpoint
+    role: referenced
+    when: { tool: ^Bash$, command: ['\bstripe\s+projects\s+add\s+stripe/'] }
+    extract:
+      - { from: output, pattern: '\b(?P<id>we_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: product, from: output, pattern: '\b(?P<id>prod_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: price, from: output, pattern: '\b(?P<id>price_[A-Za-z0-9]{8,})\b', value: "{id}" }
+      - { kind: payment_link, from: output, pattern: '\b(?P<id>plink_[A-Za-z0-9]{8,})\b', value: "{id}" }
+
+coverage:
+  - { kind: webhook_endpoint, status: full, note: "GET /v1/webhook_endpoints, all pages" }
+  - { kind: product, status: full, note: "GET /v1/products, all pages (active and archived)" }
+  - { kind: price, status: full, note: "GET /v1/prices twice: active (default) and active=false" }
+  - { kind: payment_link, status: full, note: "GET /v1/payment_links, all pages (active and inactive)" }
+  - { kind: billing_portal_configuration, status: full, note: "GET /v1/billing_portal/configurations, all pages" }
+  - { kind: event_destination, status: planned, note: "GET /v2/core/event_destinations pages by next_page_url (a URL), which no pagination style follows yet" }
+  - { kind: connected_account, status: planned, note: "GET /v1/accounts (Connect); needs Connect read and holds business PII" }
+  - { kind: coupon, status: planned, note: "GET /v1/coupons" }
+  - { kind: promotion_code, status: planned, note: "GET /v1/promotion_codes" }
+  - { kind: customer, status: planned, note: "Not listed: customer records are personal data" }
+  - { kind: checkout_session, status: planned, note: "GET /v1/checkout/sessions; short-lived, holds customer details" }
+  - { kind: subscription, status: planned, note: "GET /v1/subscriptions" }
+  - { kind: payment_method_domain, status: planned, note: "GET /v1/payment_method_domains" }
+  - { kind: test_clock, status: planned, note: "GET /v1/test_helpers/test_clocks (sandbox only)" }
+
+recorder:
+  pseudonymize: [id, url, name, nickname, product, default_price, lookup_key, application, display_name, description]
+  keep: [webhook_endpoint, product, price, payment_link, billing_portal.configuration, list, account, enabled, disabled, "*"]

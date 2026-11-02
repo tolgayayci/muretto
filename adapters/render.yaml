@@ -1,0 +1,507 @@
+# Render adapter. Every endpoint, field and output string here comes from
+# docs/research/render.md (checked 2026-11-01). Format: docs/WRITING_AN_ADAPTER.md.
+# Not yet verified live.
+format: 1
+provider: render
+display_name: Render
+
+api:
+  base_url: https://api.render.com
+  auth: { header: Authorization, scheme: Bearer }
+
+mcp_servers: [render]
+
+token_help: |
+  Create a scoped API key (early access): dashboard.render.com/u/settings >
+  API Keys > Create API key, named e.g. muretto-readonly, for ONE workspace.
+  Grant Read on exactly these, and nothing else:
+    Services > "Web and private services, static sites, background workers,
+      and cron jobs" (NOT "Environment variables and secret files")
+    Postgres > "Postgres" (NOT "Postgres credentials and connection details",
+      NOT exports and backups)
+    Key Value > "Key Value" (NOT "Key Value connection details")
+    Blueprints > "Blueprints"
+  Optional, for --option env_groups only: Environment groups > Read. Render
+  ties that permission to "View environment groups and their secret values",
+  so the key could read the values; Muretto only lists group names.
+  If your account has no scoped keys, a classic API key is account-wide and
+  can read AND write everything in every workspace you belong to. Muretto only
+  ever sends allowlisted GET requests, enforced in code (internal/broker), and
+  never calls connection-info, env-var or secret-file endpoints.
+
+# Render lists return [{cursor, <resource>: {...}}]; the next page is asked
+# for with cursor=<last item's cursor> and the list ends on an empty page.
+endpoints:
+  owners:
+    path: /v1/owners
+    query: { limit: "100" }
+    pagination: { style: last_item, param: cursor, field: cursor }
+  services:
+    path: /v1/services
+    query: { ownerId: "{account}", limit: "100" }
+    pagination: { style: last_item, param: cursor, field: cursor }
+    # Not in the list schema; the names are the service create body's.
+    strip: ["[].service.envVars", "[].service.secretFiles"]
+  postgres:
+    path: /v1/postgres
+    query: { ownerId: "{account}", limit: "100" }
+    pagination: { style: last_item, param: cursor, field: cursor }
+    # Not in the list schema; the names are postgresConnectionInfo's.
+    strip: ["[].postgres.connectionInfo", "[].postgres.password", "[].postgres.internalConnectionString", "[].postgres.externalConnectionString", "[].postgres.psqlCommand"]
+  key_value:
+    path: /v1/key-value
+    query: { ownerId: "{account}", limit: "100" }
+    pagination: { style: last_item, param: cursor, field: cursor }
+    # Not in the list schema; the names are keyValueConnectionInfo's.
+    strip: ["[].keyValue.connectionInfo", "[].keyValue.internalConnectionString", "[].keyValue.externalConnectionString", "[].keyValue.cliCommand"]
+  env_groups:
+    path: /v1/env-groups
+    query: { ownerId: "{account}", limit: "100" }
+    # The spec's list items (envGroupMeta) carry no cursor; if live responses
+    # lack one too, paging stops after the first 100 (coverage: partial).
+    pagination: { style: last_item, param: cursor, field: cursor }
+    # The single-group shape (envGroup) carries values; never keep them.
+    strip: ["[].envVars", "[].secretFiles", "[].envGroup.envVars", "[].envGroup.secretFiles"]
+  blueprints:
+    path: /v1/blueprints
+    query: { ownerId: "{account}", limit: "100" }
+    pagination: { style: last_item, param: cursor, field: cursor }
+  custom_domains:
+    path: /v1/services/{serviceId}/custom-domains
+    params: { serviceId: "{parent.provider_id}" }
+    query: { limit: "100" }
+    pagination: { style: last_item, param: cursor, field: cursor }
+
+accounts:
+  endpoint: owners
+  items: $
+  id: "{owner.id}"
+  name: "{owner.name}"
+# Render has no workspace slug; the CLI prints workspace ids (tea-/usr-).
+account_slug: "{account}"
+
+options:
+  - name: env_groups
+    description: >-
+      List environment group names. Needs Read on Environment groups, which
+      Render grants together with "View environment groups and their secret
+      values"; Muretto lists names only (GET /v1/env-groups) and strips values.
+
+kinds:
+  - kind: service
+    sources:
+      - endpoint: services
+        items: $
+        id: "{service.id}"
+        name: "{service.name}"
+        status: "{service.suspended}"
+        url: "{service.dashboardUrl}"
+        created_at: { value: "{service.createdAt}", format: rfc3339 }
+        attributes:
+          - { name: type, field: service.type }
+          - { name: suspended, field: service.suspended }
+          - { name: suspenders, field: service.suspenders }
+          - { name: slug, field: service.slug }
+          - { name: service_url, field: service.serviceDetails.url }
+          - { name: plan, field: service.serviceDetails.plan }
+          - { name: region, field: service.serviceDetails.region }
+          - { name: runtime, field: service.serviceDetails.runtime }
+          - { name: previews_generation, field: service.serviceDetails.previews.generation }
+          - { name: render_subdomain_policy, field: service.serviceDetails.renderSubdomainPolicy }
+          - { name: repo, field: service.repo }
+          - { name: branch, field: service.branch }
+          - { name: owner_id, field: service.ownerId }
+          - { name: environment_id, field: service.environmentId }
+    remove:
+      kind: command
+      text: "render services delete {provider_id} --confirm"
+      note: Deleting a service removes its deploys, custom domains and environment variables.
+
+  - kind: postgres
+    sources:
+      - endpoint: postgres
+        items: $
+        checks_rules: [open_postgres, expiring_postgres]
+        id: "{postgres.id}"
+        name: "{postgres.name}"
+        status: "{postgres.status}"
+        url: "{postgres.dashboardUrl}"
+        created_at: { value: "{postgres.createdAt}", format: rfc3339 }
+        attributes:
+          - { name: plan, field: postgres.plan }
+          - { name: region, field: postgres.region }
+          - { name: version, field: postgres.version }
+          - { name: role, field: postgres.role }
+          - { name: suspended, field: postgres.suspended }
+          - { name: expires_at, field: postgres.expiresAt }
+          - { name: database_name, field: postgres.databaseName }
+          - { name: high_availability_enabled, field: postgres.highAvailabilityEnabled }
+          - { name: owner_id, field: postgres.owner.id }
+          - { name: environment_id, field: postgres.environmentId }
+          - { name: ip_allow_list, field: "postgres.ipAllowList[].cidrBlock" } # joined; "" when empty
+    remove:
+      kind: command
+      text: "render postgres delete {provider_id} --confirm"
+      note: Deleting a database deletes its data and backups.
+
+  - kind: key_value
+    sources:
+      - endpoint: key_value
+        items: $
+        checks_rules: [open_key_value]
+        id: "{keyValue.id}"
+        name: "{keyValue.name}"
+        status: "{keyValue.status}"
+        url: "{keyValue.dashboardUrl}"
+        created_at: { value: "{keyValue.createdAt}", format: rfc3339 }
+        attributes:
+          - { name: plan, field: keyValue.plan }
+          - { name: region, field: keyValue.region }
+          - { name: version, field: keyValue.version }
+          - { name: maxmemory_policy, field: keyValue.options.maxmemoryPolicy }
+          - { name: persistence_mode, field: keyValue.options.persistenceMode }
+          - { name: owner_id, field: keyValue.owner.id }
+          - { name: environment_id, field: keyValue.environmentId }
+          - { name: ip_allow_list, field: "keyValue.ipAllowList[].cidrBlock" } # joined; "" when empty
+    remove:
+      kind: command
+      text: "render keyvalues delete {provider_id} --confirm"
+
+  - kind: env_group
+    sources:
+      - endpoint: env_groups
+        requires_option: env_groups
+        items: $
+        id: "{id}"
+        name: "{name}"
+        created_at: { value: "{createdAt}", format: rfc3339 }
+        attributes: # names only; values are stripped
+          - { name: owner_id, field: ownerId }
+          - { name: environment_id, field: environmentId }
+    remove:
+      kind: command
+      text: 'curl -X DELETE "https://api.render.com/v1/env-groups/{provider_id}" -H "Authorization: Bearer $RENDER_API_KEY"'
+      note: Services linked to the group lose its variables on their next deploy.
+
+  - kind: custom_domain
+    for_each: service
+    sources:
+      - endpoint: custom_domains
+        items: $
+        id: "{customDomain.id}"
+        name: "{customDomain.name}"
+        status: "{customDomain.verificationStatus}"
+        created_at: { value: "{customDomain.createdAt}", format: rfc3339 }
+        attributes:
+          - { name: domain_type, field: customDomain.domainType }
+          - { name: verification_status, field: customDomain.verificationStatus }
+          - { name: redirect_for_name, field: customDomain.redirectForName }
+          - { name: public_suffix, field: customDomain.publicSuffix }
+          - { name: service_id, template: "{parent.provider_id}" }
+    remove:
+      kind: command
+      text: 'curl -X DELETE "https://api.render.com/v1/services/{service_id}/custom-domains/{name}" -H "Authorization: Bearer $RENDER_API_KEY"'
+
+  - kind: blueprint
+    sources:
+      - endpoint: blueprints
+        items: $
+        id: "{blueprint.id}"
+        name: "{blueprint.name}"
+        status: "{blueprint.status}"
+        attributes: # no creation time in the API (lastSync is not one)
+          - { name: auto_sync, field: blueprint.autoSync }
+          - { name: repo, field: blueprint.repo }
+          - { name: branch, field: blueprint.branch }
+          - { name: path, field: blueprint.path }
+          - { name: owner_id, field: blueprint.ownerId }
+    remove:
+      kind: command
+      text: 'curl -X DELETE "https://api.render.com/v1/blueprints/{provider_id}" -H "Authorization: Bearer $RENDER_API_KEY"'
+      note: This disconnects the Blueprint; Render keeps the services and datastores it created. Delete those separately.
+
+rules:
+  - id: open_postgres
+    kind: postgres
+    severity: high
+    signal: api_field
+    exposed: { field: ip_allow_list, matches: '(?:^|,)[^,]+/0(?:,|$)' } # a /0 block: every address
+    not_exposed:
+      all:
+        - { field: ip_allow_list, present: true }
+        - { not: { field: ip_allow_list, matches: '(?:^|,)[^,]+/0(?:,|$)' } }
+    title: "Postgres reachable from any IP: {name}"
+    explanation: >-
+      The API reports an IP allow list entry covering every address (a /0
+      block such as 0.0.0.0/0) on Postgres {name}, so its external URL accepts
+      connections from anywhere that has valid credentials. 0.0.0.0/0 is
+      Render's default for new Postgres databases.
+    caveat: >-
+      Decided from the allow list only. Connections still need the database
+      password; the API does not show who holds it.
+    fix:
+      kind: command
+      text: |
+        render postgres update {provider_id} --ip-allow-list "cidr=<your-ip>/32,description=office"
+        # or block all external connections:
+        render postgres update {provider_id} --clear-ip-allow-list
+      note: --ip-allow-list replaces the whole list; repeat the flag for every block you want to keep. Services on Render connect over the internal URL, which the allow list does not affect.
+      docs_url: https://render.com/docs/postgresql-creating-connecting#restricting-external-access
+
+  - id: open_key_value
+    kind: key_value
+    severity: high
+    signal: api_field
+    exposed: { field: ip_allow_list, matches: '(?:^|,)[^,]+/0(?:,|$)' } # a /0 block: every address
+    not_exposed:
+      all:
+        - { field: ip_allow_list, present: true }
+        - { not: { field: ip_allow_list, matches: '(?:^|,)[^,]+/0(?:,|$)' } }
+    title: "Key Value reachable from any IP: {name}"
+    explanation: >-
+      The API reports an IP allow list entry covering every address (a /0
+      block such as 0.0.0.0/0) on Key Value {name}, so its external URL
+      accepts connections from anywhere. New Key Value instances are closed
+      to external connections until someone adds an entry.
+    caveat: >-
+      Decided from the allow list only. External connections always need the
+      instance password; the API does not show who holds it.
+    fix:
+      kind: command
+      text: |
+        render keyvalues update {provider_id} --ip-allow-list "cidr=<your-ip>/32,description=office"
+        # or block all external connections:
+        render keyvalues update {provider_id} --clear-ip-allow-list
+      note: --ip-allow-list replaces the whole list; repeat the flag for every block you want to keep.
+      docs_url: https://render.com/docs/key-value#enabling-external-connections
+
+  - id: expiring_postgres
+    kind: postgres
+    severity: low
+    signal: api_field
+    exposed: { field: expires_at, due_within: 7d } # already expired counts too
+    not_exposed:
+      any:
+        - { field: expires_at, is_null: true }
+        - { not: { field: expires_at, due_within: 7d } }
+        - all:
+            - { field: expires_at, present: false }
+            - { field: plan, present: true }
+            - { not: { field: plan, equals: free } }
+    title: "Free Postgres expiring: {name} ({expires_at})"
+    explanation: >-
+      Postgres {name} is on the Free plan and the API reports it expires at
+      {expires_at}, within 7 days of this scan or already past. Render makes an expired Free database inaccessible, then
+      deletes it with its data after a 14-day grace period.
+    caveat: >-
+      Free databases expire 30 days after creation. The API reports the date;
+      it cannot say whether the data still matters.
+    fix:
+      kind: steps
+      text: |
+        If the data matters, move the database to a paid plan before {expires_at}:
+          render postgres update {provider_id} --plan <paid plan, e.g. basic_256mb>
+        If not, delete it:
+          render postgres delete {provider_id} --confirm
+      docs_url: https://render.com/docs/free#free-postgres
+
+signatures:
+  # ---- Render CLI (render-oss/cli). In Claude Code stdout is not a TTY, so
+  # the CLI prints text unless --output json|yaml is given. ----
+  - id: render.cli.services_create
+    kind: service
+    role: created
+    when: { tool: ^Bash$, command: ['\brender\s+services?\s+create\b'] }
+    extract:
+      - from: output
+        pattern: 'Created service (?P<name>.+?) \((?P<id>srv-[a-z0-9]+)\)'
+        value: "{id}"
+      - { from: result, value: "{result.id}" } # --output json prints the service
+
+  - id: render.cli.postgres_create
+    kind: postgres
+    role: created
+    when: { tool: ^Bash$, command: ['\brender\s+(?:ea\s+)?(?:postgres|pg)\s+create\b'] }
+    extract:
+      - from: output
+        pattern: 'Created Postgres database\s+Name: [^\n]*\n\s*ID: (?P<id>dpg-[a-z0-9]+)'
+        value: "{id}"
+      - { from: result, value: "{result.data.id}" } # --output json: {"data": {...}}
+
+  - id: render.cli.keyvalues_create
+    kind: key_value
+    role: created
+    when: { tool: ^Bash$, command: ['\brender\s+(?:ea\s+)?(?:keyvalues?|kv)\s+create\b'] }
+    extract:
+      - from: output
+        pattern: 'Created Render Key Value\s+Name: [^\n]*\n\s*ID: (?P<id>red-[a-z0-9]+)'
+        value: "{id}"
+      - { from: result, value: "{result.data.id}" }
+
+  # Early access, hidden. Creates the Blueprint and plans (does not approve)
+  # its first sync, so the Blueprint is proof but its services are not.
+  - id: render.cli.blueprints_create
+    kind: blueprint
+    role: created
+    when: { tool: ^Bash$, command: ['\brender\s+ea\s+blueprints\s+create\b'] }
+    extract:
+      - from: output
+        pattern: '(?m)^Blueprint .+ \((?P<id>exs-[0-9a-z]{20})\)\s*$'
+        value: "{id}"
+      - { from: result, value: "{result.data.blueprint.id}" }
+
+  # Every other render CLI call (list, get, update, deploys create, ...):
+  # ids in its output were only read.
+  - id: render.cli.read
+    kind: service
+    role: referenced
+    when:
+      tool: ^Bash$
+      command: ['\brender\s+(?:services?|postgres|pg|keyvalues?|kv|deploys|ea)\b']
+      not_command: ['\brender\s+(?:ea\s+)?(?:services?|postgres|pg|keyvalues?|kv|blueprints)\s+create\b']
+    extract:
+      - from: output
+        pattern: '\b(?P<id>srv-[a-z0-9]{20})\b'
+        value: "{id}"
+      - kind: postgres
+        from: output
+        pattern: '\b(?P<id>dpg-[a-z0-9]{20})\b'
+        value: "{id}"
+      - kind: key_value
+        from: output
+        pattern: '\b(?P<id>red-[a-z0-9]{20})\b'
+        value: "{id}"
+
+  # ---- Render MCP (mcp.render.com, render-oss/render-mcp-server). Results
+  # are the REST create bodies as JSON text; errors are plain-text tool errors. ----
+  - id: render.mcp.create_service
+    kind: service
+    role: created
+    when: { mcp_tools: [create_web_service, create_static_site, create_cron_job], result_has: [service] }
+    extract:
+      - { from: result, value: "{result.service.id}" }
+
+  - id: render.mcp.create_postgres
+    kind: postgres
+    role: created
+    when: { mcp_tools: [create_postgres], result_has: [id] }
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: render.mcp.create_key_value
+    kind: key_value
+    role: created
+    when: { mcp_tools: [create_key_value], result_has: [id] }
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: render.mcp.create_blueprint
+    kind: blueprint
+    role: created
+    when: { mcp_tools: [create_blueprint], result_has: [blueprint] }
+    extract:
+      - { from: result, value: "{result.blueprint.id}" }
+
+  - id: render.mcp.read
+    kind: service
+    role: referenced
+    when: { mcp_tools: ["*"] }
+    extract:
+      - from: output
+        pattern: '\b(?P<id>srv-[a-z0-9]{20})\b'
+        value: "{id}"
+      - kind: postgres
+        from: output
+        pattern: '\b(?P<id>dpg-[a-z0-9]{20})\b'
+        value: "{id}"
+      - kind: key_value
+        from: output
+        pattern: '\b(?P<id>red-[a-z0-9]{20})\b'
+        value: "{id}"
+
+  # ---- REST API through curl. Errors are {"id", "message"} bodies. ----
+  - id: render.api.create_service
+    kind: service
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', 'api\.render\.com/v1/services(?:[''"\s?]|$)', '(?:-X\s*POST|--request\s+POST|\s-d\s|--data)']
+      result_lacks: [message]
+    extract:
+      - { from: result, value: "{result.service.id}" }
+
+  - id: render.api.create_postgres
+    kind: postgres
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', 'api\.render\.com/v1/postgres(?:[''"\s?]|$)', '(?:-X\s*POST|--request\s+POST|\s-d\s|--data)']
+      result_lacks: [message]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: render.api.create_key_value
+    kind: key_value
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', 'api\.render\.com/v1/(?:key-value|redis)(?:[''"\s?]|$)', '(?:-X\s*POST|--request\s+POST|\s-d\s|--data)']
+      result_lacks: [message]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: render.api.create_env_group
+    kind: env_group
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', 'api\.render\.com/v1/env-groups(?:[''"\s?]|$)', '(?:-X\s*POST|--request\s+POST|\s-d\s|--data)']
+      result_lacks: [message]
+    extract:
+      - { from: result, value: "{result.id}" }
+
+  - id: render.api.create_custom_domain
+    kind: custom_domain
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', 'api\.render\.com/v1/services/srv-[a-z0-9]+/custom-domains(?:[''"\s?]|$)', '(?:-X\s*POST|--request\s+POST|\s-d\s|--data)']
+      result_lacks: [message]
+    extract: # 201 returns an array of the domains created (apex + www)
+      - { from: result, each: result, value: "{item.id}" }
+
+  # ---- Stripe Projects (render/static-site). Ids only if printed. ----
+  - id: render.stripe_projects.add
+    kind: service
+    role: created
+    when: { tool: ^Bash$, command: ['\bstripe\s+projects\s+add\s+render/'] }
+    extract:
+      - from: output
+        pattern: '\b(?P<id>srv-[a-z0-9]{20})\b'
+        value: "{id}"
+
+coverage:
+  - { kind: service, status: full, note: "GET /v1/services?ownerId=; every service type" }
+  - { kind: postgres, status: full, note: "GET /v1/postgres?ownerId=; allow list and free-tier expiry" }
+  - { kind: key_value, status: full, note: "GET /v1/key-value?ownerId=; allow list" }
+  - { kind: env_group, status: partial, note: "Opt-in (--option env_groups). Names only. The list items have no cursor in the spec, so only the first 100 may be read" }
+  - { kind: custom_domain, status: full, note: "GET /v1/services/{id}/custom-domains per service" }
+  - { kind: blueprint, status: full, note: "GET /v1/blueprints?ownerId=" }
+  - { kind: deploy, status: planned, note: "GET /v1/services/{id}/deploys; history, not exposure" }
+  - { kind: env_var, status: planned, note: "Blocked: GET /v1/services/{id}/env-vars returns values and needs the env-var Read permission" }
+  - { kind: secret_file, status: planned, note: "Blocked: secret-file endpoints return contents" }
+  - { kind: disk, status: planned, note: "GET /v1/disks" }
+  - { kind: project, status: planned, note: "GET /v1/projects and /v1/environments" }
+  - { kind: job, status: planned, note: "GET /v1/services/{id}/jobs" }
+  - { kind: cron_job_run, status: planned, note: "No list endpoint (POST/DELETE /v1/cron-jobs/{id}/runs only)" }
+  - { kind: workflow, status: planned, note: "GET /v1/workflows" }
+  - { kind: sandbox, status: planned, note: "GET /v1/sandboxes (public beta)" }
+  - { kind: webhook, status: planned, note: "GET /v1/webhooks" }
+  - { kind: registry_credential, status: planned, note: "GET /v1/registrycredentials" }
+  - { kind: log_stream, status: planned, note: "GET /v1/logs/streams/owner/{ownerId}" }
+  - { kind: dedicated_ip, status: planned, note: "GET /v1/dedicated-ips" }
+  - { kind: build_source, status: planned, note: "GET /v1/build-sources (limited early access)" }
+
+recorder:
+  pseudonymize: [id, name, slug, repo, branch, ownerId, environmentId, dashboardUrl, url, databaseName, databaseUser, email, cursor, redirectForName, publicSuffix, serviceId, path]
+  keep: [web_service, private_service, background_worker, static_site, cron_job, free, "0.0.0.0/0", suspended, not_suspended]

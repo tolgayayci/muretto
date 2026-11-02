@@ -1,0 +1,40 @@
+{
+ "total_count": 1,
+ "installations": [
+  {
+   "id": 6000001,
+   "account": {
+    "login": "example-org",
+    "id": 1000002,
+    "node_id": "MDQ6VXNlcjEwMDAwMDE=",
+    "avatar_url": "https://avatars.githubusercontent.com/u/1000002?v=4",
+    "url": "https://api.github.com/users/example-org",
+    "html_url": "https://github.com/example-org",
+    "type": "Organization",
+    "site_admin": false
+   },
+   "repository_selection": "all",
+   "access_tokens_url": "https://api.github.com/app/installations/6000001/access_tokens",
+   "repositories_url": "https://api.github.com/installation/repositories",
+   "html_url": "https://github.com/organizations/example-org/settings/installations/6000001",
+   "app_id": 7000001,
+   "client_id": "Iv1.EXAMPLE0000000000",
+   "target_id": 1000002,
+   "target_type": "Organization",
+   "permissions": {
+    "contents": "write",
+    "metadata": "read"
+   },
+   "events": [
+    "push"
+   ],
+   "created_at": "2026-10-30T10:00:00.000-07:00",
+   "updated_at": "2026-10-30T10:00:00.000-07:00",
+   "single_file_name": null,
+   "app_slug": "example-deploy-app",
+   "suspended_at": null,
+   "suspended_by": null,
+   "contact_email": "apps@example.com"
+  }
+ ]
+}

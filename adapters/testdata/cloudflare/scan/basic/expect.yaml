@@ -1,0 +1,129 @@
+account: { id: 0123456789abcdef0123456789abcdef, name: Example Account }
+
+resources:
+  - cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets
+  - cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-uploads
+  - cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-private
+  - cloudflare.r2_custom_domain:example-assets/assets.example.com
+  - cloudflare.r2_custom_domain:example-uploads/uploads.example.com
+  - cloudflare.worker:0123456789abcdef0123456789abcd21
+  - cloudflare.worker:0123456789abcdef0123456789abcd22
+  - cloudflare.worker:0123456789abcdef0123456789abcd23
+  - cloudflare.pages_project:0123abcd-0000-4000-8000-0000000000aa
+  - cloudflare.pages_deployment:0123abcd-0000-4000-8000-000000000001
+  - cloudflare.d1_database:01234567-89ab-4def-8123-456789abcdef
+  - cloudflare.kv_namespace:0123456789abcdef0123456789abcd30
+  - cloudflare.kv_namespace:0123456789abcdef0123456789abcd31
+  - cloudflare.zone:0123456789abcdef0123456789abcd10
+  - cloudflare.dns_record:0123456789abcdef0123456789abcd41
+  - cloudflare.dns_record:0123456789abcdef0123456789abcd42
+  - cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1
+  - cloudflare.tunnel:01234567-0000-4000-8000-0000000000f2
+  - cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/dev.example.com/*
+  - cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/db.example.com/*
+  - cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/app.example.com/*
+  - cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/admin.example.com/ssh
+
+fields:
+  cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets:
+    _name: example-assets
+    _created_at: "2026-10-30T09:00:00Z"
+    managed_domain_enabled: true
+    managed_domain: pub-0123456789abcdef0123456789abcd01.r2.dev
+    storage_class: Standard
+  cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-private:
+    managed_domain_enabled: <absent>
+  cloudflare.r2_custom_domain:example-assets/assets.example.com:
+    _parent_id: cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets
+    enabled: true
+    bucket_name: example-assets
+    ownership_status: active
+  cloudflare.worker:0123456789abcdef0123456789abcd21:
+    _name: example-api
+    _url: https://example-api.example-sub.workers.dev
+    _created_at: "2026-10-31T10:00:00Z"
+    subdomain_enabled: true
+    subdomain_previews_enabled: true
+  cloudflare.worker:0123456789abcdef0123456789abcd23:
+    subdomain_enabled: <absent>
+  cloudflare.pages_project:0123abcd-0000-4000-8000-0000000000aa:
+    _name: example-site
+    _url: https://example-site.pages.dev
+    subdomain: example-site.pages.dev
+  cloudflare.pages_deployment:0123abcd-0000-4000-8000-000000000001:
+    _url: https://0123abcd.example-site.pages.dev
+    _status: success
+    environment: preview
+    project_name: example-site
+  cloudflare.d1_database:01234567-89ab-4def-8123-456789abcdef:
+    _name: example-db
+    jurisdiction: null
+  cloudflare.kv_namespace:0123456789abcdef0123456789abcd30:
+    _name: example-cache
+  cloudflare.dns_record:0123456789abcdef0123456789abcd41:
+    _name: dev.example.com
+    type: CNAME
+    zone_name: example.com
+  cloudflare.tunnel:01234567-0000-4000-8000-0000000000f1:
+    _name: example-dev
+    _status: healthy
+    config_src: cloudflare
+    config_source: cloudflare
+    config_version: 3
+    config_access_required: <absent>
+  cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/dev.example.com/*:
+    service: http://localhost:8080
+    tunnel_name: example-dev
+    access_required: <absent>
+  cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/app.example.com/*:
+    access_required: true
+
+findings:
+  public_r2_bucket:cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets: exposed
+  public_r2_bucket:cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-uploads: not_exposed
+  public_r2_bucket:cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-private: unknown
+  bypassable_r2_custom_domain:cloudflare.r2_custom_domain:example-assets/assets.example.com: exposed
+  bypassable_r2_custom_domain:cloudflare.r2_custom_domain:example-uploads/uploads.example.com: not_exposed
+  public_worker:cloudflare.worker:0123456789abcdef0123456789abcd21: exposed
+  public_worker:cloudflare.worker:0123456789abcdef0123456789abcd22: not_exposed
+  public_worker:cloudflare.worker:0123456789abcdef0123456789abcd23: unknown
+  public_worker_preview:cloudflare.worker:0123456789abcdef0123456789abcd21: exposed
+  public_worker_preview:cloudflare.worker:0123456789abcdef0123456789abcd22: not_exposed
+  public_worker_preview:cloudflare.worker:0123456789abcdef0123456789abcd23: unknown
+  localhost_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/dev.example.com/*: exposed
+  localhost_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/db.example.com/*: not_exposed
+  localhost_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/app.example.com/*: not_exposed
+  localhost_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/admin.example.com/ssh: not_exposed
+  admin_port_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/dev.example.com/*: not_exposed
+  admin_port_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/db.example.com/*: exposed
+  admin_port_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/app.example.com/*: not_exposed
+  admin_port_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/admin.example.com/ssh: not_exposed
+
+fixes:
+  "public_r2_bucket:cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets": "wrangler r2 bucket dev-url disable example-assets"
+  "bypassable_r2_custom_domain:cloudflare.r2_custom_domain:example-assets/assets.example.com": "wrangler r2 bucket dev-url disable example-assets"
+
+checks:
+  - cloudflare.d1_database|||ok
+  - cloudflare.dns_record|0123456789abcdef0123456789abcd10||ok
+  - cloudflare.kv_namespace|||ok
+  - cloudflare.pages_deployment|0123abcd-0000-4000-8000-0000000000aa||ok
+  - cloudflare.pages_project|||ok
+  - cloudflare.r2_bucket||public_r2_bucket|ok
+  - cloudflare.r2_bucket|||ok
+  - cloudflare.r2_custom_domain|0123456789abcdef0123456789abcdef/example-assets|bypassable_r2_custom_domain|ok
+  - cloudflare.r2_custom_domain|0123456789abcdef0123456789abcdef/example-assets||ok
+  - cloudflare.r2_custom_domain|0123456789abcdef0123456789abcdef/example-private|bypassable_r2_custom_domain|ok
+  - cloudflare.r2_custom_domain|0123456789abcdef0123456789abcdef/example-private||ok
+  - cloudflare.r2_custom_domain|0123456789abcdef0123456789abcdef/example-uploads|bypassable_r2_custom_domain|ok
+  - cloudflare.r2_custom_domain|0123456789abcdef0123456789abcdef/example-uploads||ok
+  - cloudflare.tunnel_route|01234567-0000-4000-8000-0000000000f1|admin_port_tunnel_route|ok
+  - cloudflare.tunnel_route|01234567-0000-4000-8000-0000000000f1|localhost_tunnel_route|ok
+  - cloudflare.tunnel_route|01234567-0000-4000-8000-0000000000f1||ok
+  - cloudflare.tunnel|||ok
+  - cloudflare.worker||public_worker_preview|ok
+  - cloudflare.worker||public_worker|ok
+  - cloudflare.worker|||ok
+  - cloudflare.zone|||ok
+
+forbidden: ["MURETTO_FAKE_SECRET", "web_analytics_token", "192.0.2.10", "EXAMPLEtag"]

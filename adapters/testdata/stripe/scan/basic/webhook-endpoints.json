@@ -1,0 +1,56 @@
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "we_EXAMPLEPREVIEW000000001",
+      "object": "webhook_endpoint",
+      "api_version": null,
+      "application": null,
+      "created": 1793000000,
+      "description": null,
+      "enabled_events": [
+        "checkout.session.completed",
+        "customer.subscription.updated"
+      ],
+      "livemode": true,
+      "metadata": {},
+      "secret": "MURETTO_FAKE_SECRET",
+      "status": "enabled",
+      "url": "https://example-app-git-feat-example.vercel.app/api/webhook"
+    },
+    {
+      "id": "we_EXAMPLEPROD00000000001",
+      "object": "webhook_endpoint",
+      "api_version": null,
+      "application": null,
+      "created": 1792000000,
+      "description": null,
+      "enabled_events": [
+        "*"
+      ],
+      "livemode": true,
+      "metadata": {},
+      "secret": "MURETTO_FAKE_SECRET",
+      "status": "enabled",
+      "url": "https://example.com/hooks/stripe"
+    },
+    {
+      "id": "we_EXAMPLETUNNEL000000001",
+      "object": "webhook_endpoint",
+      "api_version": null,
+      "application": null,
+      "created": 1791000000,
+      "description": null,
+      "enabled_events": [
+        "*"
+      ],
+      "livemode": false,
+      "metadata": {},
+      "secret": "MURETTO_FAKE_SECRET",
+      "status": "enabled",
+      "url": "https://example-dev.ngrok-free.app/webhook"
+    }
+  ],
+  "has_more": false,
+  "url": "/v1/webhook_endpoints"
+}

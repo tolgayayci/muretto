@@ -1,0 +1,39 @@
+[
+ {
+  "id": 2000001,
+  "node_id": "R_EXAMPLE2000001",
+  "name": "agent-landing",
+  "full_name": "octo-example/agent-landing",
+  "owner": {
+   "login": "octo-example",
+   "id": 1000001,
+   "node_id": "MDQ6VXNlcjEwMDAwMDE=",
+   "avatar_url": "https://avatars.githubusercontent.com/u/1000001?v=4",
+   "url": "https://api.github.com/users/octo-example",
+   "html_url": "https://github.com/octo-example",
+   "type": "User",
+   "site_admin": false
+  },
+  "private": false,
+  "html_url": "https://github.com/octo-example/agent-landing",
+  "description": "Example repository",
+  "fork": false,
+  "url": "https://api.github.com/repos/octo-example/agent-landing",
+  "hooks_url": "https://api.github.com/repos/octo-example/agent-landing/hooks",
+  "default_branch": "main",
+  "has_pages": false,
+  "archived": false,
+  "disabled": false,
+  "visibility": "public",
+  "pushed_at": "2026-10-30T09:15:00Z",
+  "created_at": "2026-10-30T09:15:00Z",
+  "updated_at": "2026-10-30T09:15:00Z",
+  "permissions": {
+   "admin": true,
+   "maintain": true,
+   "push": true,
+   "triage": true,
+   "pull": true
+  }
+ }
+]

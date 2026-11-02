@@ -1,0 +1,20 @@
+# One workspace. Services: a free web service and a suspended static site.
+# Postgres: open (0.0.0.0/0, free, already expired), restricted, six entries
+# with 0.0.0.0/0 last (free without expiresAt), closed, and one with no
+# ipAllowList whose free expiry is far off. Key Value: closed, open, and one
+# whose ipAllowList is absent. Every list ends with an empty page asked for
+# with the last item's cursor. Stripped fields hold MURETTO_FAKE_SECRET.
+- { path: /v1/owners, query: { limit: "100" }, file: owners.json }
+- { path: /v1/owners, query: { limit: "100", cursor: cursorOWNEREXAMPLE01 }, body: "[]" }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100" }, file: services.json }
+- { path: /v1/services, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorSRVEXAMPLE02 }, body: "[]" }
+- { path: /v1/postgres, query: { ownerId: tea-example0000000000001, limit: "100" }, file: postgres.json }
+- { path: /v1/postgres, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorDPGEXAMPLE05 }, body: "[]" }
+- { path: /v1/key-value, query: { ownerId: tea-example0000000000001, limit: "100" }, file: key-value.json }
+- { path: /v1/key-value, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorREDEXAMPLE03 }, body: "[]" }
+- { path: /v1/env-groups, query: { ownerId: tea-example0000000000001, limit: "100" }, file: env-groups.json }
+- { path: /v1/blueprints, query: { ownerId: tea-example0000000000001, limit: "100" }, file: blueprints.json }
+- { path: /v1/blueprints, query: { ownerId: tea-example0000000000001, limit: "100", cursor: cursorEXSEXAMPLE01 }, body: "[]" }
+- { path: /v1/services/srv-example0000000000001/custom-domains, query: { limit: "100" }, file: custom-domains-api.json }
+- { path: /v1/services/srv-example0000000000001/custom-domains, query: { limit: "100", cursor: cursorCDMEXAMPLE01 }, body: "[]" }
+- { path: /v1/services/srv-example0000000000002/custom-domains, query: { limit: "100" }, body: "[]" }

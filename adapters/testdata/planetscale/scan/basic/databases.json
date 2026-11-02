@@ -1,0 +1,44 @@
+{
+  "type": "list",
+  "current_page": 1,
+  "next_page": null,
+  "next_page_url": null,
+  "prev_page": null,
+  "prev_page_url": null,
+  "data": [
+    {
+      "id": "dbEXAMPLE0001",
+      "type": "Database",
+      "name": "example-db",
+      "url": "https://api.planetscale.com/v1/organizations/example-org/databases/example-db",
+      "html_url": "https://app.planetscale.com/example-org/example-db",
+      "state": "ready",
+      "kind": "mysql",
+      "ready": true,
+      "plan": "scaler_pro",
+      "default_branch": "main",
+      "deletion_protected": false,
+      "require_approval_for_deploy": false,
+      "region": { "id": "regEXAMPLE01", "slug": "us-east", "display_name": "AWS us-east-1", "enabled": true },
+      "created_at": "2025-01-10T10:00:00.000Z",
+      "updated_at": "2026-10-30T10:00:00.000Z"
+    },
+    {
+      "id": "dbEXAMPLE0002",
+      "type": "Database",
+      "name": "example-pg",
+      "url": "https://api.planetscale.com/v1/organizations/example-org/databases/example-pg",
+      "html_url": "https://app.planetscale.com/example-org/example-pg",
+      "state": "ready",
+      "kind": "postgresql",
+      "ready": true,
+      "plan": "postgres",
+      "default_branch": "main",
+      "deletion_protected": true,
+      "require_approval_for_deploy": false,
+      "region": { "id": "regEXAMPLE02", "slug": "eu-central", "display_name": "AWS eu-central-1", "enabled": true },
+      "created_at": "2026-10-28T09:00:00.000Z",
+      "updated_at": "2026-10-28T09:00:00.000Z"
+    }
+  ]
+}

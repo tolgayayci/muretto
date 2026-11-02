@@ -1,0 +1,24 @@
+account: { id: tea-example0000000000001, name: Example Team }
+options: []
+resources:
+  - render.service:srv-example0000000000001
+  - render.service:srv-example0000000000002
+  - render.service:srv-example0000000000003
+fields:
+  render.service:srv-example0000000000003:
+    _name: example-worker
+    type: background_worker
+    plan: starter
+    service_url: <absent>
+findings: {}
+checks:
+  - "render.blueprint|||ok"
+  - "render.custom_domain|srv-example0000000000001||ok"
+  - "render.custom_domain|srv-example0000000000002||ok"
+  - "render.custom_domain|srv-example0000000000003||ok"
+  - "render.key_value||open_key_value|ok"
+  - "render.key_value|||ok"
+  - "render.postgres||expiring_postgres|ok"
+  - "render.postgres||open_postgres|ok"
+  - "render.postgres|||ok"
+  - "render.service|||ok"

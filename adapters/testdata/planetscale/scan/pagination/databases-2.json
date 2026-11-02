@@ -1,0 +1,11 @@
+{
+  "type": "list",
+  "current_page": 2,
+  "next_page": null,
+  "next_page_url": null,
+  "prev_page": 1,
+  "prev_page_url": "https://api.planetscale.com/v1/organizations/example-org/databases?page=1&per_page=100",
+  "data": [
+    { "id": "dbEXAMPLE0003", "name": "example-db-2", "kind": "mysql", "state": "sleeping", "html_url": "https://app.planetscale.com/example-org/example-db-2", "created_at": "2026-10-30T10:00:00.000Z" }
+  ]
+}
