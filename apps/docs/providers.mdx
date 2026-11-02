@@ -1,0 +1,42 @@
+---
+title: "Providers"
+description: "Which providers Muretto reads, and what it checks for exposure."
+---
+
+Each provider is a declarative, read-only adapter: one YAML file that lists the GET endpoints Muretto may call, the fields it keeps, how to recognise an agent creating something, and the exposure rules. Adapters live in [`adapters/`](https://github.com/tolgayayci/muretto/tree/main/adapters) in the repository.
+
+## What Muretto lists
+
+| Provider | Resources |
+|---|---|
+| **Supabase** | Projects, branches, edge functions, storage buckets; tables (agent-created and advisor-flagged, or all of them with an opt-in) |
+| **Vercel** | Projects, deployments (preview URLs), domains, env var names |
+| **GitHub** ¹ | Repos, Pages sites, repo and org webhooks, deploy keys, environments, Actions variable names, org app installations |
+| **Cloudflare** ¹ | R2 buckets and custom domains, Workers, Pages projects and deployments, D1, KV, zones, DNS records, tunnels and their routes |
+| **Neon** ¹ | Projects, branches, computes, databases (with Data API state), roles |
+| **Stripe** ¹ | Webhook endpoints, products, prices, payment links, billing portal configurations; live and test as separate accounts |
+| **Render** ¹ | Services, Postgres, Key Value, custom domains, Blueprints, env groups (opt-in) |
+| **PlanetScale** ¹ | Databases, branches, passwords, Postgres roles, deploy requests |
+
+¹ Built against each provider's documented API and tested offline. Not yet checked against a live account.
+
+## Exposure checks
+
+- **Supabase:** tables readable with the public key (through Supabase's own security advisor), public buckets.
+- **Vercel:** public preview deployments, client-exposed env vars that look secret.
+- **GitHub:** public repos, public Pages on private repos, webhooks without SSL verification, writable deploy keys.
+- **Cloudflare:** public r2.dev buckets, Workers on workers.dev, tunnels routed to localhost or admin ports.
+- **Neon:** databases exposed through the Data API.
+- **Stripe:** live webhooks pointed at temporary preview or tunnel hosts.
+- **Render:** Postgres and Key Value open to `0.0.0.0/0`.
+- **PlanetScale:** admin passwords that never expire, production branches without safe migrations.
+
+Each check gives `exposed`, `not exposed` or `unknown`. If a check could not run, the result is `unknown`, never `not exposed`.
+
+Run `muretto providers --coverage` for the full matrix, including what is planned.
+
+## Your own API
+
+Have an OpenAPI file for another service? `muretto adapter new <openapi-file>` drafts an adapter from it. Check it with `muretto adapter check`, and use it locally with `muretto adapter install`. Installed adapters can only add GET endpoints for their own host.
+
+To contribute an official adapter, read the [adapter guide](https://github.com/tolgayayci/muretto/blob/main/adapters/README.md).

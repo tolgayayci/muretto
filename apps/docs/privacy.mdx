@@ -1,0 +1,38 @@
+---
+title: "Privacy"
+description: "What stays on your machine, what can leave it, and how secrets are handled."
+---
+
+Muretto is local-first. Everything works without an account.
+
+## What leaves your machine
+
+- **Without sync:** only read-only API requests to the providers you connected, with your own tokens, through the broker.
+- **With sync on:** the fields listed in [`docs/SYNC_PAYLOAD.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md), sent to the sync server over HTTPS.
+
+There is no telemetry.
+
+## What is never sent
+
+- Tokens or keys, or any secret value.
+- Raw transcripts or full prompts. Sync sends only a short task title (at most 80 characters) and short evidence excerpts.
+- Local paths. The working directory is sent only as a hash.
+- Raw tool input or output.
+
+## Sync and the dashboard are opt-in
+
+`muretto login` and `muretto sync on` are both off by default. `sync on` prints every field it will send before it asks you to confirm. `muretto sync off` stops it.
+
+The dashboard shows only your own synced data. Team features are not available yet.
+
+## Secrets
+
+- Secrets are redacted twice: in the hook, before anything is written to disk, and again on output and sync.
+- Provider and sync tokens live in your OS keychain (macOS Keychain or Linux Secret Service). In CI you can use environment variables instead. Muretto never falls back to a file.
+- Env var values are never stored. Where a provider's API returns them, the broker strips them before anything else sees them.
+
+## Read-only
+
+Muretto never creates, changes or deletes anything in a provider account. This is enforced in code: the broker allows only listed read endpoints, and a test fails if any other code makes HTTP requests. Some providers, like Vercel, have no read-only token, so the token you give Muretto can write. Treat it like a password.
+
+The full security model, with where each promise is enforced in the code, is in [`docs/SECURITY.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SECURITY.md). To report a vulnerability, use [GitHub private vulnerability reporting](https://github.com/tolgayayci/muretto/security/advisories/new).

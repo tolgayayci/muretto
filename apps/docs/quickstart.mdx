@@ -1,47 +1,63 @@
 ---
 title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+description: "Install Muretto, add the Claude Code hooks and run your first scan."
 ---
-
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
 
 ## Prerequisites
 
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
+- macOS or Linux (arm64 or amd64).
+- Claude Code.
+- A token for at least one provider you use. `muretto init` tells you which permissions to give it.
 
 ## Get started
 
 <Steps>
   <Step title="Install">
-    Describe how to install your product or sign up.
+    There is no tagged release yet, so install from source. You need Go 1.27.3 or newer.
 
     ```bash
-    npm install your-package
+    go install github.com/tolgayayci/muretto/cmd/muretto@latest
     ```
+
+    From v0.1.0, `npm install -g muretto`, `brew install tolgayayci/tap/muretto` and the `install.sh` script will also work.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
-
+  <Step title="Add the hooks and connect providers">
     ```bash
-    your-cli init
+    muretto init
     ```
+
+    `init` adds Muretto's hooks to your Claude Code settings (it makes a backup first), then asks, provider by provider, whether to connect it. It shows the least-privilege token to create, and stores the token in your OS keychain.
+
+    In CI or without a terminal, set `MURETTO_<PROVIDER>_TOKEN` (for example `MURETTO_SUPABASE_TOKEN`) and run `muretto init --yes`.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
-
+  <Step title="Work as usual">
+    Use Claude Code as you normally do. The hooks record each tool call locally. They never block the agent.
+  </Step>
+  <Step title="See what was created">
     ```bash
-    your-cli start
+    muretto                  # summary: agent-created, exposed, needs review, recent sessions
+    muretto sessions         # recent agent sessions
+    muretto exposed          # exposure findings, worst first
+    muretto why customers    # the evidence behind an attribution label
     ```
+
+    Every read command takes `--json`.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Other commands
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+| Command | What it does |
+|---|---|
+| `muretto session <id>` | Everything one session created |
+| `muretto resources [--provider p] [--exposed] [--unknown]` | Resources, filtered |
+| `muretto show <resource>` | One resource: timeline, creator, exposure, cost, review |
+| `muretto fix <resource>` | Prints the provider's documented steps to close an exposure. Muretto never runs them |
+| `muretto review [<resource> keep\|not-needed]` | Record whether you still need a resource |
+| `muretto providers --coverage` | What each provider adapter covers |
+| `muretto doctor` | Check hooks, tokens, spool and last checks |
+| `muretto uninstall` | Remove exactly what `muretto init` added |
+
+## Getting help
+
+Run `muretto doctor` first. If something still looks wrong, open an issue on [GitHub](https://github.com/tolgayayci/muretto/issues).

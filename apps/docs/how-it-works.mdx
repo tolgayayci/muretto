@@ -1,0 +1,57 @@
+---
+title: "How it works"
+description: "Hooks, the spool, read-only scans through a broker, and the attribution join."
+---
+
+```text
+Claude Code hook ──► muretto hook <event> ──► ~/.muretto/spool/*.json   (redacted, no network)
+                                                     │
+any muretto command:   read the spool and transcripts                  (what agents did)
+                                                     │
+                       read-only scans through the broker              (what exists)
+                                                     │
+                       attribution join ──► exposure rules ──► output (text or --json)
+```
+
+## 1. Hooks record what the agent did
+
+`muretto init` adds hooks to your Claude Code settings for session start and end, prompts, tool calls and subagents. For each event, the hook writes one small file to `~/.muretto/spool` and exits. It redacts secrets before writing, caps large outputs, never touches the network, never prints anything and always lets the agent continue.
+
+For an MCP server pinned to one project (for example Supabase's `?project_ref=…`), the hook also records which project, read from your MCP config. It records only that id, never the URL or headers.
+
+Muretto also reads Claude Code transcripts, to fill gaps such as sessions from before you installed the hooks.
+
+## 2. Read-only scans list what exists
+
+When you run a command, Muretto lists what is really in your connected accounts. Every request goes through one module, the broker. The broker refuses anything not on the adapters' allowlist of read endpoints, before any network I/O. It only sends GET requests (plus one constant, read-only catalog query for Supabase tables, and only if you opt in). It strips secret fields from responses before anything else sees them.
+
+Scans are cached for 60 seconds. `--refresh` forces a new one. Output always shows how old the data is.
+
+## 3. The join
+
+A resource is linked to a session only when that session's own successful tool call created it:
+
+- the provider id, or the deployment URL, appears in the call's output; or
+- a unique name appears in a call that targeted that project or team.
+
+A provider's `created_at` time can rule a session out, but never rules one in. If two sessions claim the same resource, or the evidence is not enough, the label is **creator unknown**. Muretto would rather say "unknown" than guess.
+
+`muretto why <resource>` shows the evidence behind every label: the session, the tool call and the matching part of its input and output.
+
+## 4. Exposure
+
+Each adapter declares rules for what is open to anyone: a table readable with the public key, a public bucket, a public preview. A rule result is `exposed`, `not exposed` or `unknown`. A missing field or a failed check gives `unknown`.
+
+`muretto fix <resource>` prints the provider's documented command or SQL for closing an exposure, for you to review. Muretto never runs it.
+
+## Local files
+
+Everything lives in `~/.muretto` (or `MURETTO_HOME`). Directories are `0700` and files `0600`.
+
+| Path | What |
+|---|---|
+| `config.json` | Your display name, connected accounts (ids only), sync settings. Never tokens |
+| `muretto.db` | SQLite store |
+| `spool/` | Hook output, one file per event |
+| `backups/` | Copies of Claude Code settings made before `init` edited them |
+| `install-manifest.json` | Exactly what `init` added, so `uninstall` removes exactly that |

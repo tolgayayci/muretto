@@ -1,55 +1,31 @@
-# Mintlify Starter Kit
+# Muretto docs
 
-Use the starter kit to get your docs deployed and ready to customize.
+The Muretto documentation site, built with [Mintlify](https://mintlify.com).
 
-Click the green **Use this template** button at the top of this repo to copy the Mintlify starter kit. The starter kit contains examples with
+| File | What |
+|---|---|
+| `docs.json` | Site config: name, theme, colors, navigation |
+| `style.css` | The Muretto design system mapped onto Mintlify (dark only) |
+| `index.mdx` | Introduction |
+| `quickstart.mdx` | Install, `muretto init`, first scan |
+| `providers.mdx` | Supported providers and exposure checks |
+| `how-it-works.mdx` | Hooks, spool, broker, attribution |
+| `privacy.mdx` | What leaves the machine; secrets |
+| `AGENTS.md` | Writing rules for these pages |
 
-- Guide pages
-- Navigation
-- Customizations
-- API reference pages
-- Use of popular components
+## Preview locally
 
-**[Follow the full quickstart guide](https://starter.mintlify.com/quickstart)**
-
-## AI-assisted writing
-
-Set up your AI coding tool to work with Mintlify:
-
-```bash
-npx skills add https://mintlify.com/docs
+```sh
+cd apps/docs
+npx mint dev        # http://localhost:3000
 ```
 
-This command installs Mintlify's documentation skill for your configured AI tools like Claude Code, Cursor, Windsurf, and others. The skill includes component reference, writing standards, and workflow guidance.
+## Writing rules
 
-See the [AI tools guides](/ai-tools) for tool-specific setup.
+- Every command must exist in `cmd/muretto/commands.go`. Copy CLI output from real runs or from the golden files in `internal/render/testdata/`.
+- Muretto shows, lists, traces and flags. Never write that it fixes, cleans up or suggests fixes.
+- Use fictional names (`acme-dev`, `customers`, `example-team`), never real project refs, URLs, account ids or keys.
 
-## Development
+## Publishing
 
-Install the [Mintlify CLI](https://www.npmjs.com/package/mint) to preview your documentation changes locally. To install, use the following command:
-
-```
-npm i -g mint
-```
-
-Run the following command at the root of your documentation, where your `docs.json` is located:
-
-```
-mint dev
-```
-
-View your local preview at `http://localhost:3000`.
-
-## Publishing changes
-
-Install our GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app) to propagate changes from your repo to your deployment. Changes are deployed to production automatically after pushing to the default branch.
-
-## Need help?
-
-### Troubleshooting
-
-- If your dev environment isn't running: Run `mint update` to ensure you have the most recent version of the CLI.
-- If a page loads as a 404: Make sure you are running in a folder with a valid `docs.json`.
-
-### Resources
-- [Mintlify documentation](https://mintlify.com/docs)
+Changes are published by Mintlify's GitHub app when they reach the default branch.

@@ -1,6 +1,6 @@
 # Muretto dashboard
 
-The personal dashboard: what your coding agents made, what's open to anyone, and what's waiting on you. Next.js 16 (App Router, Server Components), React 19, TypeScript. It reads one Answer from the sync API (`murettod`, in `server/`) and never calls that API from the browser.
+The optional personal dashboard: what your coding agents made, what's open to anyone, and what's waiting on you. It shows only your own synced data; team features are marked "soon". Next.js 16 (App Router, Server Components), React 19, TypeScript. It reads one Answer from the sync API (`murettod`, in `server/`) and never calls that API from the browser.
 
 ## Run it locally
 
@@ -21,7 +21,7 @@ MURETTO_DEV_LOGIN=1 MURETTO_ADDR=127.0.0.1:8080 MURETTO_DASHBOARD_URL=http://loc
 MURETTO_DEV_AUTH=1 MURETTO_API_URL=http://127.0.0.1:8080 npm run dev
 ```
 
-On `/login`, "Sign in to the local API as alice" signs in through the dev API, and the `sample: …` links browse built-in sample data for every state (normal, new, waiting, clear, many, problem) without any API.
+On `/login`, "Sign in to the local API as alice" signs in through the dev API (`src/app/dev/login`), and the `sample: …` links (`src/app/dev/sample`) browse built-in sample data for every state (normal, new, waiting, clear, many, problem) without any API.
 
 ## Sign-in with Supabase Auth (GitHub)
 
@@ -35,7 +35,7 @@ The GitHub sign-in asks only who you are (no repository access). Supabase stores
 
 ## Deploy on Railway
 
-The dashboard runs as its own Railway service, next to the API (`server/README.md`) and a Railway Postgres, in one project.
+The dashboard runs as its own Railway service, next to the API (`server/README.md`), in one Railway project. The API's Postgres is a Supabase database reached through the session-mode pooler (`MURETTO_DATABASE_URL`, see `server/README.md`).
 
 1. Build from `apps/dashboard` with its `Dockerfile` (`next build`, then `next start` on `PORT`, non-root).
 2. Variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (both inlined at build time, passed in as build args), `PORT=3000`, and `MURETTO_API_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:8080` so the dashboard reaches the API over Railway's private network.
@@ -62,4 +62,4 @@ Behind Railway's proxy a route handler sees its own address as `localhost:3000`,
 - `src/proxy.ts`: per-request nonce CSP, session refresh, sign-in redirect.
 - `src/components`: the Muretto design system (`ds.tsx`), provider logos and badges (`brand.tsx`), shared page pieces (`ui.tsx`).
 
-See `docs/decisions/0605-dashboard-v2-supabase-auth.md` for why it is built this way.
+See [decision 0605](../../docs/decisions/0605-dashboard-v2-supabase-auth.md) for why it is built this way.
