@@ -31,7 +31,7 @@ emails outside example.com).
 
 ```
 adapters/<provider>/testdata/scan/<scenario>/routes.yaml   requests the fake API answers (method, path, query subset, status, file|body)
-adapters/<provider>/testdata/scan/<scenario>/expect.yaml   account, options, expected resources, fields, findings, fixes, checks, forbidden strings
+adapters/<provider>/testdata/scan/<scenario>/expect.yaml   account, options, expected resources, fields, findings, checks, forbidden strings
 adapters/<provider>/testdata/scan/<scenario>/*.json        response bodies (raw provider shape, before broker stripping)
 adapters/<provider>/testdata/extract/cases.yaml            extract cases: tool, input, output, status, expected identifiers
 adapters/<provider>/testdata/recorded/                     output of the live recorder (git-ignored)

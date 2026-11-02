@@ -42,7 +42,7 @@ A provider's `created_at` time can rule a session out, but never rules one in. I
 
 Each adapter declares rules for what is open to anyone: a table readable with the public key, a public bucket, a public preview. A rule result is `exposed`, `not exposed` or `unknown`. A missing field or a failed check gives `unknown`.
 
-`muretto fix <resource>` prints the provider's documented command or SQL for closing an exposure, for you to review. Muretto never runs it.
+Muretto only shows and flags what it finds. `muretto exposed` lists every finding, worst first, and `muretto show <resource>` shows one resource with its exposure findings.
 
 ## Local files
 

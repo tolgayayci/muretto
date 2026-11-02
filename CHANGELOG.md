@@ -23,8 +23,7 @@ The first public version. Nothing has been tagged or published yet.
 
 **Attribution and output**
 - Attribution that links a resource to a session only when that session's own tool call proves it created it (id in the result, the deployment URL it printed, or a unique name in the container the call named). Everything else is "creator unknown".
-- Commands: summary, `sessions`, `session`, `resources`, `show`, `why`, `exposed`, `fix`, `review`, `providers --coverage`, `doctor`, `init`, `uninstall`, `version`. Every read command takes `--json`, which is always a valid Answer.
-- `muretto fix` shows the provider's documented steps to close an exposure. Muretto never runs them.
+- Commands: summary, `sessions`, `session`, `resources`, `show`, `why`, `exposed`, `review`, `providers --coverage`, `doctor`, `init`, `uninstall`, `version`. Every read command takes `--json`, which is always a valid Answer.
 - SQLite store with scan history, so a deleted or recreated resource is detected.
 
 **Optional sync and dashboard**
@@ -38,3 +37,7 @@ The first public version. Nothing has been tagged or published yet.
 - CI with tests, lint, `govulncheck` and a secret scan over the full history.
 - An end-to-end test of hooks, ingest, scan, attribution and output.
 - An optional live demo (`examples/live-demo`) that runs five headless Claude Code sessions against your own test accounts.
+
+### Removed
+
+- Removed: `muretto fix`; Muretto only shows and flags.

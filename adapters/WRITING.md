@@ -77,11 +77,11 @@ directory. Everything it writes comes from the spec, and each endpoint carries a
   Speakeasy/Fern extensions. Link headers, next-page URLs, `starting_after`,
   offsets and page numbers without a body cursor are written as `partial:
   first page only` in `coverage`.
-- **`remove`** commands from `DELETE <list>/{id}`, and **curl signatures** from
-  `POST <list>`. A child's container is read from the URL the agent posted to.
+- **curl signatures** from `POST <list>`. A child's container is read from the
+  URL the agent posted to.
 - **Suggested rules** (`public_<kind>`), marked REVIEW, for boolean `public` or
   `is_public` fields, `private` fields, and enum `visibility` fields with a
-  public value. The fix names the PATCH endpoint if the spec has one.
+  public value.
 
 A kind is selected only if the spec can create or delete its items, or it has
 such a public field. Read-only lists (advisors, usage, logs) are listed in
@@ -247,7 +247,7 @@ Most values are templates: text with `{path|filter}` placeholders.
   `sql_literal` (escape for `'…'`).
 - A placeholder with no value (missing, null or empty) makes the whole
   template empty. For an `id` that means the item is skipped and the check
-  reports it. For human text (titles, fixes) the hole is shown as `<path>`.
+  reports it. For human text (titles, explanations) the hole is shown as `<path>`.
 
 ## 5. Kinds
 
@@ -273,7 +273,6 @@ kinds:
     enrich:                       # optional extra GET per resource
       - { endpoint: db_settings, requires_option: extra, attributes: [ssl_enforced] }
     match: { value: "{name}", container: "{project_id}" }
-    remove: { kind: command, text: "example db delete {name} --project {project_id}" }
 ```
 
 - `for_each` must name an earlier kind. Each parent becomes the check's
@@ -333,11 +332,6 @@ rules:
     title: "Public database: {name}"
     explanation: Database {name} accepts connections from the internet.
     caveat: What the API cannot see.
-    fix:
-      kind: steps           # sql | command | steps
-      text: "Console > {name} > Networking > Public access: off"
-      note: Optional extra advice.
-      docs_url: https://docs.example.com/networking
 ```
 
 A rule runs on every resource of its kind where `applies` is true. If
@@ -347,8 +341,9 @@ signal, like Supabase's advisor and catalog variants of `rls_disabled`); the
 worst state wins.
 
 Rules see the resource's attributes, its core fields (`provider_id`, `name`,
-`account_slug`, …) and, during a scan, `parent.<attribute>`. Fixes and
-titles use the same context. **A fix is printed, never run.**
+`account_slug`, …) and, during a scan, `parent.<attribute>`. Titles,
+explanations and caveats use the same context. Muretto only flags what it
+sees; a rule never suggests a change.
 
 ### Predicates
 
@@ -516,7 +511,6 @@ fields:                          # selected values; core fields start with _
   example.project:prj_EXAMPLE1: { _name: demo, region: eu-west-1 }
 findings:                        # exact set: finding id -> state
   public_database:example.database:prj_EXAMPLE1/main: exposed
-fixes: { "public_database:...": "exact fix text" }
 checks: ["example.project|||ok", "example.database|prj_EXAMPLE1||error:permission"]   # kind|scope|rule|status
 forbidden: [MURETTO_FAKE_SECRET] # must never appear in the scan result
 ```

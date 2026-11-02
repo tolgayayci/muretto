@@ -20,7 +20,7 @@ You don't need this to use or develop Muretto. `make test` covers everything off
 | `session.sh` | One headless `claude -p` session (used by `run.sh` in each pane). |
 | `syncloop.sh` | The sixth pane: start signal, `muretto sync now` per developer, status line. |
 | `pretty.jq` | Turns `stream-json` into readable pane output; masks token-shaped strings. |
-| `prove.sh` | The curl with only the public key, then `muretto why customers` and `muretto fix customers` as bob. `--check` prints one line and exits 0 only if rows come back and Muretto flags `customers`. |
+| `prove.sh` | The curl with only the public key, then `muretto why customers` as bob. `--check` prints one line and exits 0 only if rows come back and Muretto flags `customers`. |
 | `reset.sh` | Deletes what the demo created (dry run by default, `--apply` to run), including the demo workdirs' Claude Code transcript folders, so the next run's Muretto doesn't read earlier runs' sessions. |
 | `selftest.sh` | Offline check of the local plumbing. No accounts, no network beyond 127.0.0.1. |
 
@@ -51,7 +51,7 @@ examples/live-demo/run.sh --dry-run            # every command, nothing run
 examples/live-demo/run.sh                      # type the test ref; tmux attaches
 #   open the printed dashboard link (signs in as alice),
 #   press Enter in the bottom-right pane to start all five sessions
-examples/live-demo/prove.sh                    # curl with the public key, then why/fix as bob
+examples/live-demo/prove.sh                    # curl with the public key, then muretto why as bob
 examples/live-demo/reset.sh --apply            # list, confirm, delete; also stops everything local
 ```
 
@@ -77,7 +77,7 @@ The Vercel side needs one more step, done by `run.sh` on every run rather than b
 
 ## Troubleshooting
 
-| Symptom | Fix |
+| Symptom | What to do |
 |---|---|
 | `refusing to run: MURETTO_DEMO is not 1` | Set it in `examples/live-demo/.env` (the file wins over your shell). |
 | `project … is named '…'` refusal | Rename the test project to include `demo` or `test`, or use another project. |

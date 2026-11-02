@@ -24,7 +24,7 @@ Muretto is pre-1.0 and has no tagged release yet. Security fixes go to the `main
 Muretto is built so that it cannot change your infrastructure or leak your secrets:
 
 - **Read-only, enforced in code.** Every provider request goes through one module with an explicit allowlist of read endpoints. Anything else fails before it leaves your machine, and tests prove it.
-- **No actions.** `muretto fix` shows the provider's documented steps for you to review. Muretto never runs them.
+- **No actions.** Muretto only shows and flags. It has no command that changes, deletes or suggests changes to anything in your accounts.
 - **Secrets redacted twice:** when data is recorded and again when it's shown or synced.
 - **Tokens live in your OS keychain**, never in plain files, logs, spool files or sync payloads.
 - **Local-first.** Everything works without an account. Sync is opt-in, and the CLI shows exactly what will be sent first.

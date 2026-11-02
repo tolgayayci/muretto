@@ -22,7 +22,7 @@ Repo: acme/web (feat/import)
   ✓ deployment preview-a81f     exact   ⚠ public preview
 
   3 exposed · 1 needs review · checked 3 min ago
-  → muretto why customers   → muretto fix customers
+  → muretto why customers
 ```
 
 The names are fictional; this is the CLI's own test output (`internal/render/testdata/session.golden`).
@@ -94,7 +94,6 @@ muretto resources [--provider p] [--exposed] [--unknown]
 muretto show <resource>      one resource: timeline, creator, exposure, cost, review
 muretto why <resource>       the evidence behind its attribution label
 muretto exposed              exposure findings, worst first
-muretto fix <resource>       the provider's documented steps to close an exposure
 muretto review [<resource> keep|not-needed]
 muretto providers [--coverage]
 muretto doctor               check hooks, tokens, spool and last checks
@@ -102,8 +101,6 @@ muretto uninstall [--purge]  remove exactly what muretto init added
 ```
 
 Read commands accept `--json`, `--refresh` (ignore the 60 s scan cache) and `--no-color`. Session and resource arguments accept unique prefixes and names.
-
-`muretto fix` only prints text. It shows the provider's documented command or SQL for closing an exposure (and, if you no longer need the resource, how to remove it), for you to review. Muretto never runs it.
 
 ## Optional dashboard
 

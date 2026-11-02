@@ -56,7 +56,7 @@ The account is what the token belongs to: the user's own org, team, workspace or
   - `medium`: weakened protection
   - `low`: hygiene or cost
   - `info`: inventory only
-- **Wording:** `caveat` says what the API can't see. `fix` is a command, SQL or steps a human runs; Muretto never runs it. No claims beyond the field (say "the API reports …", not "attackers can …").
+- **Wording:** `caveat` says what the API can't see. Rules only flag; they never suggest a change or a command to run. No claims beyond the field (say "the API reports …", not "attackers can …").
 - **Fixtures:** every rule has a fixture case for `exposed`, `not_exposed` and `unknown` where the API allows each.
 
 ## Signatures (attribution)
