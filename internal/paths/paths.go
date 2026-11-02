@@ -18,6 +18,7 @@ type Paths struct {
 	HookLog  string
 	Backups  string
 	Manifest string
+	Adapters string // adapters installed by the user (muretto adapter install)
 }
 
 // DirPerm and FilePerm are the permissions of everything under Home.
@@ -59,6 +60,7 @@ func At(home string) Paths {
 		HookLog:  filepath.Join(home, "hook-errors.log"),
 		Backups:  filepath.Join(home, "backups"),
 		Manifest: filepath.Join(home, "install-manifest.json"),
+		Adapters: filepath.Join(home, "adapters"),
 	}
 }
 

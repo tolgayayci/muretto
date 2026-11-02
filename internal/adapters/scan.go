@@ -54,7 +54,7 @@ func (s *scanner) scanKind(k *kindSpec) {
 		parents = []*scanned{nil}
 	} else {
 		for _, sc := range s.order {
-			if sc.kind.Kind == k.ForEach {
+			if sc.kind.Kind == k.ForEach && (k.ForEachWhere == nil || k.ForEachWhere.eval(sc.childCtx) == triTrue) {
 				parents = append(parents, sc)
 			}
 		}
@@ -96,6 +96,13 @@ func (s *scanner) scanSource(k *kindSpec, src *sourceSpec, parent *scanned) {
 
 	produced, skipped := 0, 0
 	unavailable := ""
+	if err == nil && src.IncompleteIf != "" {
+		for _, page := range pages {
+			if v, ok := lookup(page, src.IncompleteIf); ok && nonEmpty(v) {
+				unavailable = "the list is incomplete (" + src.IncompleteIf + ")"
+			}
+		}
+	}
 	if err == nil {
 		for _, page := range pages {
 			for _, item := range itemsOf(page, src.Items) {
@@ -135,6 +142,7 @@ func (s *scanner) scanSource(k *kindSpec, src *sourceSpec, parent *scanned) {
 		setCheckError(&check, contract.ProviderCheckErrorCodeNetwork, err.Error())
 	case unavailable != "":
 		setCheckError(&check, contract.ProviderCheckErrorCodeProvider, "provider reported the check unavailable: "+unavailable)
+
 	case skipped > 0:
 		setCheckError(&check, contract.ProviderCheckErrorCodeProvider, fmt.Sprintf("%d items had no id and were skipped", skipped))
 	}
@@ -176,11 +184,14 @@ func (s *scanner) itemCtx(item map[string]any, parent *scanned) map[string]any {
 	for k, v := range item {
 		ctx[k] = v
 	}
+	// account, account_name, account_slug and parent always mean the scan
+	// context: an item field with one of these names (GitHub teams and
+	// Cloudflare tree nodes have "parent") must not hide the for_each parent
+	// or the scanned account.
 	for k, v := range s.baseCtx(parent) {
-		if _, taken := ctx[k]; !taken {
-			ctx[k] = v
-		}
+		ctx[k] = v
 	}
+	ctx[nowKey] = s.now
 	return ctx
 }
 
@@ -207,7 +218,7 @@ func (s *scanner) addItem(k *kindSpec, src *sourceSpec, item, ictx map[string]an
 	}
 	res.Name = pid
 	if n, ok := src.Name.render(ictx); ok {
-		res.Name = truncate(n, 300)
+		res.Name = truncate(withoutUserinfo(n), 300)
 	}
 	// A kind without a status or url template renders "": leave them unset.
 	if v, ok := src.Status.render(ictx); ok && v != "" {
@@ -215,7 +226,7 @@ func (s *scanner) addItem(k *kindSpec, src *sourceSpec, item, ictx map[string]an
 		res.Status = &st
 	}
 	if v, ok := src.URL.render(ictx); ok && v != "" {
-		u := truncate(v, 1000)
+		u := truncate(withoutUserinfo(v), 1000)
 		res.Url = &u
 	}
 	switch {
@@ -261,8 +272,19 @@ func (s *scanner) addItem(k *kindSpec, src *sourceSpec, item, ictx map[string]an
 			continue
 		}
 		pages, err := s.fetch(s.a.Endpoints[e.Endpoint], ictx)
-		if err != nil || len(pages) == 0 {
-			continue // missing attributes make dependent rules unknown
+		if err != nil {
+			// That resource's attributes stay missing, so its findings are
+			// unknown; the other resources of the source keep their verdicts.
+			continue
+		}
+		if len(pages) == 0 {
+			// The provider said the thing does not exist (on_status: empty,
+			// e.g. a 404 for "no Data API"): its attributes are null, which
+			// rules can decide on, not missing.
+			for _, at := range e.Attributes {
+				sc.res.Attributes[at.Name] = nil
+			}
+			continue
 		}
 		if obj, ok := pages[0].(map[string]any); ok {
 			ectx := s.itemCtx(obj, parent)
@@ -278,7 +300,7 @@ func (s *scanner) addItem(k *kindSpec, src *sourceSpec, item, ictx map[string]an
 func applyAttrs(dst contract.ResourceAttributes, attrs []attrSpec, ctx map[string]any) {
 	for _, at := range attrs {
 		if at.Field != "" {
-			if v, found := lookup(ctx, at.Field); found {
+			if v, found := lookupAll(ctx, at.Field); found {
 				if av, ok := attrValue(v); ok {
 					if av == nil && at.Default != nil {
 						av = *at.Default
@@ -314,6 +336,9 @@ func resourceCtx(res contract.Resource, parent map[string]any) map[string]any {
 	}
 	ctx["id"] = res.ID
 	ctx["provider_id"] = res.ProviderID
+	if res.CreatedAt != nil {
+		ctx["created_at"] = res.CreatedAt.UTC().Format(time.RFC3339)
+	}
 	ctx["name"] = res.Name
 	ctx["kind"] = res.Kind
 	ctx["account_id"] = res.AccountID
@@ -347,6 +372,7 @@ func (s *scanner) evaluateRules() {
 				pctx = sc.parent.childCtx
 			}
 			ctx := resourceCtx(sc.res, pctx)
+			ctx[nowKey] = s.now
 			if rule.Applies.eval(ctx) != triTrue {
 				continue
 			}
@@ -463,7 +489,7 @@ func (s *scanner) fetch(ep *endpointSpec, ctx map[string]any) ([]any, error) {
 		if len(q) > 0 {
 			u += "?" + q.Encode()
 		}
-		doc, empty, err := s.call(ep, u, body)
+		doc, hdr, empty, err := s.call(ep, u, body)
 		if err != nil {
 			return nil, err
 		}
@@ -474,27 +500,29 @@ func (s *scanner) fetch(ep *endpointSpec, ctx map[string]any) ([]any, error) {
 		if ep.Pagination == nil {
 			return pages, nil
 		}
-		nv, _ := lookup(doc, ep.Pagination.Next)
-		next, ok := scalarString(nv)
-		if !ok || next == "" {
+		nq, key, more, err := s.nextPage(ep, doc, hdr, q, page, u)
+		if err != nil {
+			return nil, err
+		}
+		if !more {
 			return pages, nil
 		}
-		if seen[next] {
+		if seen[key] {
 			return nil, &callError{contract.ProviderCheckErrorCodeProvider, fmt.Sprintf("%s %s: pagination cursor repeated", ep.Method, ep.Path)}
 		}
-		seen[next] = true
+		seen[key] = true
 		if page+1 >= ep.Pagination.MaxPages {
 			return nil, &callError{contract.ProviderCheckErrorCodeProvider, fmt.Sprintf("%s %s: more than %d pages; results would be incomplete", ep.Method, ep.Path, ep.Pagination.MaxPages)}
 		}
-		q.Set(ep.Pagination.Param, next)
+		q = nq
 	}
 }
 
-func (s *scanner) call(ep *endpointSpec, rawURL string, body []byte) (doc any, empty bool, err error) {
+func (s *scanner) call(ep *endpointSpec, rawURL string, body []byte) (doc any, hdr http.Header, empty bool, err error) {
 	where := ep.Method + " " + ep.Path
 	req, err := broker.NewRequest(s.ctx, ep.Method, rawURL, body)
 	if err != nil {
-		return nil, false, &callError{contract.ProviderCheckErrorCodeUnsupported, where + ": " + err.Error()}
+		return nil, nil, false, &callError{contract.ProviderCheckErrorCodeUnsupported, where + ": " + err.Error()}
 	}
 	if s.creds.Token != "" {
 		v := s.creds.Token
@@ -508,6 +536,9 @@ func (s *scanner) call(ep *endpointSpec, rawURL string, body []byte) (doc any, e
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
+	for k, v := range ep.Headers { // constants checked at load time (pinned API versions)
+		req.Header.Set(k, v)
+	}
 	resp, err := s.b.Do(s.ctx, req)
 	if err != nil {
 		code := contract.ProviderCheckErrorCodeNetwork
@@ -517,25 +548,149 @@ func (s *scanner) call(ep *endpointSpec, rawURL string, body []byte) (doc any, e
 		case errors.Is(err, broker.ErrTooLarge):
 			code = contract.ProviderCheckErrorCodeProvider
 		}
-		return nil, false, &callError{code, where + ": " + stripURLs(err.Error())}
+		return nil, nil, false, &callError{code, where + ": " + stripURLs(err.Error())}
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, false, &callError{contract.ProviderCheckErrorCodeNetwork, where + ": read failed"}
+		return nil, nil, false, &callError{contract.ProviderCheckErrorCodeNetwork, where + ": read failed"}
 	}
 	if ep.OnStatus[resp.StatusCode] == "empty" {
-		return nil, true, nil
+		return nil, resp.Header, true, nil
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, false, &callError{statusCode(resp.StatusCode), fmt.Sprintf("%s: HTTP %d", where, resp.StatusCode)}
+		return nil, nil, false, &callError{statusCode(resp.StatusCode), fmt.Sprintf("%s: HTTP %d", where, resp.StatusCode)}
 	}
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 	if err := dec.Decode(&doc); err != nil {
-		return nil, false, &callError{contract.ProviderCheckErrorCodeProvider, where + ": response is not JSON"}
+		return nil, nil, false, &callError{contract.ProviderCheckErrorCodeProvider, where + ": response is not JSON"}
 	}
-	return doc, false, nil
+	return doc, resp.Header, false, nil
+}
+
+// nextPage works out the next request's query, or stop.
+func (s *scanner) nextPage(ep *endpointSpec, doc any, hdr http.Header, q url.Values, page int, curURL string) (url.Values, string, bool, error) {
+	pg := ep.Pagination
+	where := ep.Method + " " + ep.Path
+	set := func(v string) (url.Values, string, bool, error) {
+		nq := url.Values{}
+		for k, vs := range q {
+			nq[k] = append([]string(nil), vs...)
+		}
+		nq.Set(pg.Param, v)
+		return nq, v, true, nil
+	}
+	moreSays := func() (bool, bool) { // (more, known)
+		if pg.More == "" {
+			return true, false
+		}
+		mv, ok := lookup(doc, pg.More)
+		if !ok {
+			return false, true
+		}
+		ms, _ := scalarString(mv)
+		return ms == "true", true
+	}
+	switch pg.Style {
+	case "cursor":
+		if len(pg.Items) > 0 && len(itemsOf(doc, pg.Items)) == 0 {
+			return nil, "", false, nil // an empty page ends the list (Neon sends a cursor on every page)
+		}
+		nv, _ := lookup(doc, pg.Next)
+		next, ok := scalarString(nv)
+		if !ok || next == "" {
+			return nil, "", false, nil
+		}
+		return set(next)
+	case "link":
+		next := linkNext(hdr.Values("Link"))
+		if next == "" {
+			return nil, "", false, nil
+		}
+		// Only the page value is taken from the link, and it is sent on the
+		// original path: GitHub links per-repo lists to /repositories/{id},
+		// a path no rule allows.
+		cur, _ := url.Parse(curURL)
+		nu, err := url.Parse(next)
+		if err != nil || cur == nil || !strings.EqualFold(nu.Hostname(), cur.Hostname()) || nu.Scheme != "https" {
+			return nil, "", false, &callError{contract.ProviderCheckErrorCodeProvider, where + ": Link header points to another host"}
+		}
+		v := nu.Query().Get(pg.Param)
+		if v == "" {
+			return nil, "", false, &callError{contract.ProviderCheckErrorCodeProvider, where + ": Link header has no " + pg.Param}
+		}
+		return set(v)
+	case "page":
+		cur := pg.Start + page
+		if pg.More != "" {
+			if mv, ok := lookup(doc, pg.More); ok {
+				if ms, _ := scalarString(mv); ms != "true" {
+					return nil, "", false, nil
+				}
+				return set(strconv.Itoa(cur + 1))
+			}
+		}
+		if pg.Total != "" {
+			if tv, ok := lookup(doc, pg.Total); ok && tv != nil {
+				ts, _ := scalarString(tv)
+				total, err := strconv.ParseFloat(ts, 64)
+				if err != nil || float64(cur) >= total {
+					return nil, "", false, nil
+				}
+				return set(strconv.Itoa(cur + 1))
+			}
+		}
+		// No count in the body: keep going until a page is empty.
+		if len(pg.Items) > 0 && len(itemsOf(doc, pg.Items)) > 0 {
+			return set(strconv.Itoa(cur + 1))
+		}
+		return nil, "", false, nil
+	case "last_item":
+		items := itemsOf(doc, pg.Items)
+		if len(items) == 0 {
+			return nil, "", false, nil
+		}
+		if more, known := moreSays(); known && !more {
+			return nil, "", false, nil
+		}
+		lv, _ := lookup(items[len(items)-1], pg.Field)
+		next, ok := scalarString(lv)
+		if !ok || next == "" {
+			return nil, "", false, nil
+		}
+		return set(next)
+	}
+	return nil, "", false, nil
+}
+
+// linkNext returns the rel="next" target of RFC 8288 Link header values.
+func linkNext(values []string) string {
+	for _, v := range values {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if !strings.HasPrefix(part, "<") {
+				continue
+			}
+			end := strings.Index(part, ">")
+			if end < 0 {
+				continue
+			}
+			target, params := part[1:end], part[end+1:]
+			for _, p := range strings.Split(params, ";") {
+				k, val, ok := strings.Cut(strings.TrimSpace(p), "=")
+				if !ok || !strings.EqualFold(strings.TrimSpace(k), "rel") {
+					continue
+				}
+				for _, rel := range strings.Fields(strings.Trim(strings.TrimSpace(val), `"`)) {
+					if strings.EqualFold(rel, "next") {
+						return target
+					}
+				}
+			}
+		}
+	}
+	return ""
 }
 
 func statusCode(status int) contract.ProviderCheckErrorCode {
@@ -621,4 +776,70 @@ func parseTime(v, format string) (time.Time, bool) {
 		return t.UTC(), err == nil
 	}
 	return time.Time{}, false
+}
+
+// lookupAll is lookup with "[]" steps: ipAllowList[].cidrBlock is the list of
+// every element's cidrBlock (missing ones skipped). A null or missing array
+// is reported as such.
+func lookupAll(ctx any, path string) (any, bool) {
+	i := strings.Index(path, "[]")
+	if i < 0 {
+		return lookup(ctx, path)
+	}
+	arr, ok := lookup(ctx, path[:i])
+	if !ok || arr == nil {
+		return arr, ok
+	}
+	els, isArr := arr.([]any)
+	if !isArr {
+		return nil, false
+	}
+	rest := strings.TrimPrefix(path[i+2:], ".")
+	out := []any{}
+	for _, el := range els {
+		if rest == "" {
+			out = append(out, el)
+			continue
+		}
+		if v, ok := lookupAll(el, rest); ok && v != nil {
+			if vs, ok := v.([]any); ok {
+				out = append(out, vs...)
+			} else {
+				out = append(out, v)
+			}
+		}
+	}
+	return out, true
+}
+
+func nonEmpty(v any) bool {
+	switch t := v.(type) {
+	case nil:
+		return false
+	case []any:
+		return len(t) > 0
+	case map[string]any:
+		return len(t) > 0
+	case string:
+		return t != ""
+	case bool:
+		return t
+	case json.Number:
+		return t.String() != "0"
+	}
+	return true
+}
+
+// withoutUserinfo drops credentials embedded in a URL (https://user:pw@host)
+// from a resource's name or url.
+func withoutUserinfo(s string) string {
+	if !strings.Contains(s, "://") || !strings.Contains(s, "@") {
+		return s
+	}
+	u, err := url.Parse(s)
+	if err != nil || u.User == nil {
+		return s
+	}
+	u.User = nil
+	return u.String()
 }

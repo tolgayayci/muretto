@@ -120,7 +120,7 @@ func (w *whenSpec) toolMatches(d *action) bool {
 		}
 		for _, t := range w.MCPTools {
 			if t == "*" || strings.ToLower(t) == d.mcpTool {
-				return true
+				return w.inputMatches(d)
 			}
 		}
 		return false
@@ -133,15 +133,24 @@ func (w *whenSpec) toolMatches(d *action) bool {
 			return false
 		}
 	}
-	for path, re := range w.InputMatch {
-		v, _ := lookup(map[string]any{"input": d.raw.Input}, "input."+path)
-		s, _ := v.(string)
-		if !re.MatchString(s) {
-			return false
-		}
+	if !w.inputMatches(d) {
+		return false
 	}
 	for _, re := range w.NotCommand {
 		if re.MatchString(d.command) {
+			return false
+		}
+	}
+	return true
+}
+
+// inputMatches checks input_matches (tool input fields by regex); MCP tools
+// too, e.g. stripe_api_write's method and path.
+func (w *whenSpec) inputMatches(d *action) bool {
+	for path, re := range w.InputMatch {
+		v, _ := lookup(map[string]any{"input": d.raw.Input}, "input."+path)
+		s, _ := scalarString(v)
+		if !re.MatchString(s) {
 			return false
 		}
 	}
@@ -193,6 +202,11 @@ func guess(a *adapterSpec, raw observe.RawAction) bool {
 		return true
 	}
 	for _, s := range a.Signatures {
+		// A tool-only signature (any Bash call whose output has an id) says
+		// nothing about which provider a call was for.
+		if len(s.When.MCPTools) == 0 && len(s.When.Command) == 0 && len(s.When.InputMatch) == 0 {
+			continue
+		}
 		if s.When.toolMatches(d) {
 			return true
 		}

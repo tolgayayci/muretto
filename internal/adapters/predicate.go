@@ -3,7 +3,9 @@ package adapters
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"go.yaml.in/yaml/v3"
 )
@@ -42,6 +44,9 @@ func triOf(b bool) tri {
 //	  matches: <regex>     RE2, unanchored unless you anchor it
 //	  contains_any: [str]  array value (or comma-separated string) contains one
 //	  in_field: <path>     value is an element of another field's comma list
+//	  older_than: <age>    a timestamp (RFC 3339 or epoch) more than <age> before
+//	                       the scan (30m, 12h, 30d, 2w); newer_than is the opposite
+//	  due_within: <age>    a timestamp at most <age> after the scan (or already past)
 //
 // A test on a missing field is unknown. A null value is false for every test
 // except is_null and present.
@@ -56,9 +61,26 @@ type predicate struct {
 	boolArg     bool     // present, is_null
 	re          *regexp.Regexp
 	inFieldPath string
+	age         time.Duration // older_than, newer_than
 }
 
-var predicateTests = []string{"present", "is_null", "equals", "in", "prefix_any", "matches", "contains_any", "in_field"}
+var predicateTests = []string{"present", "is_null", "equals", "in", "prefix_any", "matches", "contains_any", "in_field", "older_than", "newer_than", "due_within"}
+
+// nowKey holds the scan time in predicate contexts. It cannot collide with a
+// field name from an adapter file.
+const nowKey = "\x00now"
+
+var reAge = regexp.MustCompile(`^([1-9][0-9]{0,5})(m|h|d|w)$`)
+
+func parseAge(s string) (time.Duration, bool) {
+	m := reAge.FindStringSubmatch(strings.TrimSpace(s))
+	if m == nil {
+		return 0, false
+	}
+	n, _ := strconv.Atoi(m[1])
+	unit := map[string]time.Duration{"m": time.Minute, "h": time.Hour, "d": 24 * time.Hour, "w": 7 * 24 * time.Hour}[m[2]]
+	return time.Duration(n) * unit, true
+}
 
 func (p *predicate) UnmarshalYAML(n *yaml.Node) error {
 	if n.Kind != yaml.MappingNode {
@@ -154,6 +176,12 @@ func (p *predicate) decodeTest(t string, arg *yaml.Node) error {
 		p.re = re
 	case "in_field":
 		p.inFieldPath = arg.Value
+	case "older_than", "newer_than", "due_within":
+		d, ok := parseAge(arg.Value)
+		if !ok {
+			return fmt.Errorf("line %d: %s takes an age like 30m, 12h, 30d or 2w", arg.Line, t)
+		}
+		p.age = d
 	}
 	return nil
 }
@@ -242,6 +270,24 @@ func (p *predicate) eval(ctx map[string]any) tri {
 			}
 		}
 		return triFalse
+	case "older_than", "newer_than", "due_within":
+		now, ok := ctx[nowKey].(time.Time)
+		if !ok || now.IsZero() {
+			now = time.Now().UTC()
+		}
+		s, _ := scalarString(v)
+		ts, ok := parseTime(s, "auto")
+		if !ok {
+			return triUnknown // not a timestamp: never guess
+		}
+		if p.op == "due_within" {
+			return triOf(ts.Sub(now) <= p.age) // already past counts as due
+		}
+		older := now.Sub(ts) > p.age
+		if p.op == "older_than" {
+			return triOf(older)
+		}
+		return triOf(!older)
 	case "in_field":
 		other, ok := lookup(ctx, p.inFieldPath)
 		if !ok {

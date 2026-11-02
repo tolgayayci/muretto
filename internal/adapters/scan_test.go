@@ -270,6 +270,12 @@ func TestScanFixtures(t *testing.T) {
 func TestScanRequestsMatchAllowlist(t *testing.T) {
 	r := loadEmbedded(t)
 	check := broker.New(nil, r.Allowlist())
+	// Each provider's host comes from its own adapter file (api.acme.dev,
+	// console.neon.tech, ...), never from its name.
+	hosts := map[string]string{}
+	for _, rule := range r.Allowlist() {
+		hosts[rule.Provider] = rule.Host
+	}
 	for _, sc := range scenarios(t) {
 		_, _, f := runScenario(t, r, sc)
 		for _, p := range f.problems {
@@ -277,7 +283,7 @@ func TestScanRequestsMatchAllowlist(t *testing.T) {
 		}
 		for _, line := range f.requests {
 			method, uri, _ := strings.Cut(line, " ")
-			host := "api." + sc.provider + ".com"
+			host := hosts[sc.provider]
 			req, _ := broker.NewRequest(context.Background(), method, "https://"+host+uri, nil)
 			if method == http.MethodPost {
 				// The fixture server saw the pinned body; Check needs it again.

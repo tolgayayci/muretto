@@ -105,6 +105,11 @@ func TestRefusedBeforeIO(t *testing.T) {
 		{"credentials in URL", "GET", "https://" + "user" + ":" + "pw" + "@api.supabase.com/v1/projects", nil},
 		{"extra segment", "GET", "https://api.supabase.com/v1/projects/abc/functions/x", nil},
 		{"dot-dot segment", "GET", "https://api.supabase.com/v1/projects/../functions", nil},
+		{"trailing slash on a rule without one", "GET", "https://api.supabase.com/v1/projects/", nil},
+		{"double trailing slash", "GET", "https://api.supabase.com/v1/projects//", nil},
+		{"empty middle segment", "GET", "https://api.supabase.com/v1//projects", nil},
+		{"root slash only", "GET", "https://api.supabase.com/", nil},
+		{"denied path with a trailing slash", "GET", "https://api.vercel.com/v9/projects/prj_1/env/env_1/", nil},
 		{"encoded slash", "GET", "https://api.supabase.com/v1/projects/a%2Fb/functions", nil},
 		{"query not allowed", "GET", "https://api.supabase.com/v1/projects?foo=1", nil},
 		{"query on wrong endpoint", "GET", "https://api.supabase.com/v1/projects/abc/functions?lint_type=sql", nil},
@@ -317,4 +322,63 @@ func TestPinnedQueryShape(t *testing.T) {
 func sha256Hex(b []byte) string {
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
+}
+
+// A trailing slash is allowed only where a rule has it, and never dodges
+// the deny list.
+func TestTrailingSlash(t *testing.T) {
+	ft := &fakeTransport{}
+	b := New(&http.Client{Transport: ft}, []Rule{
+		{Provider: "sentry", Host: "sentry.io", Method: "GET", PathPattern: "/api/0/organizations/"},
+		{Provider: "vercel", Host: "api.vercel.com", Method: "GET", PathPattern: "/v9/projects/{id}/env/{env}/"},
+	})
+	if _, err := do(t, b, "GET", "https://sentry.io/api/0/organizations/", nil); err != nil {
+		t.Errorf("rule with a trailing slash refused: %v", err)
+	}
+	for _, u := range []string{
+		"https://sentry.io/api/0/organizations",               // rule has the slash, request does not
+		"https://sentry.io/api/0/organizations//",             // two slashes
+		"https://api.vercel.com/v9/projects/prj_1/env/env_1/", // denied in code even with a rule
+	} {
+		if _, err := do(t, b, "GET", u, nil); err == nil {
+			t.Errorf("%s: not refused", u)
+		}
+	}
+	if got := ft.calls.Load(); got != 1 {
+		t.Errorf("transport calls = %d, want 1", got)
+	}
+}
+
+// An offline broker answers allowed requests locally and still refuses
+// everything else, strips secrets and enforces the deny list.
+func TestOffline(t *testing.T) {
+	var seen []string
+	b := NewOffline([]Rule{
+		{Provider: "acme", Host: "api.acme.dev", Method: "GET", PathPattern: "/v1/things", Query: []string{"limit"}, Strip: []string{"[].secret"}},
+		{Provider: "vercel", Host: "api.vercel.com", Method: "GET", PathPattern: "/v9/projects/{id}/env/{env}"},
+	}, func(method, path, rawQuery string) (int, []byte) {
+		seen = append(seen, method+" "+path+"?"+rawQuery)
+		return 200, []byte(`[{"id":"t1","secret":"MURETTO_FAKE_SECRET","value":"x"}]`)
+	})
+	resp, err := do(t, b, "GET", "https://api.acme.dev/v1/things?limit=10", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := io.ReadAll(resp.Body)
+	if strings.Contains(string(got), "MURETTO_FAKE_SECRET") || strings.Contains(string(got), `"value"`) || !strings.Contains(string(got), "t1") {
+		t.Errorf("offline response not stripped: %s", got)
+	}
+	for _, u := range []string{
+		"https://api.acme.dev/v1/other",
+		"https://api.acme.dev/v1/things?decrypt=true",
+		"https://api.vercel.com/v9/projects/p/env/e",
+		"https://evil.example.com/v1/things",
+	} {
+		if _, err := do(t, b, "GET", u, nil); err == nil {
+			t.Errorf("%s: not refused offline", u)
+		}
+	}
+	if len(seen) != 1 || seen[0] != "GET /v1/things?limit=10" {
+		t.Errorf("responder saw %v", seen)
+	}
 }

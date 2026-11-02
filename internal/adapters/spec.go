@@ -34,6 +34,7 @@ type adapterSpec struct {
 	Signatures  []*signatureSpec         `yaml:"signatures"`
 	Coverage    []coverageSpec           `yaml:"coverage"`
 	Recorder    recorderSpec             `yaml:"recorder"`
+	source      string                   // local adapter file; "" when built in
 }
 
 type apiSpec struct {
@@ -61,38 +62,71 @@ type endpointSpec struct {
 	Strip      []string        `yaml:"strip"`
 	PinnedBody string          `yaml:"pinned_body"`
 	OnStatus   map[int]string  `yaml:"on_status"`
-	name       string
+	// Headers are constant request headers, e.g. a pinned API version
+	// (X-GitHub-Api-Version, Stripe-Version). Never auth or framing headers.
+	Headers map[string]string `yaml:"headers"`
+	name    string
 }
 
+// paginationSpec says how to get the next page. Styles:
+//
+//	cursor     (default) next: body path of a cursor sent back as param
+//	link       follow the RFC 8288 Link header's rel="next" (same host and path);
+//	           param names the query parameter the link changes, for the allowlist
+//	page       send param = 2, 3, ... while total (body path of the page count)
+//	           says there are more, or more (body path of a boolean) is true
+//	last_item  send param = field of the last item (items: where they are) while
+//	           more is true, or until a page has no items
 type paginationSpec struct {
-	Next     string `yaml:"next"`
-	Param    string `yaml:"param"`
-	MaxPages int    `yaml:"max_pages"`
+	Style    string     `yaml:"style"`
+	Next     string     `yaml:"next"`
+	Param    string     `yaml:"param"`
+	Total    string     `yaml:"total"`
+	More     string     `yaml:"more"`
+	Items    stringList `yaml:"items"`
+	Field    string     `yaml:"field"`
+	Start    int        `yaml:"start"`
+	MaxPages int        `yaml:"max_pages"`
 }
 
 type accountsSpec struct {
-	Endpoint string     `yaml:"endpoint"`
-	Items    stringList `yaml:"items"`
-	ID       tmpl       `yaml:"id"`
-	Name     tmpl       `yaml:"name"`
-	Slug     tmpl       `yaml:"slug"`
+	// Ask, instead of an endpoint, makes `muretto init` ask the user for the
+	// account id (an API whose list calls need e.g. an org slug but that has
+	// no endpoint to list orgs).
+	Ask      string `yaml:"ask"`
+	Endpoint string `yaml:"endpoint"`
+	// TokenModes names the token's mode from its shape (Stripe live vs test
+	// keys reach the same account id): {token_mode} in the id, name and slug
+	// templates is the first name whose pattern matches. The token itself
+	// never reaches a template.
+	TokenModes map[string]*rx `yaml:"token_modes"`
+	Items      stringList     `yaml:"items"`
+	ID         tmpl           `yaml:"id"`
+	Name       tmpl           `yaml:"name"`
+	Slug       tmpl           `yaml:"slug"`
 }
 
 type kindSpec struct {
-	Kind    string        `yaml:"kind"`
-	ForEach string        `yaml:"for_each"`
-	Sources []*sourceSpec `yaml:"sources"`
-	Enrich  []*enrichSpec `yaml:"enrich"`
-	Match   *matchSpec    `yaml:"match"`
-	Remove  *fixSpec      `yaml:"remove"`
+	Kind    string `yaml:"kind"`
+	ForEach string `yaml:"for_each"`
+	// ForEachWhere skips parents for which it is not true (no calls, no
+	// checks): e.g. only Vitess databases have deploy requests.
+	ForEachWhere *predicate    `yaml:"for_each_where"`
+	Sources      []*sourceSpec `yaml:"sources"`
+	Enrich       []*enrichSpec `yaml:"enrich"`
+	Match        *matchSpec    `yaml:"match"`
+	Remove       *fixSpec      `yaml:"remove"`
 }
 
 type sourceSpec struct {
-	Endpoint       string     `yaml:"endpoint"`
-	Items          stringList `yaml:"items"`
-	Where          *predicate `yaml:"where"`
-	UnavailableIf  *predicate `yaml:"unavailable_if"`
-	SeenVia        string     `yaml:"seen_via"`
+	Endpoint      string     `yaml:"endpoint"`
+	Items         stringList `yaml:"items"`
+	Where         *predicate `yaml:"where"`
+	UnavailableIf *predicate `yaml:"unavailable_if"`
+	SeenVia       string     `yaml:"seen_via"`
+	// IncompleteIf is a body path that, when present and non-empty, means the
+	// provider left items out (Neon's unavailable_project_ids): the check fails.
+	IncompleteIf   string     `yaml:"incomplete_if"`
 	RequiresOption string     `yaml:"requires_option"`
 	ChecksRules    []string   `yaml:"checks_rules"`
 	ID             tmpl       `yaml:"id"`
@@ -297,6 +331,18 @@ var (
 
 // reservedAttrs are resource fields exposed to templates under these names;
 // attributes may not shadow them.
+var reHeaderName = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+
+// forbiddenHeader lists headers an adapter may never set: credentials,
+// framing, method overrides and anything the broker or Go controls.
+var forbiddenHeader = map[string]bool{
+	"authorization": true, "cookie": true, "host": true, "content-type": true, "content-length": true,
+	"transfer-encoding": true, "connection": true, "te": true, "trailer": true, "upgrade": true,
+	"x-http-method-override": true, "x-http-method": true, "x-method-override": true,
+	"accept-encoding": true, "user-agent": true, "x-api-key": true, "x-auth-token": true, "x-auth-key": true,
+	"x-auth-email": true, "forwarded": true, "x-forwarded-for": true, "x-forwarded-host": true,
+}
+
 var reservedAttrs = map[string]bool{
 	"id": true, "provider_id": true, "name": true, "kind": true, "account_id": true,
 	"account_name": true, "url": true, "status": true, "parent_id": true, "parent": true,
@@ -385,12 +431,41 @@ func (a *adapterSpec) validate() error {
 				bad("%s: query %q is never allowed", where, q)
 			}
 		}
-		if ep.Pagination != nil {
-			if ep.Pagination.Next == "" || ep.Pagination.Param == "" {
-				bad("%s: pagination needs next and param", where)
+		if pg := ep.Pagination; pg != nil {
+			if pg.Param == "" {
+				bad("%s: pagination needs param (the query parameter that carries the next page)", where)
 			}
-			if ep.Pagination.MaxPages == 0 {
-				ep.Pagination.MaxPages = 50
+			switch pg.Style {
+			case "", "cursor":
+				pg.Style = "cursor"
+				if pg.Next == "" {
+					bad("%s: cursor pagination needs next", where)
+				}
+			case "link":
+			case "page":
+				if pg.Total == "" && pg.More == "" && len(pg.Items) == 0 {
+					bad("%s: page pagination needs total, more or items", where)
+				}
+				if pg.Start == 0 {
+					pg.Start = 1
+				}
+			case "last_item":
+				if pg.Field == "" {
+					bad("%s: last_item pagination needs field", where)
+				}
+			default:
+				bad("%s: pagination style must be cursor, link, page or last_item", where)
+			}
+			if pg.MaxPages == 0 {
+				pg.MaxPages = 50
+			}
+		}
+		for h, v := range ep.Headers {
+			if !reHeaderName.MatchString(h) || forbiddenHeader[strings.ToLower(h)] || strings.HasPrefix(strings.ToLower(h), "proxy-") {
+				bad("%s: header %q cannot be set by an adapter", where, h)
+			}
+			if strings.ContainsAny(v, "{}\r\n") || v == "" {
+				bad("%s: header %q must be a constant, non-empty value", where, h)
 			}
 		}
 		for code, action := range ep.OnStatus {
@@ -405,9 +480,30 @@ func (a *adapterSpec) validate() error {
 		}
 	}
 
-	checkEndpoint("accounts", a.Accounts.Endpoint)
-	if a.Accounts.ID.empty() {
+	for name, re := range a.Accounts.TokenModes {
+		if !reRuleID.MatchString(name) || re == nil {
+			bad("accounts.token_modes: %q needs a lowercase name and a pattern", name)
+		}
+	}
+	switch {
+	case a.Accounts.Ask != "":
+		if a.Accounts.Endpoint != "" || !a.Accounts.ID.empty() {
+			bad("accounts.ask cannot be combined with an endpoint or id")
+		}
+	case a.Accounts.ID.empty():
 		bad("accounts.id is required")
+	case a.Accounts.Endpoint != "":
+		checkEndpoint("accounts", a.Accounts.Endpoint)
+	default:
+		// No accounts endpoint: one implicit account per token, so the id and
+		// name are constants.
+		for _, t := range []tmpl{a.Accounts.ID, a.Accounts.Name, a.Accounts.Slug} {
+			for _, p := range t.parts {
+				if p.path != "" {
+					bad("accounts without an endpoint need a constant id, name and slug")
+				}
+			}
+		}
 	}
 
 	kinds := map[string]*kindSpec{}
@@ -425,6 +521,9 @@ func (a *adapterSpec) validate() error {
 		}
 		if k.ForEach != "" && kinds[k.ForEach] == nil {
 			bad("%s: for_each %q must name an earlier kind", where, k.ForEach)
+		}
+		if k.ForEachWhere != nil && k.ForEach == "" {
+			bad("%s: for_each_where needs for_each", where)
 		}
 		kinds[k.Kind] = k
 		if len(k.Sources) == 0 {

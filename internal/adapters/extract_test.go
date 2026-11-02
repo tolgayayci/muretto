@@ -18,7 +18,10 @@ type extractCase struct {
 	Output string            `yaml:"output"`
 	MCP    map[string]string `yaml:"mcp"` // MCP server URL params recorded by the hook
 	Guess  string            `yaml:"guess"`
-	Expect []struct {
+	// Matches is checked by internal/adaptercheck (the resources the
+	// created identifiers must match); this runner ignores it.
+	Matches []string `yaml:"matches"`
+	Expect  []struct {
 		Kind      string `yaml:"kind"`
 		Value     string `yaml:"value"`
 		Container string `yaml:"container"`
@@ -99,12 +102,26 @@ func TestProviderGuess(t *testing.T) {
 		"mcp__claude_ai_Supabase__get_logs":   "supabase",
 		"mcp__claude_ai_Vercel__list_teams":   "vercel",
 		"mcp__plugin_vercel_vercel__get_user": "vercel",
-		"mcp__github__create_issue":           "",
+		"mcp__github__create_issue":           "github",
+		"mcp__linear__create_issue":           "",
 		"Read":                                "",
 	}
 	for tool, want := range cases {
 		if got := r.ProviderGuess(rawAction(tool, "ok", map[string]any{}, "")); got != want {
 			t.Errorf("%s: guess %q, want %q", tool, got, want)
+		}
+	}
+	// A Bash call is only guessed from a signature with a command pattern:
+	// tool-only signatures (any output with an id) don't name a provider.
+	for cmd, want := range map[string]string{
+		"ls -la":                           "",
+		"cat .vercel/project.json":         "",
+		"stripe projects add supabase/db":  "supabase",
+		"gh repo create acme/app --public": "github",
+		"wrangler d1 create example-db":    "cloudflare",
+	} {
+		if got := r.ProviderGuess(rawAction("Bash", "ok", map[string]any{"command": cmd}, "")); got != want {
+			t.Errorf("Bash %q: guess %q, want %q", cmd, got, want)
 		}
 	}
 }
@@ -185,5 +202,40 @@ func TestParseJSONResults(t *testing.T) {
 		if got := parseJSONResults(c.in); len(got) != c.want {
 			t.Errorf("%q: got %d values %v, want %d", c.in, len(got), got, c.want)
 		}
+	}
+}
+
+// input_matches applies to MCP tools too (Stripe's generic stripe_api_write).
+func TestMCPInputMatches(t *testing.T) {
+	y := `format: 1
+provider: acme
+display_name: Acme
+api: { base_url: https://api.acme.dev, auth: { header: Authorization, scheme: Bearer } }
+mcp_servers: [acme]
+endpoints:
+  me: { path: /v1/me }
+  things: { path: /v1/things }
+accounts: { endpoint: me, items: $, id: "{id}" }
+kinds:
+  - kind: thing
+    sources: [{ endpoint: things, items: $, id: "{id}" }]
+signatures:
+  - id: acme.mcp.write
+    kind: thing
+    role: created
+    when: { mcp_tools: [api_write], input_matches: { method: '^POST$', path: '^/v1/things$' } }
+    extract: [{ from: result, value: "{result.id}" }]
+`
+	r, err := LoadFile("acme.yaml", []byte(y))
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := rawAction("mcp__acme__api_write", "ok", map[string]any{"method": "POST", "path": "/v1/things"}, `{"id":"t1"}`)
+	if ids := r.Extract(post); len(ids) != 1 {
+		t.Errorf("POST: %+v", ids)
+	}
+	del := rawAction("mcp__acme__api_write", "ok", map[string]any{"method": "DELETE", "path": "/v1/things"}, `{"id":"t1"}`)
+	if ids := r.Extract(del); len(ids) != 0 {
+		t.Errorf("DELETE matched: %+v", ids)
 	}
 }

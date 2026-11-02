@@ -73,7 +73,15 @@ type ProviderInfo struct {
 	TokenHelp   string
 	Coverage    []CoverageRow
 	Options     []Option
+	Source      string // file of a local adapter; "" for a built-in one
+	// AccountPrompt, when set, is what the user must type as the account id
+	// (the adapter has no endpoint that lists accounts).
+	AccountPrompt string
 }
+
+// ErrAccountInput is returned by Accounts for adapters whose account id the
+// user types (ProviderInfo.AccountPrompt).
+var ErrAccountInput = errors.New("this provider's account id is entered by the user")
 
 // Registry holds the loaded adapters.
 type Registry struct {
@@ -118,11 +126,91 @@ func Load(fsys fs.FS) (*Registry, error) {
 	return r, nil
 }
 
+// LoadFile returns a registry holding just one adapter file (for checks).
+func LoadFile(file string, data []byte) (*Registry, error) {
+	a, err := parseAdapter(data, file)
+	if err != nil {
+		return nil, err
+	}
+	a.source = file
+	return &Registry{adapters: []*adapterSpec{a}, byName: map[string]*adapterSpec{a.Provider: a}, now: func() time.Time { return time.Now().UTC() }}, nil
+}
+
+// SignatureIDs lists a provider's signature ids in file order.
+func (r *Registry) SignatureIDs(provider string) []string {
+	a := r.byName[provider]
+	if a == nil {
+		return nil
+	}
+	out := make([]string, 0, len(a.Signatures))
+	for _, s := range a.Signatures {
+		out = append(out, s.ID)
+	}
+	return out
+}
+
+// tokenMode names a token by the first matching accounts.token_modes pattern.
+func tokenMode(a *adapterSpec, token string) string {
+	names := make([]string, 0, len(a.Accounts.TokenModes))
+	for n := range a.Accounts.TokenModes {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		if a.Accounts.TokenModes[n].MatchString(token) {
+			return n
+		}
+	}
+	return ""
+}
+
+// SignatureRole is a signature's role (created or referenced), or "".
+func (r *Registry) SignatureRole(provider, id string) string {
+	if a := r.byName[provider]; a != nil {
+		for _, s := range a.Signatures {
+			if s.ID == id {
+				return s.Role
+			}
+		}
+	}
+	return ""
+}
+
+// Validate parses and checks one adapter file without loading it.
+func Validate(data []byte, file string) error {
+	_, err := parseAdapter(data, file)
+	return err
+}
+
+// AddLocal loads an adapter the user installed (~/.muretto/adapters), on
+// top of the built-in ones. Local adapters cannot replace a built-in
+// provider and cannot use pinned POST bodies, which are reviewed per
+// built-in adapter.
+func (r *Registry) AddLocal(file string, data []byte) error {
+	a, err := parseAdapter(data, file)
+	if err != nil {
+		return err
+	}
+	if r.byName[a.Provider] != nil {
+		return fmt.Errorf("%s: provider %q is already defined (by %s)", file, a.Provider, r.byName[a.Provider].source)
+	}
+	for name, ep := range a.Endpoints {
+		if ep.Method != "GET" {
+			return fmt.Errorf("%s: endpoint %s: local adapters may only use GET", file, name)
+		}
+	}
+	a.source = file
+	r.byName[a.Provider] = a
+	r.adapters = append(r.adapters, a)
+	sort.Slice(r.adapters, func(i, j int) bool { return r.adapters[i].Provider < r.adapters[j].Provider })
+	return nil
+}
+
 // Providers lists the loaded adapters.
 func (r *Registry) Providers() []ProviderInfo {
 	var out []ProviderInfo
 	for _, a := range r.adapters {
-		p := ProviderInfo{Name: a.Provider, DisplayName: a.DisplayName, TokenHelp: strings.TrimSpace(a.TokenHelp)}
+		p := ProviderInfo{Name: a.Provider, DisplayName: a.DisplayName, TokenHelp: strings.TrimSpace(a.TokenHelp), Source: a.source, AccountPrompt: a.Accounts.Ask}
 		for _, c := range a.Coverage {
 			p.Coverage = append(p.Coverage, CoverageRow(c))
 		}
@@ -140,6 +228,22 @@ func (r *Registry) Accounts(ctx context.Context, b *broker.Broker, provider, tok
 	if err != nil {
 		return nil, err
 	}
+	if a.Accounts.Ask != "" {
+		return nil, ErrAccountInput
+	}
+	mode := tokenMode(a, token)
+	if a.Accounts.Endpoint == "" {
+		// One implicit account per token (an API with no org, team or
+		// current-user endpoint).
+		mctx := map[string]any{"token_mode": mode}
+		id, _ := a.Accounts.ID.render(mctx)
+		name, ok := a.Accounts.Name.render(mctx)
+		if !ok || name == "" {
+			name = a.DisplayName
+		}
+		slug, _ := a.Accounts.Slug.render(mctx)
+		return []Account{{ID: id, Name: name, Slug: slug}}, nil
+	}
 	s := &scanner{a: a, b: b, ctx: ctx, creds: Credentials{Token: token}}
 	pages, err := s.fetch(a.Endpoints[a.Accounts.Endpoint], map[string]any{})
 	if err != nil {
@@ -147,7 +251,12 @@ func (r *Registry) Accounts(ctx context.Context, b *broker.Broker, provider, tok
 	}
 	var out []Account
 	for _, page := range pages {
-		for _, item := range itemsOf(page, a.Accounts.Items) {
+		for _, raw := range itemsOf(page, a.Accounts.Items) {
+			item := make(map[string]any, len(raw)+1)
+			for k, v := range raw {
+				item[k] = v
+			}
+			item["token_mode"] = mode
 			id, ok := a.Accounts.ID.render(item)
 			if !ok {
 				continue

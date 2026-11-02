@@ -319,8 +319,14 @@ func (b *Broker) match(req *http.Request) (Rule, []byte, error) {
 	if !ok {
 		return Rule{}, nil, refuse("unsafe path %q", path)
 	}
-	folded := make([]string, len(segs))
-	for i, s := range segs {
+	// The deny list ignores a trailing slash: servers often treat /a/ as /a,
+	// so /env/x/ must be denied like /env/x.
+	bare := segs
+	if len(bare) > 1 && bare[len(bare)-1] == "" {
+		bare = bare[:len(bare)-1]
+	}
+	folded := make([]string, len(bare))
+	for i, s := range bare {
 		folded[i] = strings.ToLower(s)
 	}
 	if d := denied(host, folded); d != "" {
@@ -395,7 +401,12 @@ func splitPath(p string) ([]string, bool) {
 		return nil, false
 	}
 	parts := strings.Split(strings.TrimPrefix(p, "/"), "/")
-	for _, s := range parts {
+	for i, s := range parts {
+		// One trailing slash is allowed (APIs such as Sentry's end every
+		// path with /); it stays a segment, so /a/ only matches a rule /a/.
+		if s == "" && i == len(parts)-1 && i > 0 {
+			continue
+		}
 		if s == "" || s == "." || s == ".." || !safeSegment.MatchString(s) {
 			return nil, false
 		}
