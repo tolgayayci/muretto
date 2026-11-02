@@ -1,0 +1,227 @@
+# Acme Cloud in Swagger 2.0 idioms: host/basePath/schemes, securityDefinitions
+# (an API key header), definitions, x-nullable, body parameters, produces.
+swagger: "2.0"
+info:
+  title: Acme Cloud API
+  version: "2026-10-01"
+host: api.acme.dev
+basePath: /v1
+schemes: [http, https]
+produces: [application/json]
+securityDefinitions:
+  apiKey:
+    type: apiKey
+    in: header
+    name: X-Acme-Key
+    description: An Acme API key from Settings > Keys.
+security:
+  - apiKey: []
+parameters:
+  ProjectID: { name: project_id, in: path, required: true, type: string }
+responses:
+  Error:
+    description: An error.
+    schema:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+paths:
+  /orgs:
+    get:
+      operationId: listOrgs
+      responses:
+        200:
+          description: Orgs the token can see.
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items: { $ref: "#/definitions/Org" }
+  /projects:
+    get:
+      operationId: listProjects
+      parameters:
+        - { name: org_id, in: query, required: true, type: string }
+        - { name: cursor, in: query, type: string }
+        - { name: limit, in: query, type: integer, maximum: 100, default: 20 }
+      responses:
+        200:
+          description: A page of projects.
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                type: array
+                items: { $ref: "#/definitions/Project" }
+              next_cursor: { type: string, x-nullable: true }
+        default: { $ref: "#/responses/Error" }
+    post:
+      operationId: createProject
+      parameters:
+        - { name: body, in: body, schema: { $ref: "#/definitions/Project" } }
+      responses:
+        201:
+          description: Created.
+          schema: { $ref: "#/definitions/Project" }
+        default: { $ref: "#/responses/Error" }
+  /projects/{project_id}:
+    parameters:
+      - $ref: "#/parameters/ProjectID"
+    delete:
+      operationId: deleteProject
+      summary: Delete a project and everything in it.
+      responses:
+        204: { description: Deleted. }
+  /projects/{project_id}/databases:
+    parameters:
+      - $ref: "#/parameters/ProjectID"
+    get:
+      operationId: listDatabases
+      responses:
+        200:
+          description: Every database of the project.
+          schema:
+            type: array
+            items: { $ref: "#/definitions/Database" }
+        default: { $ref: "#/responses/Error" }
+    post:
+      operationId: createDatabase
+      parameters:
+        - { name: body, in: body, schema: { $ref: "#/definitions/Database" } }
+      responses:
+        201:
+          description: Created.
+          schema: { $ref: "#/definitions/Database" }
+        default: { $ref: "#/responses/Error" }
+  /projects/{project_id}/databases/{database_id}:
+    parameters:
+      - $ref: "#/parameters/ProjectID"
+      - { name: database_id, in: path, required: true, type: string }
+    patch:
+      operationId: updateDatabase
+      parameters:
+        - name: body
+          in: body
+          schema:
+            type: object
+            properties:
+              public: { type: boolean }
+      responses:
+        200: { description: Updated. }
+    delete:
+      operationId: deleteDatabase
+      summary: Delete a database.
+      responses:
+        204: { description: Deleted. }
+  /projects/{project_id}/logs:
+    parameters:
+      - $ref: "#/parameters/ProjectID"
+    get:
+      operationId: listLogs
+      responses:
+        200:
+          description: Log lines.
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id: { type: string }
+                message: { type: string }
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      parameters:
+        - { name: after, in: query, type: string }
+      responses:
+        200:
+          description: Webhooks.
+          schema:
+            type: object
+            properties:
+              items:
+                type: array
+                items: { $ref: "#/definitions/Webhook" }
+              has_more: { type: boolean }
+    post:
+      operationId: createWebhook
+      responses:
+        201:
+          description: Created.
+          schema: { $ref: "#/definitions/Webhook" }
+  /webhooks/{webhook_id}:
+    delete:
+      operationId: deleteWebhook
+      parameters:
+        - { name: webhook_id, in: path, required: true, type: string }
+      responses:
+        204: { description: Deleted. }
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      responses:
+        200:
+          description: Keys, with their values.
+          schema:
+            type: array
+            items:
+              type: object
+              properties:
+                id: { type: string }
+                key: { type: string }
+definitions:
+  Org:
+    type: object
+    required: [id, name]
+    properties:
+      id: { type: string, example: org_123 }
+      name: { type: string }
+      slug: { type: string }
+  Project:
+    type: object
+    required: [id, name]
+    properties:
+      id: { type: string, readOnly: true }
+      name: { type: string }
+      region: { type: string, enum: [us-east, eu-west] }
+      status: { $ref: "#/definitions/Status" }
+      framework: { type: string, x-nullable: true }
+      owner_email: { type: string }
+      created_at: { type: string, format: date-time }
+  Status:
+    type: string
+    enum: [active, paused, deleting]
+  Database:
+    type: object
+    required: [id, name]
+    properties:
+      id: { type: string }
+      name: { type: string }
+      engine: { type: string, enum: [postgres, mysql] }
+      public:
+        type: boolean
+        description: Reachable from the internet without a VPN.
+      connection_string: { type: string }
+      password: { type: string, format: password }
+      created_at: { type: integer, format: int64, description: Creation time in milliseconds since the epoch. }
+      settings:
+        type: object
+        properties:
+          ssl_enforced: { type: boolean }
+          ip_allowlist: { type: string }
+  Webhook:
+    type: object
+    required: [id, url]
+    properties:
+      id: { type: string }
+      url: { type: string, format: uri }
+      secret: { type: string, description: Signing secret. }
+      events:
+        type: array
+        items: { type: string, enum: [project.created, database.created] }

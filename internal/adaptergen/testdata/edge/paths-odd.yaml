@@ -1,0 +1,39 @@
+# A child whose parent is a secret list, a mixed segment, a required header.
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /secrets:
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, value: { type: string } } } } } } }
+    post:
+      responses: { "201": { description: ok } }
+  /secrets/{secret_id}/versions:
+    parameters: [{ name: secret_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string } } } } } } }
+    post:
+      responses: { "201": { description: ok } }
+  /things:
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string } } } } } } }
+    post:
+      responses: { "201": { description: ok } }
+  /things/{thing_id}:children:
+    parameters: [{ name: thing_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string } } } } } } }
+  /gadgets:
+    get:
+      parameters: [{ name: X-Org, in: header, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string } } } } } } }
+    post:
+      responses: { "201": { description: ok } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }

@@ -1,0 +1,29 @@
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v2 }]
+security: [{ bearer: [] }]
+paths:
+  /account:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account: { type: object, properties: { uuid: { type: string }, email: { type: string }, status: { type: string } } }
+  /droplets:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: object, properties: { droplets: { type: array, items: { type: object, required: [id], properties: { id: { type: integer }, name: { type: string } } } } } }
+    post:
+      responses:
+        "202": { description: ok, content: { application/json: { schema: { type: object, properties: { droplet: { type: object, properties: { id: { type: integer } } } } } } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }

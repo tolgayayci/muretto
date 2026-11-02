@@ -1,0 +1,619 @@
+{
+	"openapi": "3.0.3",
+	"info": {
+		"title": "Acme Cloud API",
+		"version": "2026-10-01",
+		"description": "Acme Cloud in OpenAPI 3.0 idioms: nullable, allOf composition, singular example, a oneOf list response, a charset media type, JSON with tabs."
+	},
+	"servers": [
+		{
+			"url": "https://api.acme.dev"
+		}
+	],
+	"security": [
+		{
+			"bearer": []
+		}
+	],
+	"paths": {
+		"/v1/orgs": {
+			"get": {
+				"operationId": "listOrgs",
+				"responses": {
+					"200": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Org"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/projects": {
+			"get": {
+				"operationId": "listProjects",
+				"parameters": [
+					{
+						"name": "org_id",
+						"in": "query",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "cursor",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"maximum": 100
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"type": "object",
+									"required": [
+										"data"
+									],
+									"properties": {
+										"data": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Project"
+											}
+										},
+										"next_cursor": {
+											"type": "string",
+											"nullable": true
+										}
+									}
+								}
+							}
+						}
+					},
+					"default": {
+						"$ref": "#/components/responses/Error"
+					}
+				}
+			},
+			"post": {
+				"operationId": "createProject",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/Project"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"$ref": "#/components/schemas/Project"
+								}
+							}
+						}
+					},
+					"default": {
+						"$ref": "#/components/responses/Error"
+					}
+				}
+			}
+		},
+		"/v1/projects/{project_id}": {
+			"parameters": [
+				{
+					"name": "project_id",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"delete": {
+				"operationId": "deleteProject",
+				"summary": "Delete a project and everything in it.",
+				"responses": {
+					"204": {
+						"description": "Deleted."
+					}
+				}
+			}
+		},
+		"/v1/projects/{project_id}/databases": {
+			"parameters": [
+				{
+					"name": "project_id",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"get": {
+				"operationId": "listDatabases",
+				"responses": {
+					"200": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"oneOf": [
+										{
+											"type": "object",
+											"properties": {
+												"databases": {
+													"type": "array",
+													"items": {
+														"$ref": "#/components/schemas/Database"
+													}
+												}
+											}
+										},
+										{
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Database"
+											}
+										}
+									]
+								}
+							}
+						}
+					},
+					"default": {
+						"$ref": "#/components/responses/Error"
+					}
+				}
+			},
+			"post": {
+				"operationId": "createDatabase",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/Database"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"database": {
+											"$ref": "#/components/schemas/Database"
+										}
+									}
+								}
+							}
+						}
+					},
+					"default": {
+						"$ref": "#/components/responses/Error"
+					}
+				}
+			}
+		},
+		"/v1/projects/{project_id}/databases/{database_id}": {
+			"parameters": [
+				{
+					"name": "project_id",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "database_id",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"patch": {
+				"operationId": "updateDatabase",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"public": {
+										"type": "boolean"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Updated."
+					}
+				}
+			},
+			"delete": {
+				"operationId": "deleteDatabase",
+				"summary": "Delete a database.",
+				"responses": {
+					"204": {
+						"description": "Deleted."
+					}
+				}
+			}
+		},
+		"/v1/projects/{project_id}/logs": {
+			"parameters": [
+				{
+					"name": "project_id",
+					"in": "path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"get": {
+				"operationId": "listLogs",
+				"responses": {
+					"200": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string"
+											},
+											"message": {
+												"type": "string"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/webhooks": {
+			"get": {
+				"operationId": "listWebhooks",
+				"parameters": [
+					{
+						"name": "after",
+						"in": "query",
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"items": {
+											"type": "array",
+											"items": {
+												"$ref": "#/components/schemas/Webhook"
+											}
+										},
+										"has_more": {
+											"type": "boolean"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"operationId": "createWebhook",
+				"responses": {
+					"201": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"$ref": "#/components/schemas/Webhook"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/v1/webhooks/{webhook_id}": {
+			"delete": {
+				"operationId": "deleteWebhook",
+				"parameters": [
+					{
+						"name": "webhook_id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"204": {
+						"description": "Deleted."
+					}
+				}
+			}
+		},
+		"/v1/api-keys": {
+			"get": {
+				"operationId": "listApiKeys",
+				"responses": {
+					"200": {
+						"description": "OK.",
+						"content": {
+							"application/json; charset=utf-8": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "object",
+										"properties": {
+											"id": {
+												"type": "string"
+											},
+											"key": {
+												"type": "string"
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"securitySchemes": {
+			"bearer": {
+				"type": "http",
+				"scheme": "bearer",
+				"description": "An Acme API token from Settings > Tokens."
+			}
+		},
+		"responses": {
+			"Error": {
+				"description": "An error.",
+				"content": {
+					"application/json": {
+						"schema": {
+							"type": "object",
+							"properties": {
+								"error": {
+									"type": "object",
+									"properties": {
+										"code": {
+											"type": "string"
+										},
+										"message": {
+											"type": "string"
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"schemas": {
+			"Org": {
+				"type": "object",
+				"required": [
+					"id",
+					"name"
+				],
+				"properties": {
+					"id": {
+						"type": "string",
+						"example": "org_123"
+					},
+					"name": {
+						"type": "string"
+					},
+					"slug": {
+						"type": "string"
+					}
+				}
+			},
+			"Project": {
+				"type": "object",
+				"required": [
+					"id",
+					"name"
+				],
+				"properties": {
+					"id": {
+						"type": "string",
+						"readOnly": true
+					},
+					"name": {
+						"type": "string"
+					},
+					"region": {
+						"type": "string",
+						"enum": [
+							"us-east",
+							"eu-west"
+						]
+					},
+					"status": {
+						"allOf": [
+							{
+								"$ref": "#/components/schemas/Status"
+							}
+						],
+						"nullable": true
+					},
+					"framework": {
+						"type": "string",
+						"nullable": true
+					},
+					"owner_email": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time"
+					}
+				}
+			},
+			"Status": {
+				"type": "string",
+				"enum": [
+					"active",
+					"paused",
+					"deleting"
+				]
+			},
+			"Resource": {
+				"type": "object",
+				"required": [
+					"id"
+				],
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "integer",
+						"description": "Creation time in milliseconds since the epoch."
+					}
+				}
+			},
+			"Database": {
+				"allOf": [
+					{
+						"$ref": "#/components/schemas/Resource"
+					},
+					{
+						"type": "object",
+						"required": [
+							"name"
+						],
+						"properties": {
+							"name": {
+								"type": "string"
+							},
+							"engine": {
+								"type": "string",
+								"enum": [
+									"postgres",
+									"mysql"
+								]
+							},
+							"public": {
+								"type": "boolean",
+								"description": "Reachable from the internet without a VPN."
+							},
+							"connection_string": {
+								"type": "string"
+							},
+							"password": {
+								"type": "string",
+								"writeOnly": true
+							},
+							"settings": {
+								"type": "object",
+								"properties": {
+									"ssl_enforced": {
+										"type": "boolean"
+									},
+									"ip_allowlist": {
+										"type": "string"
+									}
+								}
+							}
+						}
+					}
+				]
+			},
+			"Webhook": {
+				"type": "object",
+				"required": [
+					"id",
+					"url"
+				],
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"url": {
+						"type": "string",
+						"format": "uri"
+					},
+					"secret": {
+						"type": "string",
+						"description": "Signing secret."
+					},
+					"events": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"enum": [
+								"project.created",
+								"database.created"
+							]
+						}
+					}
+				}
+			}
+		}
+	}
+}

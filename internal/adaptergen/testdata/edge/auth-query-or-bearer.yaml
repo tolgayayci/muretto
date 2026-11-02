@@ -1,0 +1,40 @@
+# A minimal resource API: one list with create and delete. Other edge specs
+# start from this shape.
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ key: [] }, { bearer: [] }]
+paths:
+  /things:
+    get:
+      operationId: listThings
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: "#/components/schemas/Thing" } }
+    post:
+      operationId: createThing
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/Thing" } } } }
+  /things/{thing_id}:
+    delete:
+      operationId: deleteThing
+      parameters: [{ name: thing_id, in: path, required: true, schema: { type: string } }]
+      responses: { "204": { description: gone } }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer }
+    key: { type: apiKey, in: query, name: api_key }
+  schemas:
+    Thing:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        public: { type: boolean }

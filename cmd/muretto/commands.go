@@ -28,6 +28,8 @@ Usage:
   muretto fix <resource>       print the command or SQL to fix it (never runs it)
   muretto review [<resource> keep|not-needed]
   muretto providers [--coverage]
+  muretto adapter new <openapi-file>   draft an adapter for any API from its OpenAPI spec
+  muretto adapter check|install|list|remove
   muretto login | logout       optional dashboard login
   muretto sync on|off|status|now
   muretto doctor               check hooks, tokens, spool and last checks
@@ -72,6 +74,8 @@ func (a *app) run(ctx context.Context, args []string) int {
 		err = a.cmdReview(ctx, args)
 	case "providers":
 		err = a.cmdProviders(ctx, args)
+	case "adapter", "adapters":
+		err = a.cmdAdapter(ctx, args)
 	case "init":
 		err = a.cmdInit(ctx, args)
 	case "login":

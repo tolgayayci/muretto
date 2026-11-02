@@ -1,0 +1,48 @@
+# Three levels: projects > services > deployments.
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /projects:
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Project" } } } } }
+    post:
+      operationId: createProject
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/Project" } } } }
+  /projects/{project_id}/services:
+    parameters: [{ name: project_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Service" } } } } }
+    post:
+      operationId: createService
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/Service" } } } }
+  /projects/{project_id}/services/{service_id}/deployments:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+      - { name: service_id, in: path, required: true, schema: { type: string } }
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Deployment" } } } } }
+    post:
+      operationId: createDeployment
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/Deployment" } } } }
+  /projects/{project_id}/services/{service_id}/deployments/{deployment_id}:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+      - { name: service_id, in: path, required: true, schema: { type: string } }
+      - { name: deployment_id, in: path, required: true, schema: { type: string } }
+    delete:
+      summary: Delete a deployment.
+      responses: { "204": { description: gone } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }
+  schemas:
+    Project: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } }
+    Service: { type: object, required: [id], properties: { id: { type: string }, name: { type: string }, public: { type: boolean } } }
+    Deployment: { type: object, required: [id], properties: { id: { type: string }, state: { type: string, enum: [READY, ERROR] } } }

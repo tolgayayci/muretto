@@ -1,0 +1,94 @@
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /pages:
+    get:
+      parameters: [{ name: page, in: query, schema: { type: integer } }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
+                  meta: { type: object, properties: { next_page: { type: [integer, "null"] }, total: { type: integer } } }
+    post: { responses: { "201": { description: ok } } }
+  /links:
+    get:
+      parameters:
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        "200":
+          description: ok
+          headers: { Link: { schema: { type: string } } }
+          content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /speakeasy:
+    get:
+      x-speakeasy-pagination:
+        type: cursor
+        inputs: [{ name: after, in: parameters, type: cursor }]
+        outputs: { nextCursor: "$.meta.next" }
+      parameters: [{ name: after, in: query, schema: { type: string } }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
+                  meta: { type: object, properties: { next: { type: [string, "null"] } } }
+    post: { responses: { "201": { description: ok } } }
+  /speakeasy-offset:
+    get:
+      x-speakeasy-pagination:
+        type: offsetLimit
+        inputs: [{ name: offset, in: parameters, type: offset }, { name: limit, in: parameters, type: limit }]
+        outputs: { results: "$.data" }
+      parameters:
+        - { name: offset, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: object, properties: { data: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /fern:
+    get:
+      x-fern-pagination:
+        cursor: $request.starting_token
+        next_cursor: $response.pagination.next_token
+        results: $response.records
+      parameters: [{ name: starting_token, in: query, schema: { type: string } }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  records: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
+                  pagination: { type: object, properties: { next_token: { type: [string, "null"] } } }
+    post: { responses: { "201": { description: ok } } }
+  /offsets:
+    get:
+      parameters:
+        - { name: offset, in: query, schema: { type: integer } }
+        - { name: limit, in: query, schema: { type: integer } }
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /pageable:
+    get:
+      x-ms-pageable: { nextLinkName: nextLink }
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: object, properties: { value: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }, nextLink: { type: string } } } } } }
+    post: { responses: { "201": { description: ok } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }

@@ -114,10 +114,13 @@ func (h *fakeHooks) Inspect(paths.Paths, string) (claudecfg.Status, error) {
 type fakeSync struct {
 	revoked int
 	pushes  int
+	logins  int
 	failErr error
+	revsIn  int // how many stored revisions the last BuildBatch got
 }
 
 func (s *fakeSync) BuildBatch(a contract.Answer, v string, revs map[string]string) (contract.SyncBatch, map[string]string) {
+	s.revsIn = len(revs)
 	b := contract.SyncBatch{ClientVersion: v, Developer: a.Developer}
 	for _, r := range a.Resources {
 		b.Resources = append(b.Resources, contract.SyncResource{Entity: r, Rev: "0123456789abcdef"})
@@ -129,6 +132,7 @@ func (s *fakeSync) Push(context.Context, string, string, contract.SyncBatch) err
 	return s.failErr
 }
 func (s *fakeSync) Login(context.Context, string, io.Writer) (string, error) {
+	s.logins++
 	return "mrt_" + strings.Repeat("0", 32), nil
 }
 func (s *fakeSync) Revoke(context.Context, string, string) error {
@@ -503,6 +507,64 @@ func TestResourcesFilters(t *testing.T) {
 	}
 	if err := tf.ValidateAnswer([]byte(raw)); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// lockedKeychain refuses to store keys with the given prefix, like a locked
+// macOS keychain over SSH ("exit status 36").
+type lockedKeychain struct {
+	secrets.MemBackend
+	prefix string
+}
+
+func (k *lockedKeychain) Set(service, key, value string) error {
+	if strings.HasPrefix(key, k.prefix) {
+		return errors.New("exit status 36")
+	}
+	return k.MemBackend.Set(service, key, value)
+}
+
+func TestLoginNeedsAKeychainFirst(t *testing.T) {
+	h := newHarness(t)
+	h.sec.Backend = &lockedKeychain{}
+	_, errOut, code := h.run("login")
+	if code == 0 || h.sync.logins != 0 || !strings.Contains(errOut, "No OS keychain is available") || strings.Contains(errOut, "exit status") {
+		t.Fatalf("login must refuse before asking for an approval: code %d, logins %d, %q", code, h.sync.logins, errOut)
+	}
+
+	// The keychain takes the check but not the token: the token is revoked.
+	h.sec.Backend = &lockedKeychain{prefix: "sync/"}
+	if _, _, code := h.run("login"); code == 0 || h.sync.logins != 1 || h.sync.revoked != 1 {
+		t.Fatalf("an unkept token must be revoked: code %d, logins %d, revoked %d", code, h.sync.logins, h.sync.revoked)
+	}
+}
+
+func TestSyncSendsEverythingToANewServerOrLogin(t *testing.T) {
+	h := newHarness(t)
+	h.mustRun("login")
+	h.mustRun("sync", "on", "--yes")
+	h.mustRun("sessions")
+	h.mustRun("sessions")
+	if h.sync.revsIn == 0 {
+		t.Fatal("the same server should only get what changed")
+	}
+
+	cfg, _ := config.Load(h.p.Config)
+	cfg.Sync.Server = "https://api.other.example"
+	if err := cfg.Save(h.p.Config); err != nil {
+		t.Fatal(err)
+	}
+	h.env["MURETTO_SYNC_TOKEN"] = "mrt_" + strings.Repeat("1", 32)
+	h.mustRun("sessions")
+	if h.sync.revsIn != 0 {
+		t.Fatalf("a new server must get everything, but %d revisions carried over", h.sync.revsIn)
+	}
+
+	h.mustRun("sessions")
+	h.mustRun("login")
+	h.mustRun("sessions")
+	if h.sync.revsIn != 0 {
+		t.Fatalf("a new login must send everything, but %d revisions carried over", h.sync.revsIn)
 	}
 }
 

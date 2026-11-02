@@ -1,0 +1,263 @@
+# Acme Cloud: a made-up API used to test the generator (OpenAPI 3.1 idioms:
+# type arrays with "null", $ref with siblings, examples arrays, const).
+openapi: 3.1.0
+info:
+  title: Acme Cloud API
+  version: "2026-10-01"
+servers:
+  - url: https://api.acme.dev/v1
+security:
+  - bearer: []
+paths:
+  /orgs:
+    get:
+      operationId: listOrgs
+      responses:
+        "200":
+          description: Orgs the token can see.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Org" }
+  /me:
+    get:
+      operationId: getMe
+      responses:
+        "200":
+          description: The token's user.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  email: { type: string }
+  /projects:
+    get:
+      operationId: listProjects
+      parameters:
+        - { name: org_id, in: query, required: true, schema: { type: string } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 100, default: 20 } }
+      responses:
+        "200":
+          description: A page of projects.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Project" }
+                  next_cursor:
+                    type: [string, "null"]
+                    description: Pass as cursor for the next page; null on the last page.
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createProject
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Project" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        default: { $ref: "#/components/responses/Error" }
+  /projects/{project_id}:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+    delete:
+      operationId: deleteProject
+      summary: Delete a project and everything in it.
+      responses:
+        "204": { description: Deleted. }
+  /projects/{project_id}/databases:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listDatabases
+      responses:
+        "200":
+          description: Every database of the project.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Database" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createDatabase
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Database" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Database" }
+        default: { $ref: "#/components/responses/Error" }
+  /projects/{project_id}/databases/{database_id}:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+      - { name: database_id, in: path, required: true, schema: { type: string } }
+    patch:
+      operationId: updateDatabase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public: { type: boolean }
+      responses:
+        "200": { description: Updated. }
+    delete:
+      operationId: deleteDatabase
+      summary: Delete a database.
+      responses:
+        "204": { description: Deleted. }
+  /projects/{project_id}/logs:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listLogs
+      responses:
+        "200":
+          description: Log lines.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    message: { type: string }
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      parameters:
+        - { name: after, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Webhooks.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Webhook" }
+                  has_more: { type: boolean }
+    post:
+      operationId: createWebhook
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Webhook" }
+  /webhooks/{webhook_id}:
+    delete:
+      operationId: deleteWebhook
+      parameters:
+        - { name: webhook_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Deleted. }
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      responses:
+        "200":
+          description: Keys, with their values.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    key: { type: string }
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      description: An Acme API token from Settings > Tokens.
+  responses:
+    Error:
+      description: An error.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+  schemas:
+    Org:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, examples: [org_123] }
+        name: { type: string }
+        slug: { type: string }
+    Project:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, readOnly: true }
+        name: { type: string }
+        region: { type: string, enum: [us-east, eu-west] }
+        status: { $ref: "#/components/schemas/Status", description: Lifecycle state. }
+        framework: { type: [string, "null"] }
+        owner_email: { type: string }
+        created_at: { type: string, format: date-time }
+        kind: { const: project }
+    Status:
+      type: string
+      enum: [active, paused, deleting]
+    Database:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        engine: { type: string, enum: [postgres, mysql] }
+        public:
+          type: boolean
+          description: Reachable from the internet without a VPN.
+        connection_string: { type: string }
+        password: { type: string, writeOnly: true }
+        created_at: { type: integer, description: Creation time in milliseconds since the epoch. }
+        settings:
+          type: object
+          properties:
+            ssl_enforced: { type: boolean }
+            ip_allowlist: { type: string }
+    Webhook:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string }
+        url: { type: string, format: uri }
+        secret: { type: string, description: Signing secret. }
+        events:
+          type: array
+          items: { type: string, enum: [project.created, database.created] }

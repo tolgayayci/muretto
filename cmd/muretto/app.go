@@ -117,7 +117,7 @@ func (realSync) Revoke(ctx context.Context, u, t string) error { return syncclie
 func (realSync) Payload() []syncclient.FieldDoc                { return syncclient.Payload() }
 
 func newApp() *app {
-	return &app{
+	a := &app{
 		stdin: os.Stdin, stdout: os.Stdout, stderr: os.Stderr,
 		getenv: os.Getenv,
 		now:    func() time.Time { return time.Now().UTC() },
@@ -127,15 +127,8 @@ func newApp() *app {
 			}
 			return false
 		},
-		resolvePaths: paths.Resolve,
-		claudeDir:    paths.ClaudeConfigDir,
-		loadRegistry: func() (Registry, error) {
-			r, err := adapters.Load(adapterfiles.Files)
-			if err != nil {
-				return nil, err
-			}
-			return r, nil
-		},
+		resolvePaths:    paths.Resolve,
+		claudeDir:       paths.ClaudeConfigDir,
 		extractVersion:  extractVersion(adapterfiles.Files),
 		ingestSpool:     observe.IngestSpool,
 		scanTranscripts: observe.ScanTranscripts,
@@ -149,25 +142,88 @@ func newApp() *app {
 		},
 		executable: binaryPath,
 	}
+	a.loadRegistry = a.loadAllAdapters
+	return a
 }
 
 // extractVersion changes whenever the binary or the adapter files change, so
-// stored actions are re-extracted with the new signatures.
-func extractVersion(fsys fs.FS) string {
+// stored actions are re-extracted with the new signatures. Installed
+// (local) adapters count too.
+func extractVersion(fsys ...fs.FS) string {
 	h := sha256.New()
 	h.Write([]byte(version + "\x00" + commit))
-	_ = fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() {
+	for i, f := range fsys {
+		if f == nil {
+			continue
+		}
+		_ = fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			b, err := fs.ReadFile(f, path)
+			if err == nil {
+				fmt.Fprintf(h, "%d:%s\x00", i, path)
+				h.Write(b)
+			}
 			return nil
-		}
-		b, err := fs.ReadFile(fsys, path)
-		if err == nil {
-			h.Write([]byte(path))
-			h.Write(b)
-		}
-		return nil
-	})
+		})
+	}
 	return hex.EncodeToString(h.Sum(nil))[:16]
+}
+
+// maxAdapterFile caps an installed adapter file.
+const maxAdapterFile = 4 << 20
+
+// localAdapters reads the adapter files installed in dir (sorted by name).
+func localAdapters(dir string) (names []string, data [][]byte, errs []error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil, nil
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".yaml") {
+			continue
+		}
+		p := filepath.Join(dir, e.Name())
+		if fi, err := e.Info(); err == nil && fi.Size() > maxAdapterFile {
+			errs = append(errs, fmt.Errorf("%s: larger than %d bytes", p, maxAdapterFile))
+			continue
+		}
+		b, err := os.ReadFile(p) // #nosec G304 -- the user's own adapters directory
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		names = append(names, p)
+		data = append(data, b)
+	}
+	return names, data, errs
+}
+
+// loadAllAdapters loads the built-in adapters plus the user's installed
+// ones. A broken local adapter is reported and skipped, never fatal.
+func (a *app) loadAllAdapters() (Registry, error) {
+	r, err := adapters.Load(adapterfiles.Files)
+	if err != nil {
+		return nil, err
+	}
+	p, err := a.resolvePaths()
+	if err != nil {
+		return r, nil
+	}
+	// Installed adapters change what signatures extract: re-extract when
+	// they change.
+	a.extractVersion = extractVersion(adapterfiles.Files, os.DirFS(p.Adapters))
+	names, data, errs := localAdapters(p.Adapters)
+	for i, n := range names {
+		if err := r.AddLocal(n, data[i]); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, e := range errs {
+		a.errf("ignoring installed adapter: %v", e)
+	}
+	return r, nil
 }
 
 // binaryPath is the path written into Claude Code hooks: the real binary,
@@ -520,6 +576,11 @@ func (a *app) push(ctx context.Context, s *state) error {
 	if err != nil {
 		return err
 	}
+	// The revisions say what this server already has. A different server
+	// starts from nothing, so it gets everything, not just what changed.
+	if sent, _, _ := s.st.Meta(ctx, syncRevsServer); sent != server {
+		revs = map[string]string{}
+	}
 	batch, newRevs := a.sync.BuildBatch(s.answer, version, revs)
 	if batchEmpty(batch) {
 		return nil
@@ -532,8 +593,14 @@ func (a *app) push(ctx context.Context, s *state) error {
 	if err := s.st.SetSyncRevs(ctx, newRevs); err != nil {
 		return err
 	}
+	if err := s.st.SetMeta(ctx, syncRevsServer, server); err != nil {
+		return err
+	}
 	return s.st.SetMeta(ctx, "sync_pushed_at", a.now().Format(time.RFC3339Nano))
 }
+
+// syncRevsServer names the server the stored sync revisions were pushed to.
+const syncRevsServer = "sync_revs_server"
 
 func batchEmpty(b contract.SyncBatch) bool {
 	return len(b.Sessions)+len(b.Resources)+len(b.Attributions)+len(b.Findings)+len(b.Costs)+len(b.Reviews)+len(b.Checks) == 0

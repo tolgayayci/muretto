@@ -1,0 +1,25 @@
+# A public flag whose name has a space: the attribute cannot be templated,
+# so no rule may refer to it.
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /things:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id]
+                  properties:
+                    id: { type: string }
+                    "is public": { type: boolean }
+    post: { responses: { "201": { description: ok } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }

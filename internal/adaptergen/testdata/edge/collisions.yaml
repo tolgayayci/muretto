@@ -1,0 +1,60 @@
+# Two different "members" lists under two parents, and a "providers" list.
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /projects:
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /groups:
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /projects/{project_id}/members:
+    parameters: [{ name: project_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, role: { type: string, enum: [owner, viewer] } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /groups/{group_id}/members:
+    parameters: [{ name: group_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, user_id: { type: string }, admin: { type: boolean } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+  /providers:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    kind: { type: string, enum: [oidc, saml] }
+                    status: { type: string }
+                    url: { type: string, format: uri }
+                    parent: { type: string, enum: [a, b] }
+                    account_id: { type: string }
+                    provider_id: { type: string }
+                    created_at: { type: string }
+                    public: { type: boolean }
+    post: { responses: { "201": { description: ok } } }
+  /providers/{provider_name}/keysets:
+    parameters: [{ name: provider_name, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { type: object, required: [name], properties: { name: { type: string }, enabled: { type: boolean } } } } } } }
+    post: { responses: { "201": { description: ok } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }

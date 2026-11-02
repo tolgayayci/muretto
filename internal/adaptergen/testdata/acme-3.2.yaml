@@ -1,0 +1,278 @@
+# Acme Cloud in OpenAPI 3.2 idioms: $self, a server variable, tag parent/kind,
+# a querystring parameter, additionalOperations, a sequential media type
+# (itemSchema), an apiKey header scheme marked as the current one.
+openapi: 3.2.0
+$self: https://api.acme.dev/openapi.yaml
+info:
+  title: Acme Cloud API
+  version: "2026-10-01"
+servers:
+  - url: https://api.acme.dev/{version}
+    variables:
+      version: { default: v1, enum: [v1] }
+tags:
+  - { name: compute, kind: nav }
+  - { name: databases, parent: compute }
+security:
+  - token: []
+paths:
+  /orgs:
+    get:
+      operationId: listOrgs
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Org" }
+  /search:
+    get:
+      operationId: search
+      parameters:
+        - name: q
+          in: querystring
+          required: true
+          content:
+            application/x-www-form-urlencoded:
+              schema: { type: object }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+  /projects:
+    get:
+      operationId: listProjects
+      parameters:
+        - { name: org_id, in: query, required: true, schema: { type: string } }
+        - { name: cursor, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, maximum: 100 } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Project" }
+                  next_cursor: { type: [string, "null"] }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createProject
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Project" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Project" }
+        default: { $ref: "#/components/responses/Error" }
+  /projects/{project_id}:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+    delete:
+      operationId: deleteProject
+      summary: Delete a project and everything in it.
+      responses:
+        "204": {}
+    additionalOperations:
+      PURGE:
+        operationId: purgeProjectCache
+        responses:
+          "204": {}
+  /projects/{project_id}/databases:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listDatabases
+      tags: [databases]
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Database" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createDatabase
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Database" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Database" }
+        default: { $ref: "#/components/responses/Error" }
+  /projects/{project_id}/databases/{database_id}:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+      - { name: database_id, in: path, required: true, schema: { type: string } }
+    patch:
+      operationId: updateDatabase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                public: { type: boolean }
+      responses:
+        "200": {}
+    delete:
+      operationId: deleteDatabase
+      summary: Delete a database.
+      responses:
+        "204": {}
+  /projects/{project_id}/logs:
+    parameters:
+      - { name: project_id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: listLogs
+      responses:
+        "200":
+          content:
+            application/jsonl:
+              itemSchema:
+                type: object
+                properties:
+                  id: { type: string }
+                  message: { type: string }
+  /webhooks:
+    get:
+      operationId: listWebhooks
+      parameters:
+        - { name: after, in: query, schema: { type: string } }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Webhook" }
+                  has_more: { type: boolean }
+    post:
+      operationId: createWebhook
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Webhook" }
+  /webhooks/{webhook_id}:
+    delete:
+      operationId: deleteWebhook
+      parameters:
+        - { name: webhook_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": {}
+  /api-keys:
+    get:
+      operationId: listApiKeys
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    key: { type: string }
+components:
+  securitySchemes:
+    legacyKey:
+      type: apiKey
+      in: query
+      name: key
+      deprecated: true
+    token:
+      type: http
+      scheme: bearer
+      description: An Acme API token from Settings > Tokens.
+  responses:
+    Error:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+  schemas:
+    Org:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+    Project:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, readOnly: true }
+        name: { type: string }
+        region: { type: string, enum: [us-east, eu-west] }
+        status: { $ref: "#/components/schemas/Status" }
+        framework: { type: [string, "null"] }
+        owner_email: { type: string }
+        created_at: { type: string, format: date-time }
+    Status:
+      type: string
+      enum: [active, paused, deleting]
+    Database:
+      $defs:
+        Settings:
+          type: object
+          properties:
+            ssl_enforced: { type: boolean }
+            ip_allowlist: { type: string }
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        engine: { type: string, enum: [postgres, mysql] }
+        public:
+          type: boolean
+          description: Reachable from the internet without a VPN.
+        connection_string: { type: string }
+        password: { type: string, writeOnly: true }
+        created_at: { type: integer, description: Creation time in milliseconds since the epoch. }
+        settings: { $ref: "#/components/schemas/Database/$defs/Settings" }
+    Webhook:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string }
+        url: { type: string, format: uri }
+        secret: { type: string, description: Signing secret. }
+        events:
+          type: array
+          items: { type: string, enum: [project.created, database.created] }

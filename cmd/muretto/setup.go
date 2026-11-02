@@ -143,12 +143,28 @@ func (a *app) connectProvider(ctx context.Context, s *state, reg Registry, p ada
 		}
 	}
 
-	b := a.broker(reg)
-	actx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	accounts, err := reg.Accounts(actx, b, p.Name, token)
-	cancel()
-	if err != nil {
-		return fmt.Errorf("could not list accounts with this token: %w", err)
+	var accounts []adapters.Account
+	if p.AccountPrompt != "" {
+		// The adapter cannot list accounts: the user names the one to scan.
+		acctEnv := strings.TrimSuffix(envName, "_TOKEN") + "_ACCOUNT"
+		id := strings.TrimSpace(a.getenv(acctEnv))
+		if id == "" && interactive {
+			id, _ = a.prompt("  " + p.AccountPrompt + ": ")
+			id = strings.TrimSpace(id)
+		}
+		if id == "" {
+			return fmt.Errorf("no account entered; set %s or run `muretto init` in a terminal", acctEnv)
+		}
+		accounts = []adapters.Account{{ID: id, Name: id, Slug: id}}
+	} else {
+		b := a.broker(reg)
+		actx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		var err error
+		accounts, err = reg.Accounts(actx, b, p.Name, token)
+		cancel()
+		if err != nil {
+			return fmt.Errorf("could not list accounts with this token: %w", err)
+		}
 	}
 	if len(accounts) == 0 {
 		return errors.New("this token can see no accounts")
@@ -237,14 +253,27 @@ func (a *app) cmdLogin(ctx context.Context, args []string) error {
 	}
 	defer s.close()
 	server := s.cfg.SyncServer()
+	// Check the keychain first, so an approval is never spent on a token
+	// that can't be kept.
+	if err := a.secrets.Check(); err != nil {
+		return errors.New(secrets.LoginRefuseMessage())
+	}
 	token, err := a.sync.Login(ctx, server, a.stdout)
 	if err != nil {
 		return fmt.Errorf("login failed: %w", err)
 	}
 	if err := a.secrets.Set(secrets.SyncKey(hostOf(server)), token); err != nil {
+		// Nothing holds the token now, so don't leave it live on the server.
+		rctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		_ = a.sync.Revoke(rctx, server, token)
+		cancel()
 		if errors.Is(err, secrets.ErrUnavailable) {
-			return errors.New(secrets.RefuseMessage(secrets.SyncEnv))
+			return errors.New(secrets.LoginRefuseMessage())
 		}
+		return err
+	}
+	// A new login may be another account: its server has none of this yet.
+	if err := s.st.SetSyncRevs(ctx, nil); err != nil {
 		return err
 	}
 	a.out("Logged in to %s. Sync is %s; `muretto sync on` shows exactly what would be sent.", server, onOff(s.cfg.Sync.Enabled))

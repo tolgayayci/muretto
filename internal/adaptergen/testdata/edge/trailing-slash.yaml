@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /things/:
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Thing" } } } } }
+    post:
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/Thing" } } } }
+  /things/{thing_id}/:
+    parameters: [{ name: thing_id, in: path, required: true, schema: { type: string } }]
+    delete: { responses: { "204": { description: gone } } }
+  /things/{thing_id}/parts/:
+    parameters: [{ name: thing_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Thing" } } } } }
+    post:
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { $ref: "#/components/schemas/Thing" } } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }
+  schemas:
+    Thing: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } }

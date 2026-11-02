@@ -1,0 +1,26 @@
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /things:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: ["@id"]
+                  properties:
+                    "@id": { type: string }
+                    name: { type: string }
+                    "foo.bar": { type: boolean }
+                    "a b": { type: string, enum: [x, y] }
+                    "is-public": { type: boolean }
+    post: { responses: { "201": { description: ok } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }

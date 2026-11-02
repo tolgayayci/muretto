@@ -1,0 +1,41 @@
+# The account is an org. A required team_id query parameter names a team
+# (a child of the org), not the account.
+openapi: 3.1.0
+info: { title: Edge Cloud, version: "1" }
+servers: [{ url: https://api.edge.dev/v1 }]
+security: [{ bearer: [] }]
+paths:
+  /orgs:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
+  /orgs/{org_id}/teams:
+    parameters: [{ name: org_id, in: path, required: true, schema: { type: string } }]
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, name: { type: string } } } }
+    post:
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { type: object, properties: { id: { type: string } } } } } }
+  /members:
+    get:
+      parameters: [{ name: team_id, in: query, required: true, schema: { type: string } }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema: { type: array, items: { type: object, required: [id], properties: { id: { type: string }, role: { type: string, enum: [admin, member] } } } }
+    post:
+      responses:
+        "201": { description: ok, content: { application/json: { schema: { type: object, properties: { id: { type: string } } } } } }
+components:
+  securitySchemes: { bearer: { type: http, scheme: bearer } }
