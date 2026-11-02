@@ -60,9 +60,6 @@ findings:
   live_payment_link:stripe.payment_link:plink_EXAMPLEOFF00001: not_exposed
   live_payment_link:stripe.payment_link:plink_EXAMPLETEST0001: not_exposed
 
-fixes:
-  "live_payment_link:stripe.payment_link:plink_EXAMPLELIVE0001": "stripe payment_links update plink_EXAMPLELIVE0001 --active=false --live"
-
 checks:
   - stripe.webhook_endpoint|||ok
   - stripe.webhook_endpoint||ephemeral_webhook_endpoint|ok

@@ -64,11 +64,6 @@ findings:
   open_key_value:render.key_value:red-example0000000000001: not_exposed
   open_key_value:render.key_value:red-example0000000000002: exposed
   open_key_value:render.key_value:red-example0000000000003: unknown
-fixes:
-  "open_postgres:render.postgres:dpg-example0000000000001": |-
-    render postgres update dpg-example0000000000001 --ip-allow-list "cidr=<your-ip>/32,description=office"
-    # or block all external connections:
-    render postgres update dpg-example0000000000001 --clear-ip-allow-list
 checks:
   - "render.blueprint|||ok"
   - "render.custom_domain|srv-example0000000000001||ok"

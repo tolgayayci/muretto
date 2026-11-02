@@ -52,7 +52,6 @@ func Batch(dev, projectRef string) contract.SyncBatch {
 	finding := contract.ExposureFinding{
 		ID: "rls_disabled:" + resID, ResourceID: resID, RuleID: "rls_disabled", State: contract.ExposureFindingStateExposed,
 		Severity: contract.ExposureFindingSeverityHigh, Title: "RLS disabled", Explanation: "Table readable by anon.",
-		Fix:    contract.Fix{Kind: contract.FixKindSql, Text: "alter table public.customers enable row level security;"},
 		Signal: contract.ExposureFindingSignalOfficialAdvisor, CheckedAt: ptr(T0),
 	}
 	cost := contract.CostRecord{ResourceID: resID, Source: contract.CostRecordSourceEstimated, AmountMicros: ptr(10_000_000),

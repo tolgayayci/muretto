@@ -418,7 +418,7 @@ type doctorItem struct {
 	OK     bool   `json:"ok"`
 	Check  string `json:"check"`
 	Detail string `json:"detail"`
-	Fix    string `json:"fix,omitempty"`
+	Hint   string `json:"hint,omitempty"`
 }
 
 func (a *app) cmdDoctor(ctx context.Context, args []string) error {
@@ -432,8 +432,8 @@ func (a *app) cmdDoctor(ctx context.Context, args []string) error {
 		return usageErr("doctor takes no arguments")
 	}
 	var items []doctorItem
-	add := func(ok bool, check, detail, fix string) {
-		items = append(items, doctorItem{ok, check, detail, fix})
+	add := func(ok bool, check, detail, hint string) {
+		items = append(items, doctorItem{ok, check, detail, hint})
 	}
 	s, err := a.load(ctx, f)
 	if err != nil {
@@ -567,8 +567,8 @@ func (a *app) cmdDoctor(ctx context.Context, args []string) error {
 			mark = "✗"
 		}
 		a.out("%s %-18s %s", mark, it.Check, it.Detail)
-		if !it.OK && it.Fix != "" {
-			a.out("  → %s", it.Fix)
+		if !it.OK && it.Hint != "" {
+			a.out("  → %s", it.Hint)
 		}
 	}
 	return render.Warnings(a.stdout, s.answer, o)

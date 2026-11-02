@@ -25,7 +25,7 @@ func findingBatch(id string, f contract.ExposureFinding) contract.SyncBatch {
 
 // The review's reproduction: bob, another member, syncs not_exposed for
 // alice's exposed finding with checked_at five years ahead. The team view
-// must still show it exposed; alice's own later fix clears it.
+// must still show it exposed; alice's own later not_exposed clears it.
 func TestTeamAnswerMemberCannotHideExposure(t *testing.T) {
 	s := testserver.Start(t, testserver.Options{})
 	alice, bob := s.Login(t, "alice"), s.Login(t, "bob")
@@ -55,7 +55,7 @@ func TestTeamAnswerMemberCannotHideExposure(t *testing.T) {
 		t.Fatalf("bob hid alice's exposure: %+v %+v", a.Findings, a.Summary)
 	}
 
-	// alice fixes the table and re-checks: her own not_exposed replaces her
+	// alice turns RLS on and re-checks: her own not_exposed replaces her
 	// exposure. bob's not_exposed agrees, so the team view clears.
 	s.Clock.Advance(time.Minute)
 	fixed := hidden
@@ -63,6 +63,6 @@ func TestTeamAnswerMemberCannotHideExposure(t *testing.T) {
 	fixed.CheckedAt = &later
 	ingest(t, s, s.Token(t, "alice"), findingBatch("3", fixed))
 	if a := team(); a.Findings[0].State != contract.ExposureFindingStateNotExposed || a.Summary.Exposed != 0 {
-		t.Fatalf("alice's own fix did not clear: %+v %+v", a.Findings, a.Summary)
+		t.Fatalf("alice's own not_exposed did not clear: %+v %+v", a.Findings, a.Summary)
 	}
 }

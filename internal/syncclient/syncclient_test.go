@@ -34,7 +34,7 @@ func sampleAnswer() contract.Answer {
 		Sessions: []contract.SessionView{{DeveloperName: "Alice", ResourceIds: []string{rid}, Session: contract.Session{
 			ID: sid, Agent: contract.SessionAgentClaudeCode, DeveloperID: "dev-1", StartedAt: t0,
 			TitleSource: contract.SessionTitleSourceFirstPrompt, Sources: []contract.SessionSourcesElem{contract.SessionSourcesElemHook},
-			TaskTitle: ptr("Fix /Users/alice/secret-project build using " + fakeToken() + " " + strings.Repeat("long ", 40)),
+			TaskTitle: ptr("Debug /Users/alice/secret-project build using " + fakeToken() + " " + strings.Repeat("long ", 40)),
 			Repo:      &contract.SessionRepo{PathHash: "0123456789abcdef", RemoteUrl: ptr(creds), DisplayName: ptr("/Users/alice/code/app")},
 		}}},
 		Resources: []contract.Resource{{
@@ -47,7 +47,7 @@ func sampleAnswer() contract.Answer {
 			ComputedAt: t0, Evidence: []contract.Evidence{{ActionID: "toolu_1", SessionID: sid, OccurredAt: t0, ToolName: "Bash",
 				SignatureID: "sig", MatchedValue: "abcdefghijklmnopqrst", Excerpt: "cd /home/alice/app && supabase projects create " + strings.Repeat("x", 3000)}}}},
 		Findings: []contract.ExposureFinding{{ID: "rls_disabled:" + rid, ResourceID: rid, RuleID: "rls_disabled", State: contract.ExposureFindingStateExposed,
-			Severity: contract.ExposureFindingSeverityHigh, Title: "RLS off", Explanation: "x", Fix: contract.Fix{Kind: contract.FixKindSql, Text: "alter table t enable row level security;"},
+			Severity: contract.ExposureFindingSeverityHigh, Title: "RLS off", Explanation: "x",
 			Signal: contract.ExposureFindingSignalOfficialAdvisor}},
 		Costs:    []contract.CostRecord{{ResourceID: rid, Source: contract.CostRecordSourceUnknown, AsOf: t0, Basis: "no data"}},
 		Reviews:  []contract.ReviewItem{{ResourceID: rid, DueAt: t0, State: contract.ReviewItemStatePending}},

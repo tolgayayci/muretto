@@ -11,7 +11,6 @@
     "severity",
     "title",
     "explanation",
-    "fix",
     "signal"
   ],
   "properties": {
@@ -63,9 +62,6 @@
       "maxLength": 500,
       "description": "What the check cannot see, e.g. 'protection exceptions are not visible to the API'."
     },
-    "fix": {
-      "$ref": "#/$defs/Fix"
-    },
     "checked_at": {
       "type": "string",
       "format": "date-time",
@@ -82,38 +78,5 @@
       "description": "What the finding is based on."
     }
   },
-  "additionalProperties": false,
-  "$defs": {
-    "Fix": {
-      "type": "object",
-      "description": "Printed for a human to run. Muretto never runs it.",
-      "required": [
-        "kind",
-        "text"
-      ],
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "sql",
-            "command",
-            "steps"
-          ]
-        },
-        "text": {
-          "type": "string",
-          "maxLength": 4000
-        },
-        "note": {
-          "type": "string",
-          "maxLength": 1000
-        },
-        "docs_url": {
-          "type": "string",
-          "maxLength": 500
-        }
-      },
-      "additionalProperties": false
-    }
-  }
+  "additionalProperties": false
 }

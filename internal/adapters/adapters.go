@@ -1,5 +1,5 @@
 // Package adapters interprets the declarative provider adapters in /adapters:
-// read-only scans, agent-creation signatures, exposure rules and fix hints.
+// read-only scans, agent-creation signatures, and exposure rules.
 //
 // The engine is generic: every provider-specific fact (endpoints, field
 // mappings, signatures, rules) lives in the adapter YAML. Adding a provider is
@@ -347,20 +347,6 @@ func (r *Registry) Matches(id contract.Identifier, res contract.Resource) bool {
 	return false
 }
 
-// RemoveHint returns the command a human could run to delete res. Never executed.
-func (r *Registry) RemoveHint(res contract.Resource) *contract.Fix {
-	a := r.byName[res.Provider]
-	if a == nil {
-		return nil
-	}
-	k := kindByFull(a, res.Kind)
-	if k == nil || k.Remove == nil {
-		return nil
-	}
-	f := renderFix(*k.Remove, resourceCtx(res, nil))
-	return &f
-}
-
 // Allowlist returns the broker rules every adapter needs: exactly the
 // endpoints declared in the adapter files, with their query parameter names.
 func (r *Registry) Allowlist() []broker.Rule {
@@ -421,19 +407,6 @@ func kindByFull(a *adapterSpec, full string) *kindSpec {
 		}
 	}
 	return nil
-}
-
-func renderFix(f fixSpec, ctx map[string]any) contract.Fix {
-	out := contract.Fix{Kind: contract.FixKind(f.Kind), Text: truncate(f.Text.renderLoose(ctx), 4000)}
-	if !f.Note.empty() {
-		n := truncate(f.Note.renderLoose(ctx), 1000)
-		out.Note = &n
-	}
-	if f.DocsURL != "" {
-		d := f.DocsURL
-		out.DocsUrl = &d
-	}
-	return out
 }
 
 func truncate(s string, n int) string {

@@ -105,12 +105,6 @@ kinds:
           - deletion_protected
           - require_approval_for_deploy
     match: { value: "{name}", container: "{account_slug}" }
-    remove:
-      kind: command
-      text: "pscale database delete {name} --org {account_slug}"
-      note: >-
-        Deleting a database deletes every branch and its data. Deletion
-        protection, if on, must be turned off first.
 
   # Every engine (mysql = Vitess, postgresql, neki). Children pick their
   # engine with for_each_where on the documented kind field.
@@ -136,9 +130,6 @@ kinds:
           - deletion_protected
           - { name: region, field: region.slug }
     match: { value: "{name}", container: "{database}" }
-    remove:
-      kind: command
-      text: "pscale branch delete {database} {name} --org {account_slug}"
 
   # Passwords are Vitess-only.
   - kind: password
@@ -168,10 +159,6 @@ kinds:
           - cidrs
           - replica
     match: { value: "{name}", container: "{database}/{branch}" }
-    remove:
-      kind: command
-      text: "pscale password delete {database} {branch} {password_id} --org {account_slug}"
-      note: Apps that connect with this password stop working once it is deleted.
 
   # Roles are the Postgres and Neki credentials.
   - kind: role
@@ -200,10 +187,6 @@ kinds:
           - with_replication
           - disabled_at
     match: { value: "{name}", container: "{database}/{branch}" }
-    remove:
-      kind: command
-      text: "pscale role delete {database} {branch} {role_id} --org {account_slug}"
-      note: Apps that connect with this role stop working once it is deleted.
 
   # Deploy requests are a Vitess workflow.
   - kind: deploy_request
@@ -225,9 +208,6 @@ kinds:
           - approved
           - deployment_state
     match: { value: "{number}", container: "{database}" }
-    remove:
-      kind: command
-      text: "pscale deploy-request close {database} {number} --org {account_slug}"
 
 rules:
   - id: permanent_admin_password
@@ -248,15 +228,6 @@ rules:
       The API does not say where the password is stored or who holds it.
       Passwords created before TTLs existed, and passwords made with the
       default --ttl 0, never expire.
-    fix:
-      kind: command
-      text: |
-        pscale password create {database} {branch} <new-name> --role readwriter --ttl 720h --org {account_slug}
-        pscale password delete {database} {branch} {password_id} --org {account_slug}
-      note: >-
-        Switch your app to the new password before deleting the old one. Use
-        the narrowest role that works (reader, writer or readwriter).
-      docs_url: https://planetscale.com/docs/vitess/security/password-roles
 
   - id: unrestricted_password
     kind: password
@@ -277,11 +248,6 @@ rules:
       The password value is still needed to connect; the API cannot say
       whether it has leaked. Some passwords cannot take IP restrictions and
       must be recreated.
-    fix:
-      kind: command
-      text: "pscale password update {database} {branch} {password_id} --cidrs <your-ip-or-cidr> --org {account_slug}"
-      note: Clients outside the listed ranges can no longer connect with this password.
-      docs_url: https://planetscale.com/docs/vitess/security/connection-strings
 
   - id: long_lived_password
     kind: password
@@ -303,12 +269,6 @@ rules:
     caveat: >-
       last_used_at shows whether it is still used; the API cannot say who
       holds it.
-    fix:
-      kind: command
-      text: |
-        pscale password create {database} {branch} <new-name> --role {role} --ttl 720h --org {account_slug}
-        pscale password delete {database} {branch} {password_id} --org {account_slug}
-      note: Switch your app to the new password before deleting the old one.
 
   - id: unprotected_production_branch
     kind: branch
@@ -327,11 +287,6 @@ rules:
     caveat: >-
       The API does not say who holds admin passwords for the branch; see the
       branch's passwords.
-    fix:
-      kind: command
-      text: "pscale branch safe-migrations enable {database} {name} --org {account_slug}"
-      note: Schema changes then go through development branches and deploy requests.
-      docs_url: https://planetscale.com/docs/vitess/schema-changes/safe-migrations
 
   - id: permanent_admin_role
     kind: role
@@ -352,15 +307,6 @@ rules:
     caveat: >-
       The branch's default role is not checked here. The API cannot say who
       holds the role's password.
-    fix:
-      kind: command
-      text: |
-        pscale role create {database} {branch} <new-name> --inherited-roles pg_read_all_data,pg_write_all_data --ttl 720h --org {account_slug}
-        pscale role delete {database} {branch} {role_id} --org {account_slug}
-      note: >-
-        Switch your app to the new role before deleting the old one; inherit
-        postgres only where schema changes are needed.
-      docs_url: https://planetscale.com/docs/cli/role
 
 signatures:
   # ---- pscale CLI (Bash). Output strings from planetscale/cli v0.348.0. ----

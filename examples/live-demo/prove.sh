@@ -5,12 +5,10 @@
 #    sending ONLY the publishable (anon) key, the key every browser has.
 #    Rows coming back means anyone on the internet can read them.
 # 2. Show what Muretto says about it, as bob: `muretto why customers` (the
-#    evidence: which session and which SQL created it) and
-#    `muretto fix customers` (the exact SQL a human can run; Muretto never
-#    runs it).
+#    evidence: which session and which SQL created it).
 #
 #   examples/live-demo/prove.sh            both parts
-#   examples/live-demo/prove.sh --curl     only the curl (e.g. again after the fix)
+#   examples/live-demo/prove.sh --curl     only the curl (e.g. again after RLS is turned on)
 #   examples/live-demo/prove.sh --check    one line; exit 0 only if rows come back AND
 #                            Muretto (as bob) flags customers as exposed
 #                            (for repeated reliability runs)
@@ -27,7 +25,7 @@ while [ $# -gt 0 ]; do
 	--curl) MODE=curl ;;
 	--check) MODE=check ;;
 	--dry-run) DRY_RUN=1 ;;
-	-h | --help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' && exit 0 ;;
+	-h | --help) sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' && exit 0 ;;
 	*) say "usage: examples/live-demo/prove.sh [--curl|--check] [--dry-run]" && exit 2 ;;
 	esac
 	shift
@@ -44,7 +42,6 @@ if [ "$DRY_RUN" = 1 ]; then
 	show_cmd curl -sS "$URL" -H "apikey: $SUPABASE_PUBLISHABLE_KEY" -H "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY"
 	if [ "$MODE" = all ]; then
 		muretto_as bob why customers
-		muretto_as bob fix customers
 	fi
 	exit 0
 fi
@@ -93,5 +90,3 @@ fi
 [ "$MODE" = all ] || exit 0
 printf '\n%s$%s muretto why customers\n' "$C_B" "$C_0"
 muretto_as bob why customers
-printf '\n%s$%s muretto fix customers\n' "$C_B" "$C_0"
-muretto_as bob fix customers

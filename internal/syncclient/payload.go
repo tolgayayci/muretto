@@ -78,10 +78,6 @@ func Payload() []FieldDoc {
 		{"finding", "title", red},
 		{"finding", "explanation", red},
 		{"finding", "caveat", red},
-		{"finding", "fix.kind", "sql, command or steps"},
-		{"finding", "fix.text", "The fix a human can run (Muretto never runs it). " + red},
-		{"finding", "fix.note", red},
-		{"finding", "fix.docs_url", "Documentation link"},
 		{"finding", "checked_at", "Timestamp"},
 		{"finding", "signal", "What the finding is based on"},
 

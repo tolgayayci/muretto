@@ -228,9 +228,6 @@ type ExposureFinding struct {
 	// Explanation corresponds to the JSON schema field "explanation".
 	Explanation string `json:"explanation"`
 
-	// Fix corresponds to the JSON schema field "fix".
-	Fix Fix `json:"fix"`
-
 	// <rule_id>:<resource_id>
 	ID string `json:"id"`
 
@@ -274,27 +271,6 @@ type ExposureFindingState string
 const ExposureFindingStateExposed ExposureFindingState = "exposed"
 const ExposureFindingStateNotExposed ExposureFindingState = "not_exposed"
 const ExposureFindingStateUnknown ExposureFindingState = "unknown"
-
-// Printed for a human to run. Muretto never runs it.
-type Fix struct {
-	// DocsUrl corresponds to the JSON schema field "docs_url".
-	DocsUrl *string `json:"docs_url,omitempty,omitzero"`
-
-	// Kind corresponds to the JSON schema field "kind".
-	Kind FixKind `json:"kind"`
-
-	// Note corresponds to the JSON schema field "note".
-	Note *string `json:"note,omitempty,omitzero"`
-
-	// Text corresponds to the JSON schema field "text".
-	Text string `json:"text"`
-}
-
-type FixKind string
-
-const FixKindCommand FixKind = "command"
-const FixKindSql FixKind = "sql"
-const FixKindSteps FixKind = "steps"
 
 // A resource identifier found in this action by an adapter signature.
 type Identifier struct {
@@ -863,8 +839,8 @@ type Warning struct {
 	// Code corresponds to the JSON schema field "code".
 	Code string `json:"code"`
 
-	// Fix corresponds to the JSON schema field "fix".
-	Fix *string `json:"fix,omitempty,omitzero"`
+	// What the user can do about it, e.g. 'run muretto init'.
+	Hint *string `json:"hint,omitempty,omitzero"`
 
 	// Message corresponds to the JSON schema field "message".
 	Message string `json:"message"`

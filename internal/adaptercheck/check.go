@@ -54,7 +54,6 @@ type Expectation struct {
 	Resources []string                  `yaml:"resources"`
 	Fields    map[string]map[string]any `yaml:"fields,omitempty"`
 	Findings  map[string]string         `yaml:"findings"`
-	Fixes     map[string]string         `yaml:"fixes,omitempty"`
 	Checks    []string                  `yaml:"checks"`
 	Forbidden []string                  `yaml:"forbidden,omitempty"`
 }
@@ -368,10 +367,9 @@ func runScenario(reg *adapters.Registry, provider, dir string) (Scenario, Expect
 			}
 		}
 	}
-	gotF, fixes := map[string]string{}, map[string]string{}
+	gotF := map[string]string{}
 	for _, f := range res.Findings {
 		gotF[f.ID] = string(f.State)
-		fixes[f.ID] = f.Fix.Text
 	}
 	if exp.Findings == nil {
 		exp.Findings = map[string]string{}
@@ -384,11 +382,6 @@ func runScenario(reg *adapters.Registry, provider, dir string) (Scenario, Expect
 	for k, v := range gotF {
 		if _, ok := exp.Findings[k]; !ok {
 			bad("findings: unexpected %s = %s", k, v)
-		}
-	}
-	for id, want := range exp.Fixes {
-		if strings.TrimSpace(fixes[id]) != want {
-			bad("fix %s = %q, want %q", id, fixes[id], want)
 		}
 	}
 	var gotC []string

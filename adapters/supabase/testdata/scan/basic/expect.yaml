@@ -40,9 +40,6 @@ findings:
   public_bucket:supabase.bucket:abcdefghijklmnopqrst/avatars: exposed
   public_bucket:supabase.bucket:abcdefghijklmnopqrst/customer-files: not_exposed
 
-fixes:
-  rls_disabled:supabase.table:abcdefghijklmnopqrst/public.customers: ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;
-
 # kind | scope | rule | status
 checks:
   - supabase.project|||ok

@@ -71,10 +71,6 @@ findings:
   permanent_admin_role:planetscale.role:example-org/example-pg/main/roleEXAMPLE02: exposed
   permanent_admin_role:planetscale.role:example-org/example-pg/main/roleEXAMPLE03: not_exposed
 
-fixes:
-  unprotected_production_branch:planetscale.branch:example-org/example-db/main: pscale branch safe-migrations enable example-db main --org example-org
-  unrestricted_password:planetscale.password:example-org/example-db/main/pwEXAMPLE0001: pscale password update example-db main pwEXAMPLE0001 --cidrs <your-ip-or-cidr> --org example-org
-
 checks:
   - planetscale.database|||ok
   - planetscale.branch|example-org/example-db||ok

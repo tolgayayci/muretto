@@ -75,10 +75,6 @@ kinds:
           - { name: link_repo, field: link.repo }
           - { name: creator_type, field: creator.type }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.vercel.com/v9/projects/{provider_id}?teamId={account_id}" -H "Authorization: Bearer $VERCEL_TOKEN"'
-      note: Deleting a project removes its deployments, domains and environment variables.
 
   - kind: deployment
     for_each: project
@@ -100,9 +96,6 @@ kinds:
           - { name: inspector_url, field: inspectorUrl }
           - { name: creator_type, field: creator.type }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.vercel.com/v13/deployments/{provider_id}?teamId={account_id}" -H "Authorization: Bearer $VERCEL_TOKEN"'
 
   - kind: domain
     sources:
@@ -115,9 +108,6 @@ kinds:
           - verified
           - { name: service_type, field: serviceType }
     match: { value: "{provider_id}", container: "{account_slug}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.vercel.com/v6/domains/{provider_id}?teamId={account_id}" -H "Authorization: Bearer $VERCEL_TOKEN"'
 
   - kind: project_domain
     for_each: project
@@ -134,9 +124,6 @@ kinds:
           - { name: apex_name, field: apexName }
           - { name: git_branch, field: gitBranch }
           - { name: project_id, template: "{projectId|or:parent.id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.vercel.com/v9/projects/{project_id}/domains/{domain}?teamId={account_id}" -H "Authorization: Bearer $VERCEL_TOKEN"'
 
   - kind: env_var
     for_each: project
@@ -159,9 +146,6 @@ kinds:
           - { name: project_id, template: "{parent.id}" }
           - { name: project_name, template: "{parent.name}" }
     match: { value: "{env_id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.vercel.com/v9/projects/{project_id}/env/{env_id}?teamId={account_id}" -H "Authorization: Bearer $VERCEL_TOKEN"'
 
 rules:
   - id: public_preview
@@ -190,14 +174,6 @@ rules:
     caveat: >-
       Decided from project protection settings. Protection exceptions,
       shareable links and bypass secrets are not visible to the API.
-    fix:
-      kind: steps
-      text: |
-        Turn on Deployment Protection for previews:
-          Vercel dashboard > project > Settings > Deployment Protection >
-          Vercel Authentication: on, with Standard Protection (or All Deployments).
-        CLI alternative: vercel project protection
-      docs_url: https://vercel.com/docs/deployment-protection
 
   - id: client_exposed_env
     kind: env_var
@@ -219,14 +195,6 @@ rules:
       client-side code that anyone visiting the site can read, and its name
       suggests a secret (or Vercel flagged it as a readable secret). Muretto
       never reads the value.
-    fix:
-      kind: steps
-      text: |
-        The public prefix exposes this value to anyone visiting your site.
-        To keep it private: rename {key} without the public prefix, keep the
-        Secret type, read it only in server code, and redeploy. If the value
-        was a real secret, rotate it at its provider: it was public.
-      docs_url: https://vercel.com/docs/environment-variables/sensitive-environment-variables
 
 signatures:
   # ---- Vercel CLI. In Claude Code the CLI detects the agent and prints JSON. ----

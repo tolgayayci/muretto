@@ -25,7 +25,6 @@ Usage:
   muretto show <resource>      one resource: timeline, creator, exposure, cost, review
   muretto why <resource>       the evidence behind its attribution label
   muretto exposed              exposure findings, worst first
-  muretto fix <resource>       print the provider's steps to close it (never runs them)
   muretto review [<resource> keep|not-needed]
   muretto providers [--coverage]
   muretto adapter new <openapi-file>   draft an adapter for any API from its OpenAPI spec
@@ -68,8 +67,6 @@ func (a *app) run(ctx context.Context, args []string) int {
 		err = a.readCmd(ctx, cmd, args, 1, a.cmdWhy)
 	case "exposed":
 		err = a.readCmd(ctx, cmd, args, 0, a.cmdExposed)
-	case "fix":
-		err = a.readCmd(ctx, cmd, args, 1, a.cmdFix)
 	case "review":
 		err = a.cmdReview(ctx, args)
 	case "providers":
@@ -355,19 +352,6 @@ func (a *app) cmdExposed(_ context.Context, s *state, f flags, _ []string) error
 	return a.emit(f, sub, func(w io.Writer, o render.Options) error { return render.Exposed(w, sub, o) })
 }
 
-func (a *app) cmdFix(_ context.Context, s *state, f flags, pos []string) error {
-	r, err := resolveResource(s.answer, pos[0])
-	if err != nil {
-		return err
-	}
-	sub := resourceSubset(s.answer, r)
-	var remove *contract.Fix
-	if s.reg != nil && r.SeenVia != contract.ResourceSeenViaEvidence && r.Existence != contract.ResourceExistenceGone {
-		remove = s.reg.RemoveHint(r)
-	}
-	return a.emit(f, sub, func(w io.Writer, o render.Options) error { return render.Fix(w, sub, r.ID, remove, o) })
-}
-
 func (a *app) cmdReview(ctx context.Context, args []string) error {
 	var f flags
 	var note string
@@ -428,9 +412,6 @@ func (a *app) cmdReview(ctx context.Context, args []string) error {
 			return render.JSON(a.stdout, resourceSubset(s.answer, r))
 		}
 		a.out("Recorded: %s %s → %s. Muretto only records this; it never deletes anything.", render.ShortKind(r.Kind), render.DisplayName(r), pos[1])
-		if state == contract.ReviewItemStateNotNeeded {
-			a.out("To remove it yourself: muretto fix %s", render.DisplayName(r))
-		}
 		return nil
 	})
 }

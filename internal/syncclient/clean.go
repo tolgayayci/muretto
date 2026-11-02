@@ -156,9 +156,6 @@ func cleanFinding(f contract.ExposureFinding) contract.ExposureFinding {
 	f.Title = clean(f.Title, 200)
 	f.Explanation = clean(f.Explanation, maxText)
 	f.Caveat = cleanPtr(f.Caveat, 500)
-	f.Fix.Text = clean(f.Fix.Text, 4000)
-	f.Fix.Note = cleanPtr(f.Fix.Note, maxText)
-	f.Fix.DocsUrl = cleanURL(f.Fix.DocsUrl, 500)
 	return f
 }
 

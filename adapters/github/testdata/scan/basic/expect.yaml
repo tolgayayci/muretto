@@ -100,11 +100,6 @@ findings:
   secret_named_actions_variable:github.actions_variable:2000001/STRIPE_SECRET_KEY: exposed
   secret_named_actions_variable:github.actions_variable:2000001/SITE_URL: not_exposed
 
-fixes:
-  "public_repo:github.repo:2000001": "gh repo edit octo-example/agent-landing --visibility private --accept-visibility-change-consequences"
-  "insecure_repo_webhook:github.repo_webhook:3000001": "gh api -X PATCH repos/octo-example/agent-landing/hooks/3000001/config -f insecure_ssl=0"
-  "writable_deploy_key:github.deploy_key:4000001": "gh repo deploy-key delete 4000001 -R octo-example/agent-landing"
-
 checks:
   - github.repo|||ok
   - github.repo||public_repo|ok

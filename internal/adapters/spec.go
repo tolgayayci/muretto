@@ -116,7 +116,6 @@ type kindSpec struct {
 	Sources      []*sourceSpec `yaml:"sources"`
 	Enrich       []*enrichSpec `yaml:"enrich"`
 	Match        *matchSpec    `yaml:"match"`
-	Remove       *fixSpec      `yaml:"remove"`
 }
 
 type sourceSpec struct {
@@ -198,14 +197,6 @@ type ruleSpec struct {
 	Applies     *predicate `yaml:"applies"`
 	Exposed     *predicate `yaml:"exposed"`
 	NotExposed  *predicate `yaml:"not_exposed"`
-	Fix         fixSpec    `yaml:"fix"`
-}
-
-type fixSpec struct {
-	Kind    string `yaml:"kind"`
-	Text    tmpl   `yaml:"text"`
-	Note    tmpl   `yaml:"note"`
-	DocsURL string `yaml:"docs_url"`
 }
 
 type signatureSpec struct {
@@ -564,9 +555,6 @@ func (a *adapterSpec) validate() error {
 			checkOption(where+" enrich", e.RequiresOption)
 			checkAttrs(where+" enrich", e.Attributes, bad)
 		}
-		if k.Remove != nil {
-			checkFix(where+" remove", *k.Remove, bad)
-		}
 	}
 	for _, k := range a.Kinds {
 		for _, s := range k.Sources {
@@ -600,7 +588,6 @@ func (a *adapterSpec) validate() error {
 		if r.Title.empty() || r.Explanation.empty() {
 			bad("%s: title and explanation are required", where)
 		}
-		checkFix(where+" fix", r.Fix, bad)
 	}
 
 	sigIDs := map[string]bool{}
@@ -691,16 +678,5 @@ func checkAttrs(where string, attrs []attrSpec, bad func(string, ...any)) {
 			bad("%s: duplicate attribute %q", where, at.Name)
 		}
 		seen[at.Name] = true
-	}
-}
-
-func checkFix(where string, f fixSpec, bad func(string, ...any)) {
-	switch f.Kind {
-	case "sql", "command", "steps":
-	default:
-		bad("%s: kind must be sql, command or steps", where)
-	}
-	if f.Text.empty() {
-		bad("%s: text is required", where)
 	}
 }

@@ -1,9 +1,0 @@
-Fix for table customers
-Muretto never runs these. Review them and run them yourself.
-
-  ⚠ RLS off: publicly readable
-    ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;
-    Note: Then add policies for the access you need; with RLS on and no policy, the API returns no rows.
-
-  If you no longer need it, remove it with:
-    DROP TABLE "public"."customers";

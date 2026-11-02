@@ -217,7 +217,7 @@ func (g *gen) tokenHelp() string {
 	return b.String()
 }
 
-// prepare computes attribute names a kind's children and fixes rely on.
+// prepare computes attribute names a kind's children and rules rely on.
 func (g *gen) prepare(c *col) {
 	if c.parent != nil {
 		p := c.parent
@@ -495,10 +495,6 @@ func (g *gen) kind(c *col, ruleIDs []string) *yaml.Node {
 		add(m, "value", str("{provider_id}"))
 		add(k, "match", m)
 	}
-	if fx := g.removeFix(c); fx != nil {
-		add(k, "remove", fx)
-		g.kindInfo(c).Remove = true
-	}
 	ki := g.kindInfo(c)
 	switch c.paging.style {
 	case "cursor":
@@ -547,96 +543,6 @@ func (g *gen) acctFilter(c *col) *yaml.Node {
 		}
 	}
 	return nil
-}
-
-// pathText renders an operation path for printed commands: the account,
-// ancestors and the item itself as resource placeholders.
-func (g *gen) pathText(c *col, oi *opInfo, item string) string {
-	var b strings.Builder
-	pi := 0
-	nparams := countParams(oi.segs)
-	for _, s := range strings.SplitAfter(oi.path, "/") {
-		seg := strings.TrimSuffix(s, "/")
-		if !isParam(seg) {
-			b.WriteString(s)
-			continue
-		}
-		t := "<" + paramName(seg) + ">"
-		switch {
-		case pi == nparams-1 && item != "":
-			t = item
-		case pi < len(c.owners):
-			switch o := c.owners[pi].(type) {
-			case acctOwner:
-				t = "{account_id}"
-			case string:
-				t = o
-			case *col:
-				for _, a := range c.ancestors {
-					if a.of == o {
-						t = "{" + a.name + "}"
-					}
-				}
-			}
-		}
-		pi++
-		b.WriteString(t)
-		if strings.HasSuffix(s, "/") {
-			b.WriteString("/")
-		}
-	}
-	q := []string{}
-	for _, p := range oi.op.Params {
-		if p.In != "query" || !p.Required {
-			continue
-		}
-		switch {
-		case g.acctParam(p.Name):
-			q = append(q, p.Name+"={account_id}")
-		case p.Name == c.viaQ && len(c.ancestors) > 0:
-			q = append(q, p.Name+"={"+c.ancestors[0].name+"}")
-		default:
-			if v, ok := literal(p); ok {
-				q = append(q, p.Name+"="+v)
-			} else {
-				q = append(q, p.Name+"=<"+p.Name+">")
-			}
-		}
-	}
-	if aq := g.acctQuery(oi.op); aq != "" && !strings.Contains(strings.Join(q, "&"), aq+"=") {
-		q = append(q, aq+"={account_id}")
-	}
-	out := "https://" + g.host + b.String()
-	if len(q) > 0 {
-		out += "?" + strings.Join(q, "&")
-	}
-	return out
-}
-
-func (g *gen) authCurl() string {
-	v := strings.TrimSpace(g.authS + " $" + g.env)
-	return fmt.Sprintf(`-H "%s: %s"`, g.authH, v)
-}
-
-func (g *gen) itemRef(c *col) string {
-	if c.parent == nil {
-		return "{provider_id}"
-	}
-	return "{" + c.idAttr + "}"
-}
-
-func (g *gen) removeFix(c *col) *yaml.Node {
-	del := g.findOp("delete", c.norm+"/{}")
-	if del == nil {
-		return nil
-	}
-	m := mapping()
-	add(m, "kind", str("command"))
-	add(m, "text", quoted(fmt.Sprintf(`curl -X DELETE "%s" %s`, g.pathText(c, del, g.itemRef(c)), g.authCurl())))
-	if del.op.Summary != "" {
-		add(m, "note", str("From the spec ("+del.op.ID+"): "+plainText(del.op.Summary, 200)))
-	}
-	return m
 }
 
 // ---- signatures ----
@@ -863,18 +769,15 @@ func (g *gen) rules(c *col) ([]*yaml.Node, []string) {
 			continue
 		}
 		var exposed *yaml.Node
-		want := ""
 		switch {
 		case a.schema.Is("boolean") && rePublicBool.MatchString(a.name):
 			exposed = flow(mapping())
 			add(exposed, "field", str(a.name))
 			add(exposed, "equals", str("true"))
-			want = "false"
 		case a.schema.Is("boolean") && rePrivateBool.MatchString(a.name):
 			exposed = flow(mapping())
 			add(exposed, "field", str(a.name))
 			add(exposed, "equals", str("false"))
-			want = "true"
 		case reVisField.MatchString(a.name) && len(a.schema.Enum) > 0:
 			var pub, other []string
 			for _, v := range a.schema.Enum {
@@ -890,7 +793,6 @@ func (g *gen) rules(c *col) ([]*yaml.Node, []string) {
 			exposed = flow(mapping())
 			add(exposed, "field", str(a.name))
 			add(exposed, "in", strSeq(pub))
-			want = other[0]
 		default:
 			continue
 		}
@@ -915,17 +817,6 @@ func (g *gen) rules(c *col) ([]*yaml.Node, []string) {
 		}
 		add(r, "explanation", str(expl))
 		add(r, "caveat", str(fmt.Sprintf("Generated from the OpenAPI field %s; what %q means is the provider's definition.", a.field, describeValue(exposed))))
-		fix := mapping()
-		add(fix, "kind", str("steps"))
-		text := fmt.Sprintf("Set %s to %s for this %s in %s.", a.field, want, strings.ReplaceAll(c.kind, "_", " "), g.display)
-		for _, m := range []string{"patch", "put"} {
-			if up := g.findOp(m, c.norm+"/{}"); up != nil && up.op.Body != nil && up.op.Body.Properties[a.field] != nil {
-				text += fmt.Sprintf("\nAPI: %s %s with %s set to %s in the JSON body.", strings.ToUpper(m), g.pathText(c, up, g.itemRef(c)), a.field, want)
-				break
-			}
-		}
-		add(fix, "text", str(text))
-		add(r, "fix", fix)
 		out = append(out, r)
 		g.rep.Rules = append(g.rep.Rules, rid)
 	}

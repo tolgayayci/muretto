@@ -88,13 +88,6 @@ func (r *fakeRegistry) Scan(_ context.Context, _ *broker.Broker, provider string
 
 func (r *fakeRegistry) Extract(a observe.RawAction) []contract.Identifier { return r.ids[a.Action.ID] }
 
-func (r *fakeRegistry) RemoveHint(res contract.Resource) *contract.Fix {
-	if res.Kind == "supabase.table" {
-		return &contract.Fix{Kind: contract.FixKindSql, Text: `DROP TABLE "public"."` + res.Name + `";`}
-	}
-	return nil
-}
-
 func (r *fakeRegistry) Allowlist() []broker.Rule { return nil }
 
 type fakeHooks struct{ installed, uninstalled bool }
@@ -287,7 +280,7 @@ func TestSessionRendersTargetLookAndJSONMatchesAnswer(t *testing.T) {
 		"  ✓ branch     import-test      exact   7 days old · review due\n",
 		"  ✓ deployment preview-a81f     exact   ⚠ public preview\n",
 		"  3 exposed · 1 needs review · checked 3 min ago\n",
-		"  → muretto why customers   → muretto fix customers\n",
+		"  → muretto why customers\n",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("missing %q in:\n%s", want, text)
@@ -465,15 +458,9 @@ func TestResourceArgumentsAcceptPrefixesAndNames(t *testing.T) {
 	}
 }
 
-func TestFixPrintsAndReviewRecords(t *testing.T) {
+func TestReviewRecords(t *testing.T) {
 	h := newHarness(t)
-	out := h.mustRun("fix", "customers")
-	for _, want := range []string{`ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;`, `DROP TABLE "public"."customers";`, "never runs"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("fix missing %q:\n%s", want, out)
-		}
-	}
-	out = h.mustRun("review")
+	out := h.mustRun("review")
 	if !strings.Contains(out, "import-test") {
 		t.Fatalf("review:\n%s", out)
 	}
@@ -642,8 +629,10 @@ func TestProvidersDoctorVersionAndUsage(t *testing.T) {
 	if out := h.mustRun("version"); !strings.HasPrefix(out, "muretto dev (commit none, built unknown)") {
 		t.Fatal(out)
 	}
-	if _, _, code := h.run("bogus"); code != 2 {
-		t.Fatal("unknown command should exit 2")
+	for _, c := range []string{"bogus", "fix"} {
+		if _, _, code := h.run(c, "customers"); code != 2 {
+			t.Fatalf("unknown command %q should exit 2", c)
+		}
 	}
 	if _, _, code := h.run("session"); code != 2 {
 		t.Fatal("missing argument should exit 2")

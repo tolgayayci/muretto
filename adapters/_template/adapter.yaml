@@ -93,9 +93,6 @@ kinds:
           - { name: plan, field: billing.plan }   # rename / nested field
           - { name: public_api, field: settings.public_api, default: false }
     match: { value: "{provider_id}" }   # how identifiers find this resource
-    remove:                             # printed by `muretto fix`, never run
-      kind: command                     # sql | command | steps
-      text: "example projects delete {provider_id}"
 
   - kind: database
     for_each: project                   # one call per project; parent = that project
@@ -137,10 +134,6 @@ rules:
     title: "Public database: {name}"
     explanation: Database {name} accepts connections from the internet.
     caveat: Firewall rules outside Example Cloud are not visible to the API.
-    fix:
-      kind: steps
-      text: "Console > {name} > Networking > turn off Public access."
-      docs_url: https://docs.example.com/networking
 
 # Signatures find resource ids in agent tool calls (pure; no network).
 #   when:    tool (regex on the tool name) with optional command (regexes that

@@ -123,10 +123,6 @@ kinds:
           - { name: owner, field: owner.login }
           - { name: owner_type, field: owner.type }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "gh repo delete {full_name} --yes"
-      note: Deleting a repository is permanent after GitHub's restore window. A private repository's forks are deleted with it.
 
   # Organizations that own repositories the token can see. Used to scope the
   # organization-level lists; Muretto never lists every organization.
@@ -157,9 +153,6 @@ kinds:
           - cname
           - build_type
           - { name: repo_full_name, template: "{parent.full_name}" }
-    remove:
-      kind: command
-      text: "gh api -X DELETE repos/{repo_full_name}/pages"
 
   - kind: repo_webhook
     for_each: repo
@@ -176,9 +169,6 @@ kinds:
           - { name: insecure_ssl, field: config.insecure_ssl }
           - { name: content_type, field: config.content_type }
           - { name: repo_full_name, template: "{parent.full_name}" }
-    remove:
-      kind: command
-      text: "gh api -X DELETE repos/{repo_full_name}/hooks/{provider_id}"
 
   - kind: deploy_key
     for_each: repo
@@ -195,9 +185,6 @@ kinds:
           - enabled
           - last_used
           - { name: repo_full_name, template: "{parent.full_name}" }
-    remove:
-      kind: command
-      text: "gh repo deploy-key delete {provider_id} -R {repo_full_name}"
 
   - kind: environment
     for_each: repo
@@ -213,9 +200,6 @@ kinds:
           - { name: custom_branch_policies, field: deployment_branch_policy.custom_branch_policies }
           - { name: repo_full_name, template: "{parent.full_name}" }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "gh api -X DELETE repos/{repo_full_name}/environments/{name}"
 
   - kind: actions_variable
     for_each: repo
@@ -230,9 +214,6 @@ kinds:
           - { name: repo_full_name, template: "{parent.full_name}" }
           - { name: repo_visibility, template: "{parent.visibility}" }
     match: { value: "{name|upper}", container: "{repo_full_name|lower}" }
-    remove:
-      kind: command
-      text: "gh variable delete {name} -R {repo_full_name}"
 
   - kind: org_webhook
     for_each: organization
@@ -249,9 +230,6 @@ kinds:
           - { name: insecure_ssl, field: config.insecure_ssl }
           - { name: content_type, field: config.content_type }
           - { name: org, template: "{parent.provider_id}" }
-    remove:
-      kind: command
-      text: "gh api -X DELETE orgs/{org}/hooks/{provider_id}"
 
   - kind: installation
     for_each: organization
@@ -269,9 +247,6 @@ kinds:
           - target_type
           - suspended_at
           - { name: org, template: "{parent.provider_id}" }
-    remove:
-      kind: steps
-      text: "Open https://github.com/organizations/{org}/settings/installations/{provider_id} and click Uninstall."
 
 rules:
   - id: public_repo
@@ -288,11 +263,6 @@ rules:
       Visibility only. The API cannot say whether the repository was meant to
       be public, or what its history contains. An internal repository is
       visible to every member of the enterprise and is not flagged.
-    fix:
-      kind: command
-      text: "gh repo edit {full_name} --visibility private --accept-visibility-change-consequences"
-      note: Making a repository private removes its stars and watchers and detaches public forks. If secrets were ever committed, rotate them; they were public.
-      docs_url: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility
 
   - id: public_pages_site
     kind: pages_site
@@ -310,11 +280,6 @@ rules:
       The API reports what Pages publishes, not which files the build output
       includes. Private Pages sites need GitHub Enterprise Cloud; on other
       plans every Pages site is public.
-    fix:
-      kind: command
-      text: "gh api -X DELETE repos/{repo_full_name}/pages"
-      note: This unpublishes the site. On GitHub Enterprise Cloud you can instead set Settings > Pages > Visibility to Private.
-      docs_url: https://docs.github.com/en/enterprise-cloud@latest/pages/getting-started-with-github-pages/changing-the-visibility-of-your-github-pages-site
 
   - id: http_pages_site
     kind: pages_site
@@ -327,10 +292,6 @@ rules:
       The API reports that HTTPS is not enforced for the Pages site of
       {repo_full_name}, so it can also be served over plain HTTP.
     caveat: The API cannot see whether a custom domain's DNS or certificate is ready for HTTPS.
-    fix:
-      kind: steps
-      text: "Repository > Settings > Pages > Enforce HTTPS: on."
-      docs_url: https://docs.github.com/en/pages/getting-started-with-github-pages/securing-your-github-pages-site-with-https
 
   - id: insecure_repo_webhook
     kind: repo_webhook
@@ -346,10 +307,6 @@ rules:
     caveat: >-
       Muretto never stores the payload URL or the secret (both are stripped),
       so it cannot say where the hook delivers or whether it is signed.
-    fix:
-      kind: command
-      text: "gh api -X PATCH repos/{repo_full_name}/hooks/{provider_id}/config -f insecure_ssl=0"
-      docs_url: https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks
 
   - id: insecure_org_webhook
     kind: org_webhook
@@ -365,10 +322,6 @@ rules:
     caveat: >-
       Muretto never stores the payload URL or the secret (both are stripped),
       so it cannot say where the hook delivers or whether it is signed.
-    fix:
-      kind: command
-      text: "gh api -X PATCH orgs/{org}/hooks/{provider_id}/config -f insecure_ssl=0"
-      docs_url: https://docs.github.com/en/webhooks/using-webhooks/best-practices-for-using-webhooks
 
   - id: writable_deploy_key
     kind: deploy_key
@@ -381,11 +334,6 @@ rules:
       The API reports this deploy key on {repo_full_name} as not read-only:
       whoever holds the private key can push to the repository.
     caveat: The API cannot see where the private key is stored or who holds it.
-    fix:
-      kind: command
-      text: "gh repo deploy-key delete {provider_id} -R {repo_full_name}"
-      note: "If the deployment needs the key, add it back read-only: gh repo deploy-key add <key.pub> -R {repo_full_name} (without --allow-write)."
-      docs_url: https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys
 
   - id: secret_named_actions_variable
     kind: actions_variable
@@ -400,11 +348,6 @@ rules:
       a secret. GitHub documents variables for non-sensitive values and the API
       returns them in plaintext. Muretto never stores the value.
     caveat: Decided from the name only. Muretto strips the value and cannot say whether it is a real secret.
-    fix:
-      kind: command
-      text: "gh secret set {name} -R {repo_full_name} && gh variable delete {name} -R {repo_full_name}"
-      note: Workflows must then read secrets.{name} instead of vars.{name}. If the value was a real secret, rotate it at its provider.
-      docs_url: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-variables
 
 signatures:
   # ---- gh CLI (cli/cli pkg/cmd/repo/create/create.go). Claude Code runs it

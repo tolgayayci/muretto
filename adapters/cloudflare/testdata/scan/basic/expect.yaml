@@ -99,10 +99,6 @@ findings:
   admin_port_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/app.example.com/*: not_exposed
   admin_port_tunnel_route:cloudflare.tunnel_route:01234567-0000-4000-8000-0000000000f1/admin.example.com/ssh: not_exposed
 
-fixes:
-  "public_r2_bucket:cloudflare.r2_bucket:0123456789abcdef0123456789abcdef/example-assets": "wrangler r2 bucket dev-url disable example-assets"
-  "bypassable_r2_custom_domain:cloudflare.r2_custom_domain:example-assets/assets.example.com": "wrangler r2 bucket dev-url disable example-assets"
-
 checks:
   - cloudflare.d1_database|||ok
   - cloudflare.dns_record|0123456789abcdef0123456789abcd10||ok

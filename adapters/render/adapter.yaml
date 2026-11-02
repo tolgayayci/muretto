@@ -112,10 +112,6 @@ kinds:
           - { name: branch, field: service.branch }
           - { name: owner_id, field: service.ownerId }
           - { name: environment_id, field: service.environmentId }
-    remove:
-      kind: command
-      text: "render services delete {provider_id} --confirm"
-      note: Deleting a service removes its deploys, custom domains and environment variables.
 
   - kind: postgres
     sources:
@@ -139,10 +135,6 @@ kinds:
           - { name: owner_id, field: postgres.owner.id }
           - { name: environment_id, field: postgres.environmentId }
           - { name: ip_allow_list, field: "postgres.ipAllowList[].cidrBlock" } # joined; "" when empty
-    remove:
-      kind: command
-      text: "render postgres delete {provider_id} --confirm"
-      note: Deleting a database deletes its data and backups.
 
   - kind: key_value
     sources:
@@ -163,9 +155,6 @@ kinds:
           - { name: owner_id, field: keyValue.owner.id }
           - { name: environment_id, field: keyValue.environmentId }
           - { name: ip_allow_list, field: "keyValue.ipAllowList[].cidrBlock" } # joined; "" when empty
-    remove:
-      kind: command
-      text: "render keyvalues delete {provider_id} --confirm"
 
   - kind: env_group
     sources:
@@ -178,10 +167,6 @@ kinds:
         attributes: # names only; values are stripped
           - { name: owner_id, field: ownerId }
           - { name: environment_id, field: environmentId }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.render.com/v1/env-groups/{provider_id}" -H "Authorization: Bearer $RENDER_API_KEY"'
-      note: Services linked to the group lose its variables on their next deploy.
 
   - kind: custom_domain
     for_each: service
@@ -198,9 +183,6 @@ kinds:
           - { name: redirect_for_name, field: customDomain.redirectForName }
           - { name: public_suffix, field: customDomain.publicSuffix }
           - { name: service_id, template: "{parent.provider_id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.render.com/v1/services/{service_id}/custom-domains/{name}" -H "Authorization: Bearer $RENDER_API_KEY"'
 
   - kind: blueprint
     sources:
@@ -215,10 +197,6 @@ kinds:
           - { name: branch, field: blueprint.branch }
           - { name: path, field: blueprint.path }
           - { name: owner_id, field: blueprint.ownerId }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.render.com/v1/blueprints/{provider_id}" -H "Authorization: Bearer $RENDER_API_KEY"'
-      note: This disconnects the Blueprint; Render keeps the services and datastores it created. Delete those separately.
 
 rules:
   - id: open_postgres
@@ -239,14 +217,6 @@ rules:
     caveat: >-
       Decided from the allow list only. Connections still need the database
       password; the API does not show who holds it.
-    fix:
-      kind: command
-      text: |
-        render postgres update {provider_id} --ip-allow-list "cidr=<your-ip>/32,description=office"
-        # or block all external connections:
-        render postgres update {provider_id} --clear-ip-allow-list
-      note: --ip-allow-list replaces the whole list; repeat the flag for every block you want to keep. Services on Render connect over the internal URL, which the allow list does not affect.
-      docs_url: https://render.com/docs/postgresql-creating-connecting#restricting-external-access
 
   - id: open_key_value
     kind: key_value
@@ -266,14 +236,6 @@ rules:
     caveat: >-
       Decided from the allow list only. External connections always need the
       instance password; the API does not show who holds it.
-    fix:
-      kind: command
-      text: |
-        render keyvalues update {provider_id} --ip-allow-list "cidr=<your-ip>/32,description=office"
-        # or block all external connections:
-        render keyvalues update {provider_id} --clear-ip-allow-list
-      note: --ip-allow-list replaces the whole list; repeat the flag for every block you want to keep.
-      docs_url: https://render.com/docs/key-value#enabling-external-connections
 
   - id: expiring_postgres
     kind: postgres
@@ -296,14 +258,6 @@ rules:
     caveat: >-
       Free databases expire 30 days after creation. The API reports the date;
       it cannot say whether the data still matters.
-    fix:
-      kind: steps
-      text: |
-        If the data matters, move the database to a paid plan before {expires_at}:
-          render postgres update {provider_id} --plan <paid plan, e.g. basic_256mb>
-        If not, delete it:
-          render postgres delete {provider_id} --confirm
-      docs_url: https://render.com/docs/free#free-postgres
 
 signatures:
   # ---- Render CLI (render-oss/cli). In Claude Code stdout is not a TTY, so

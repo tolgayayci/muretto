@@ -94,10 +94,6 @@ kinds:
           - application
           - { name: endpoint_url, field: url }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "stripe webhook_endpoints delete {provider_id}"
-      note: Add --live for a live-mode endpoint. Deleting stops event delivery to that URL.
 
   - kind: product
     sources:
@@ -113,10 +109,6 @@ kinds:
           - livemode
           - default_price
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "stripe products update {provider_id} --active=false"
-      note: Archives the product (add --live in live mode). A product with prices cannot be deleted; archived products stay in the account.
 
   - kind: price
     sources:
@@ -153,10 +145,6 @@ kinds:
           - { name: product_id, field: product }
           - { name: recurring_interval, field: recurring.interval }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "stripe prices update {provider_id} --active=false"
-      note: Prices cannot be deleted through the API; this archives it (add --live in live mode).
 
   - kind: payment_link
     sources:
@@ -170,10 +158,6 @@ kinds:
           - active
           - livemode
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "stripe payment_links update {provider_id} --active=false"
-      note: Payment links cannot be deleted; a deactivated link shows customers a "deactivated" page. Add --live in live mode.
 
   - kind: billing_portal_configuration
     sources:
@@ -188,10 +172,6 @@ kinds:
           - is_default
           - { name: login_page_enabled, field: login_page.enabled }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "stripe billing_portal configurations update {provider_id} --active=false"
-      note: Portal configurations cannot be deleted; this deactivates it (add --live in live mode). The default configuration cannot be deactivated.
 
 rules:
   - id: ephemeral_webhook_endpoint
@@ -216,14 +196,6 @@ rules:
       Decided from the URL host alone. The API cannot see whether the host
       still answers, who controls it, or whether it verifies signatures. A
       custom domain that points at a tunnel or preview is not detected.
-    fix:
-      kind: steps
-      text: |
-        Point live events at a stable production URL, then remove this endpoint:
-          stripe webhook_endpoints create --live --url=https://<your-production-host>/<path> -d "enabled_events[]=<event>"
-          stripe webhook_endpoints delete {provider_id} --live
-        For local testing use a sandbox and `stripe listen --forward-to`, which needs no endpoint.
-      docs_url: https://docs.stripe.com/webhooks
 
   - id: all_events_webhook_endpoint
     kind: webhook_endpoint
@@ -237,12 +209,6 @@ rules:
       every event type the account produces, not only the ones its handler uses.
     caveat: >-
       The API cannot see which events the handler actually needs.
-    fix:
-      kind: steps
-      text: |
-        List only the events the handler uses:
-          stripe webhook_endpoints update {provider_id} --live -d "enabled_events[]=<event>" -d "enabled_events[]=<event>"
-      docs_url: https://docs.stripe.com/webhooks#events-overview
 
   - id: live_product
     kind: product
@@ -254,10 +220,6 @@ rules:
       The API reports this product in live mode, where it can be sold to real
       customers.
     caveat: Inventory only. The API does not say who created it; Muretto's attribution does.
-    fix:
-      kind: command
-      text: "stripe products update {provider_id} --active=false --live"
-      docs_url: https://docs.stripe.com/api/products/update
 
   - id: live_price
     kind: price
@@ -272,10 +234,6 @@ rules:
       The API reports this active price in live mode, where real customers can
       be charged it.
     caveat: Inventory only. The API does not say who created it; Muretto's attribution does.
-    fix:
-      kind: command
-      text: "stripe prices update {provider_id} --active=false --live"
-      docs_url: https://docs.stripe.com/api/prices/update
 
   - id: live_payment_link
     kind: payment_link
@@ -290,10 +248,6 @@ rules:
       The API reports this payment link as active in live mode: its public URL
       takes real payments from anyone who has it.
     caveat: Inventory only. The API cannot see where the link was shared.
-    fix:
-      kind: command
-      text: "stripe payment_links update {provider_id} --active=false --live"
-      docs_url: https://docs.stripe.com/api/payment-link/update
 
 signatures:
   # ---- Stripe CLI resource commands and `stripe post`. The CLI prints the

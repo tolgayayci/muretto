@@ -379,8 +379,8 @@ func (p *printer) warnings(a contract.Answer) {
 	p.line("")
 	for _, w := range a.Warnings {
 		s := "  ! " + w.Message
-		if w.Fix != nil && *w.Fix != "" {
-			s += p.dim("  → " + *w.Fix)
+		if w.Hint != nil && *w.Hint != "" {
+			s += p.dim("  → " + *w.Hint)
 		}
 		p.line("%s", s)
 	}
@@ -589,11 +589,7 @@ func Session(w io.Writer, a contract.Answer, sessionID string, o Options) error 
 		target = firstName
 	}
 	if target != "" {
-		hint := "→ muretto why " + target
-		if firstExposed != "" {
-			hint += "   → muretto fix " + target
-		}
-		p.line("  %s", hint)
+		p.line("  → muretto why %s", target)
 	}
 	return p.err
 }
@@ -797,11 +793,7 @@ func Show(w io.Writer, a contract.Answer, resourceID string, o Options) error {
 		}
 	}
 	p.line("")
-	hint := "→ muretto why " + name
-	if len(ix.exposed(r.ID)) > 0 {
-		hint += "   → muretto fix " + name
-	}
-	p.line("  %s", hint)
+	p.line("  → muretto why %s", name)
 	return p.err
 }
 
@@ -935,7 +927,7 @@ func Exposed(w io.Writer, a contract.Answer, o Options) error {
 		if f.Caveat != nil {
 			p.line("    %s", p.dim("Caveat: "+*f.Caveat))
 		}
-		p.line("    → muretto fix %s", DisplayName(r))
+		p.line("    → muretto show %s", DisplayName(r))
 	}
 	if len(unknown) > 0 {
 		p.line("")
@@ -943,52 +935,6 @@ func Exposed(w io.Writer, a contract.Answer, o Options) error {
 	}
 	p.warnings(a)
 	return p.err
-}
-
-// Fix is `muretto fix <resource>`. It prints; Muretto never runs anything.
-func Fix(w io.Writer, a contract.Answer, resourceID string, remove *contract.Fix, o Options) error {
-	p := newPrinter(w, o)
-	ix := newIndex(a)
-	r, ok := ix.res[resourceID]
-	if !ok {
-		return fmt.Errorf("resource %s is not in this answer", resourceID)
-	}
-	p.line("%s", p.bold("Fix for "+ShortKind(r.Kind)+" "+DisplayName(r)))
-	p.line("%s", p.dim("Muretto never runs these. Review them and run them yourself."))
-	ex := ix.exposed(r.ID)
-	if len(ex) == 0 {
-		p.line("")
-		if ix.unknownExposure(r.ID) {
-			p.line("  Exposure is unknown (the check did not run), so there is no fix to show yet.")
-		} else if len(ix.findings[r.ID]) > 0 {
-			p.line("  Nothing exposed (%s).", p.checked(a))
-		} else {
-			p.line("  No exposure rule applies to this kind.")
-		}
-	}
-	for _, f := range ex {
-		p.line("")
-		p.line("  %s", p.red("⚠ "+f.Title))
-		p.fix(f.Fix)
-	}
-	if remove != nil {
-		p.line("")
-		p.line("  %s", p.bold("If you no longer need it, remove it with:"))
-		p.fix(*remove)
-	}
-	return p.err
-}
-
-func (p *printer) fix(f contract.Fix) {
-	for _, l := range strings.Split(strings.TrimSpace(f.Text), "\n") {
-		p.line("    %s", l)
-	}
-	if f.Note != nil {
-		p.line("    %s", p.dim("Note: "+*f.Note))
-	}
-	if f.DocsUrl != nil {
-		p.line("    %s", p.dim("Docs: "+*f.DocsUrl))
-	}
 }
 
 // Review is `muretto review`.

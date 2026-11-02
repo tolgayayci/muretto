@@ -198,9 +198,10 @@
           "type": "string",
           "maxLength": 500
         },
-        "fix": {
+        "hint": {
           "type": "string",
-          "maxLength": 500
+          "maxLength": 500,
+          "description": "What the user can do about it, e.g. 'run muretto init'."
         }
       },
       "additionalProperties": false

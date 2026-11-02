@@ -64,10 +64,7 @@ func TestGoldenViews(t *testing.T) {
 			return Why(b, a, "supabase.project:"+tf.ProdRef, opts())
 		},
 		"exposed": func(b *bytes.Buffer) error { return Exposed(b, a, opts()) },
-		"fix": func(b *bytes.Buffer) error {
-			return Fix(b, a, table, &contract.Fix{Kind: contract.FixKindSql, Text: `DROP TABLE "public"."customers";`}, opts())
-		},
-		"review": func(b *bytes.Buffer) error { return Review(b, a, opts()) },
+		"review":  func(b *bytes.Buffer) error { return Review(b, a, opts()) },
 	}
 	for name, f := range views {
 		t.Run(name, func(t *testing.T) {
@@ -100,7 +97,7 @@ func TestSessionTargetLook(t *testing.T) {
 		"  ✓ branch     import-test      exact   7 days old · review due",
 		"  ✓ deployment preview-a81f     exact   ⚠ public preview",
 		"3 exposed · 1 needs review · checked 3 min ago",
-		"→ muretto why customers   → muretto fix customers",
+		"→ muretto why customers",
 	} {
 		if !strings.Contains(out, want+"\n") && !strings.Contains(out, want) {
 			t.Errorf("missing %q in:\n%s", want, out)

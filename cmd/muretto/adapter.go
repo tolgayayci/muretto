@@ -228,9 +228,6 @@ func (a *app) printReport(r *adaptergen.Report, out string) {
 		if k.Create {
 			flags = append(flags, "create")
 		}
-		if k.Remove {
-			flags = append(flags, "remove")
-		}
 		parent := ""
 		if k.Parent != "" {
 			parent = "per " + k.Parent

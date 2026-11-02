@@ -183,9 +183,6 @@ func TestEdgeRelativeServer(t *testing.T) {
 	if res.Report.BaseURL != "https://api.edge.dev/api/v1" || digS(a, "endpoints", "thing", "path") != "/api/v1/things" {
 		t.Fatalf("relative server path not folded in: %s\n%s", res.Report.BaseURL, res.YAML)
 	}
-	if !strings.Contains(digS(kindDef(t, a, "thing"), "remove", "text"), "https://api.edge.dev/api/v1/things/{provider_id}") {
-		t.Errorf("remove command: %v", kindDef(t, a, "thing")["remove"])
-	}
 	out := edgeScan(t, "base-relative.yaml", res)
 	if kindsOf(out.res)["thing"] != 2 {
 		t.Errorf("scan: %v %v", kindsOf(out.res), out.calls)
@@ -375,10 +372,6 @@ func TestEdgeThreeLevels(t *testing.T) {
 	if da := attrs(t, a, "deployment"); da["project_id"] != "{parent.project_id}" || da["service_id"] != "{parent.id}" {
 		t.Errorf("deployment ancestors = %v", da)
 	}
-	want := "https://api.edge.dev/v1/projects/{project_id}/services/{service_id}/deployments/{deployment_id}"
-	if txt := digS(kindDef(t, a, "deployment"), "remove", "text"); !strings.Contains(txt, want) {
-		t.Errorf("remove = %s, want %s", txt, want)
-	}
 	out := edgeScan(t, "nest3.yaml", res)
 	if k := kindsOf(out.res); k["project"] != 2 || k["service"] != 4 || k["deployment"] != 8 {
 		t.Errorf("scan: %v\n%v", k, out.calls)
@@ -438,9 +431,6 @@ func TestEdgePathConstant(t *testing.T) {
 	if digS(a, "endpoints", "thing", "path") != "/2024-01/things" || dig(a, "endpoints", "thing", "params") != nil {
 		t.Fatalf("constant path param not folded:\n%s", res.YAML)
 	}
-	if txt := digS(kindDef(t, a, "thing"), "remove", "text"); !strings.Contains(txt, "https://api.edge.dev/2024-01/things/{provider_id}") {
-		t.Errorf("remove = %s", txt)
-	}
 	out := edgeScan(t, "path-const.yaml", res)
 	if kindsOf(out.res)["thing"] != 2 {
 		t.Errorf("scan: %v %v", kindsOf(out.res), out.calls)
@@ -497,9 +487,6 @@ func TestEdgeTrailingSlash(t *testing.T) {
 	}
 	if p := digS(a, "endpoints", "part", "path"); p != "/v1/things/{thing_id}/parts/" {
 		t.Errorf("part path = %q", p)
-	}
-	if txt := digS(kindDef(t, a, "thing"), "remove", "text"); !strings.Contains(txt, `/v1/things/{provider_id}/"`) {
-		t.Errorf("remove = %s", txt)
 	}
 	out := edgeScan(t, "trailing-slash.yaml", res)
 	if k := kindsOf(out.res); k["thing"] != 2 || k["part"] != 4 {

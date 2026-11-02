@@ -101,12 +101,6 @@ kinds:
         attributes:
           - db_schema # comma-separated exposed schemas
     match: { value: "{provider_id}" }
-    remove:
-      kind: steps
-      text: |
-        Delete the project in the Supabase dashboard (Project Settings > General),
-        or call the Management API: DELETE https://api.supabase.com/v1/projects/{provider_id}
-      note: Deleting a project deletes its database, storage and functions.
 
   - kind: branch
     for_each: project
@@ -124,10 +118,6 @@ kinds:
           - git_branch
           - persistent
           - with_data
-    remove:
-      kind: command
-      text: "supabase branches delete {provider_id}"
-      note: Branches are billed per hour while they exist.
 
   - kind: function
     for_each: project
@@ -147,9 +137,6 @@ kinds:
           - verify_jwt
           - { name: project_ref, template: "{parent.ref}" }
     match: { value: "{slug}", container: "{project_ref}" }
-    remove:
-      kind: command
-      text: "supabase functions delete {slug} --project-ref {project_ref}"
 
   - kind: bucket
     for_each: project
@@ -165,13 +152,6 @@ kinds:
           - { name: bucket_id, field: id }
           - { name: project_ref, template: "{parent.ref}" }
     match: { value: "{bucket_id}", container: "{project_ref}" }
-    remove:
-      kind: steps
-      text: |
-        There is no Management API or CLI command to delete a bucket. Empty and
-        delete it in the dashboard (Storage), or with supabase-js and a secret key:
-          await supabase.storage.emptyBucket('{bucket_id|sql_literal}')
-          await supabase.storage.deleteBucket('{bucket_id|sql_literal}')
 
   - kind: table
     for_each: project
@@ -207,10 +187,6 @@ kinds:
           - anon_select
           - authenticated_select
     match: { value: "{schema}.{table}", container: "{project_ref}" }
-    remove:
-      kind: sql
-      text: 'drop table if exists "{schema|sql_ident}"."{table|sql_ident}";'
-      note: This deletes the table and all its rows. Back it up first if unsure.
 
 rules:
   - id: rls_disabled
@@ -225,15 +201,6 @@ rules:
       {schema}.{table} is in a schema exposed by the Data API, grants access to
       the anon or authenticated role, and has row level security disabled.
       Anyone with the project's public (publishable or anon) key can read it.
-    fix: &rls_fix
-      kind: sql
-      text: 'ALTER TABLE "{schema|sql_ident}"."{table|sql_ident}" ENABLE ROW LEVEL SECURITY;'
-      note: >-
-        Enabling RLS without policies blocks all access through the Data API.
-        Add policies for the access you want (CREATE POLICY ...). If the table
-        should not be reachable at all, also run
-        REVOKE ALL ON "{schema|sql_ident}"."{table|sql_ident}" FROM anon, authenticated;
-      docs_url: https://supabase.com/docs/guides/database/database-linter?lint=0013_rls_disabled_in_public
 
   - id: rls_disabled
     kind: table
@@ -252,7 +219,6 @@ rules:
       The read-only catalog query shows table {schema}.{table} has row level
       security disabled, is selectable by anon or authenticated, and its schema
       is exposed by the Data API. Anyone with the public key can read it.
-    fix: *rls_fix
 
   - id: public_bucket
     kind: bucket
@@ -263,15 +229,6 @@ rules:
     explanation: >-
       Storage bucket {bucket_id} is public: anyone who knows or guesses an
       object path can download its files without a key.
-    fix:
-      kind: steps
-      text: |
-        Make the bucket private:
-          Dashboard: Storage > {bucket_id} > Edit bucket > turn off "Public bucket" > Save.
-          Or SQL (SQL editor): update storage.buckets set public = false where id = '{bucket_id|sql_literal}';
-      note: >-
-        Public URLs stop working once the bucket is private; serve files with
-        signed URLs or storage policies instead.
 
 signatures:
   # ---- Supabase CLI (Bash). Output strings from supabase/cli v2.122.0. ----

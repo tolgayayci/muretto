@@ -160,7 +160,7 @@ func load(path string) (*settingsFile, error) {
 	}
 	root, err := parseJSON(b)
 	if err != nil {
-		return nil, fmt.Errorf("%s is not valid JSON; fix it first, Muretto won't touch it: %w", path, err)
+		return nil, fmt.Errorf("%s is not valid JSON; correct it first, Muretto won't touch it: %w", path, err)
 	}
 	if root.kind != 'o' {
 		return nil, fmt.Errorf("%s is not a JSON object; Muretto won't touch it", path)

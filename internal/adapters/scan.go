@@ -326,7 +326,7 @@ func overlay(base map[string]any, raw map[string]any) map[string]any {
 	return base
 }
 
-// resourceCtx is what rules, fixes, remove hints and match rules see:
+// resourceCtx is what rules and match rules see:
 // attributes at top level, core fields under reserved names, and the parent's
 // context under "parent" (only during a scan).
 func resourceCtx(res contract.Resource, parent map[string]any) map[string]any {
@@ -399,15 +399,13 @@ func (s *scanner) evaluateRules() {
 				Signal:      contract.ExposureFindingSignal(rule.Signal),
 				Title:       truncate(rule.Title.renderLoose(ctx), 200),
 				Explanation: truncate(rule.Explanation.renderLoose(ctx), 1000),
-				Fix:         renderFix(rule.Fix, ctx),
 			}
-			// The adapter's title, explanation and fix describe the exposed
+			// The adapter's title and explanation describe the exposed
 			// state; other states must not repeat that claim.
 			switch state {
 			case contract.ExposureFindingStateNotExposed:
 				f.Title = NotExposedTitle(rule.ID)
 				f.Explanation = NotExposedExplanation
-				f.Fix = NothingToFix()
 			case contract.ExposureFindingStateUnknown:
 				f.Title = UnknownTitle(rule.ID)
 				f.Explanation = UnknownExplanation

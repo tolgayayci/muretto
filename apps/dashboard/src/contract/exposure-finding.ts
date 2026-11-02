@@ -24,7 +24,6 @@ export interface ExposureFinding {
    * What the check cannot see, e.g. 'protection exceptions are not visible to the API'.
    */
   caveat?: string;
-  fix: Fix;
   /**
    * When the underlying check last succeeded; null if it never has (state must then be unknown).
    */
@@ -33,13 +32,4 @@ export interface ExposureFinding {
    * What the finding is based on.
    */
   signal: "official_advisor" | "api_field" | "catalog_query" | "name_pattern";
-}
-/**
- * Printed for a human to run. Muretto never runs it.
- */
-export interface Fix {
-  kind: "sql" | "command" | "steps";
-  text: string;
-  note?: string;
-  docs_url?: string;
 }

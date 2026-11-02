@@ -50,10 +50,6 @@ kinds:
           - region
           - framework
     match: {value: '{provider_id}'}
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.acme.dev/v1/projects/{provider_id}" -H "Authorization: Bearer $ACME_CLOUD_TOKEN"'
-      note: 'From the spec (deleteProject): Delete a project and everything in it.'
   - kind: webhook
     sources:
       - endpoint: webhook
@@ -63,9 +59,6 @@ kinds:
         attributes:
           - events
     match: {value: '{provider_id}'}
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.acme.dev/v1/webhooks/{provider_id}" -H "Authorization: Bearer $ACME_CLOUD_TOKEN"'
   - kind: database
     for_each: project
     sources:
@@ -83,10 +76,6 @@ kinds:
           - {name: settings_ip_allowlist, field: settings.ip_allowlist}
           - {name: project_id, template: '{parent.id}'}
     match: {value: '{database_id}', container: '{project_id}'}
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.acme.dev/v1/projects/{project_id}/databases/{database_id}" -H "Authorization: Bearer $ACME_CLOUD_TOKEN"'
-      note: 'From the spec (deleteDatabase): Delete a database.'
 rules:
   - # REVIEW: suggested from the database field "public"; check what it means for this API.
     id: public_database
@@ -97,11 +86,6 @@ rules:
     title: 'Public database: {name}'
     explanation: 'Acme Cloud reports public = true for this database, which the API marks as publicly accessible. The API describes the field as: Reachable from the internet without a VPN.'
     caveat: Generated from the OpenAPI field public; what "true" means is the provider's definition.
-    fix:
-      kind: steps
-      text: |-
-        Set public to false for this database in Acme Cloud.
-        API: PATCH https://api.acme.dev/v1/projects/{project_id}/databases/{database_id} with public set to false in the JSON body.
 signatures:
   - # curl POST /projects (createProject) (from the spec)
     id: acme-cloud.api.create_project

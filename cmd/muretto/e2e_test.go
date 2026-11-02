@@ -750,13 +750,7 @@ func TestE2EScenario(t *testing.T) {
 	}
 
 	// Exposure.
-	rls := x.state("rls_disabled", idCust, contract.ExposureFindingStateExposed)
-	if rls.Fix.Kind != contract.FixKindSql || rls.Fix.Text != `ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;` {
-		t.Errorf("rls fix = %s %q", rls.Fix.Kind, rls.Fix.Text)
-	}
-	if rls.Fix.Note == nil || !strings.Contains(*rls.Fix.Note, "policies") {
-		t.Errorf("rls fix must say policies are needed: %v", rls.Fix.Note)
-	}
+	x.state("rls_disabled", idCust, contract.ExposureFindingStateExposed)
 	x.state("rls_disabled", idWaitlist, contract.ExposureFindingStateNotExposed)
 	x.state("public_bucket", idBucket, contract.ExposureFindingStateExposed)
 	x.state("public_bucket", idLegacy, contract.ExposureFindingStateNotExposed)
@@ -806,7 +800,7 @@ func TestE2EScenario(t *testing.T) {
 		`(?m)^  SUPABASE  project acme-dev$`,
 		`(?m)^  ✓ table      customers +exact   ⚠ RLS off: publicly readable$`,
 		`(?m)^  1 exposed · checked (just now|less than a minute ago)$`,
-		`(?m)^  → muretto why customers   → muretto fix customers$`,
+		`(?m)^  → muretto why customers$`,
 	}
 	for _, re := range wantLines {
 		if !regexp.MustCompile(re).MatchString(bob) {
@@ -819,10 +813,6 @@ func TestE2EScenario(t *testing.T) {
 		if !strings.Contains(why, want) {
 			t.Errorf("why waitlist lacks %q:\n%s", want, why)
 		}
-	}
-	fix := w.run("fix", "customers")
-	if !strings.Contains(fix, `ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;`) {
-		t.Errorf("fix customers:\n%s", fix)
 	}
 	res := w.run("resources")
 	if !regexp.MustCompile(`(?m)^  · bucket +legacy-assets +unknown +creator unknown$`).MatchString(res) {

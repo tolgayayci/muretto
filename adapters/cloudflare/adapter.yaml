@@ -134,10 +134,6 @@ kinds:
           - { name: managed_domain_enabled, field: result.enabled }
           - { name: managed_domain, field: result.domain }
     match: { value: "{name}" }
-    remove:
-      kind: command
-      text: "wrangler r2 bucket delete {name}"
-      note: The bucket must be empty first. Deleting it removes its r2.dev and custom-domain access.
 
   - kind: r2_custom_domain
     for_each: r2_bucket
@@ -158,9 +154,6 @@ kinds:
           - { name: min_tls, field: minTLS }
           - { name: bucket_name, template: "{parent.name}" }
     match: { value: "{bucket_name}/{domain}" }
-    remove:
-      kind: command
-      text: "wrangler r2 bucket domain remove {bucket_name} --domain {domain}"
 
   # ---- Workers ----
   - kind: worker
@@ -181,10 +174,6 @@ kinds:
           - logpush
           - tags
     match: { value: "{name}" }
-    remove:
-      kind: command
-      text: "wrangler delete {name}"
-      note: Deletes the Worker and all its versions, routes and workers.dev URL.
 
   # ---- Pages ----
   - kind: pages_project
@@ -204,10 +193,6 @@ kinds:
           - { name: source_type, field: source.type }
           - { name: preview_deployment_setting, field: source.config.preview_deployment_setting }
     match: { value: "{name}" }
-    remove:
-      kind: command
-      text: "wrangler pages project delete {name}"
-      note: Deletes the project, its deployments and its pages.dev URLs.
 
   - kind: pages_deployment
     for_each: pages_project
@@ -227,9 +212,6 @@ kinds:
           - { name: trigger_type, field: deployment_trigger.type }
           - { name: project_name, template: "{project_name|or:parent.name}" }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments/{provider_id}?force=true" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"'
 
   # ---- D1 and KV ----
   - kind: d1_database
@@ -243,9 +225,6 @@ kinds:
           - jurisdiction
           - version
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "wrangler d1 delete {name}"
 
   - kind: kv_namespace
     sources:
@@ -257,9 +236,6 @@ kinds:
           - title
           - jurisdiction
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "wrangler kv namespace delete --namespace-id {provider_id}"
 
   # ---- Zones and DNS ----
   - kind: zone
@@ -274,9 +250,6 @@ kinds:
           - paused
           - type
           - { name: plan, field: plan.name }
-    remove:
-      kind: steps
-      text: "Cloudflare dashboard > {name} > Overview > Advanced Actions > Remove from Cloudflare"
 
   - kind: dns_record
     for_each: zone
@@ -294,9 +267,6 @@ kinds:
           - { name: zone_id, template: "{parent.id}" }
           - { name: zone_name, template: "{parent.name}" }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: 'curl -X DELETE "https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{provider_id}" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"'
 
   # ---- Tunnels ----
   - kind: tunnel
@@ -320,10 +290,6 @@ kinds:
           # Tunnel-wide default; an ingress rule's own originRequest overrides it.
           - { name: config_access_required, field: result.config.originRequest.access.required }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "cloudflared tunnel delete {name}"
-      note: Stop every cloudflared connector for this tunnel first, or add --force.
 
   # One resource per public hostname in a remotely managed tunnel's ingress.
   - kind: tunnel_route
@@ -347,12 +313,6 @@ kinds:
           - { name: no_tls_verify, field: originRequest.noTLSVerify }
           - { name: tunnel_id, template: "{parent.id}" }
           - { name: tunnel_name, template: "{parent.name}" }
-    remove:
-      kind: steps
-      text: |
-        Cloudflare dashboard > Zero Trust > Networks > Tunnels > {tunnel_name} >
-        Public Hostname: delete {hostname}. Also delete its DNS CNAME to
-        {tunnel_id}.cfargotunnel.com.
 
 rules:
   - id: public_r2_bucket
@@ -369,11 +329,6 @@ rules:
       Cloudflare documents r2.dev as rate-limited and for non-production use.
       Buckets in a non-default jurisdiction (eu, fedramp) are not listed.
       Muretto does not read object keys or contents.
-    fix:
-      kind: command
-      text: "wrangler r2 bucket dev-url disable {name}"
-      note: Serve public files through a custom domain instead, where WAF, caching and Access apply.
-      docs_url: https://developers.cloudflare.com/r2/buckets/public-buckets/
 
   - id: bypassable_r2_custom_domain
     kind: r2_custom_domain
@@ -388,10 +343,6 @@ rules:
       r2.dev domain enabled. WAF custom rules, caching, access controls and Bot
       Management apply only on the custom domain, not on r2.dev.
     caveat: Muretto does not see the WAF or Access rules on the custom domain.
-    fix:
-      kind: command
-      text: "wrangler r2 bucket dev-url disable {bucket_name}"
-      docs_url: https://developers.cloudflare.com/r2/buckets/public-buckets/
 
   - id: public_worker
     kind: worker
@@ -406,14 +357,6 @@ rules:
     caveat: >-
       A Cloudflare Access application on the workers.dev URL, or
       authentication in the Worker's own code, is not visible here.
-    fix:
-      kind: steps
-      text: |
-        Set workers_dev = false in the Worker's Wrangler configuration and run
-        wrangler deploy (a dashboard-only change is undone by the next deploy),
-        or protect the URL with Cloudflare Access:
-          Workers & Pages > {name} > Settings > Domains & Routes.
-      docs_url: https://developers.cloudflare.com/workers/configuration/routing/workers-dev/
 
   - id: public_worker_preview
     kind: worker
@@ -427,13 +370,6 @@ rules:
       workers.dev, so uploaded versions that are not deployed to production can
       be reached there. Disabling workers.dev does not disable them.
     caveat: A Cloudflare Access application on the preview URLs is not visible here.
-    fix:
-      kind: steps
-      text: |
-        Set preview_urls = false in the Worker's Wrangler configuration and run
-        wrangler deploy, or protect preview URLs with Cloudflare Access:
-          Workers & Pages > {name} > Settings > Domains & Routes.
-      docs_url: https://developers.cloudflare.com/workers/configuration/previews/
 
   - id: localhost_tunnel_route
     kind: tunnel_route
@@ -456,13 +392,6 @@ rules:
     caveat: >-
       A Cloudflare Access application on {hostname} is not checked. Locally
       managed tunnels (config.yml on the host) are not visible to the API.
-    fix:
-      kind: steps
-      text: |
-        Remove the public hostname if it was for testing:
-          Zero Trust > Networks > Tunnels > {tunnel_name} > Public Hostname > {hostname} > Delete
-        or put a Cloudflare Access application in front of {hostname}.
-      docs_url: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/
 
   - id: admin_port_tunnel_route
     kind: tunnel_route
@@ -489,13 +418,6 @@ rules:
     caveat: >-
       A Cloudflare Access application on {hostname} is not checked. ssh://,
       rdp:// and tcp:// hostnames need cloudflared or WARP on the client.
-    fix:
-      kind: steps
-      text: |
-        Zero Trust > Networks > Tunnels > {tunnel_name} > Public Hostname >
-        {hostname}: delete it, or protect it with a Cloudflare Access
-        application (and set Protect with Access in the hostname's settings).
-      docs_url: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/
 
 signatures:
   # ---- Wrangler (workers-sdk 3f14c76, 2026-10-30) ----

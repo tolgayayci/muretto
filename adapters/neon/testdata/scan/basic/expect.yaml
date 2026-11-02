@@ -57,9 +57,6 @@ findings:
   long_running_endpoint:neon.endpoint:example-project-123456/ep-example-000002: exposed
   long_running_endpoint:neon.endpoint:example-project-123456/ep-example-000003: not_exposed
 
-fixes:
-  long_running_endpoint:neon.endpoint:example-project-123456/ep-example-000002: "If the branch is no longer needed:\n  neon branches delete br-example-000002 --project-id example-project-123456\nOtherwise give it an expiry:\n  neon branches set-expiration br-example-000002 --project-id example-project-123456 --expires-at <RFC 3339 time>"
-
 checks:
   - neon.project|||ok
   - neon.project||open_project|ok

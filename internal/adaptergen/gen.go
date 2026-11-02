@@ -1,8 +1,7 @@
 // Package adaptergen turns an OpenAPI description into a draft Muretto
 // adapter (adapters/WRITING.md): read-only list endpoints, accounts,
 // kinds with parent/child fan-out, field mappings, secret stripping,
-// pagination, printed remove commands, curl creation signatures and
-// candidate exposure rules.
+// pagination, curl creation signatures and candidate exposure rules.
 //
 // Everything it writes comes from the spec; what a spec cannot say (CLI
 // output, MCP tool names, what "public" means) is left out or marked REVIEW.
@@ -70,7 +69,6 @@ type KindInfo struct {
 	Parent     string
 	Paging     string // "cursor", "single page", or why pages are not followed
 	Attributes int
-	Remove     bool
 	Create     bool
 	Selected   bool
 	Note       string // why it is not selected by default

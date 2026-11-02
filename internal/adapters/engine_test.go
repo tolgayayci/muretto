@@ -357,15 +357,13 @@ func TestArrayAttributeAndDueWithin(t *testing.T) {
     exposed: { field: cidrs, contains_any: [0.0.0.0/0] }
     title: Open
     explanation: Open.
-    fix: { kind: steps, text: Close it. }
   - id: expiring_thing
     kind: thing
     severity: low
     signal: api_field
     exposed: { field: expires_at, due_within: 7d }
     title: Expiring
-    explanation: Expiring.
-    fix: { kind: steps, text: Upgrade. }`)
+    explanation: Expiring.`)
 	soon := time.Now().UTC().Add(3 * 24 * time.Hour).Format(time.RFC3339)
 	later := time.Now().UTC().Add(60 * 24 * time.Hour).Format(time.RFC3339)
 	res, _ := scanOffline(t, r, func(path string, q url.Values) (int, string, string) {

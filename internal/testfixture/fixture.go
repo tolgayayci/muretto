@@ -186,18 +186,14 @@ func Findings() []contract.ExposureFinding {
 		{ID: "rls_disabled:" + table, ResourceID: table, RuleID: "rls_disabled", State: contract.ExposureFindingStateExposed,
 			Severity: contract.ExposureFindingSeverityCritical, Signal: contract.ExposureFindingSignalOfficialAdvisor,
 			Title: "RLS off: publicly readable", CheckedAt: &t,
-			Explanation: "Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it.",
-			Fix: contract.Fix{Kind: contract.FixKindSql, Text: `ALTER TABLE "public"."customers" ENABLE ROW LEVEL SECURITY;`,
-				Note: p("Then add policies for the access you need; with RLS on and no policy, the API returns no rows.")}},
+			Explanation: "Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it."},
 		{ID: "public_bucket:" + bucket, ResourceID: bucket, RuleID: "public_bucket", State: contract.ExposureFindingStateExposed,
 			Severity: contract.ExposureFindingSeverityHigh, Signal: contract.ExposureFindingSignalApiField,
-			Title: "public", CheckedAt: &t, Explanation: "Anyone with a file URL can download objects from this bucket.",
-			Fix: contract.Fix{Kind: contract.FixKindSteps, Text: "Dashboard → Storage → customer-files → Edit bucket → turn off \"Public bucket\"."}},
+			Title: "public", CheckedAt: &t, Explanation: "Anyone with a file URL can download objects from this bucket."},
 		{ID: "public_preview:" + dep, ResourceID: dep, RuleID: "public_preview", State: contract.ExposureFindingStateExposed,
 			Severity: contract.ExposureFindingSeverityMedium, Signal: contract.ExposureFindingSignalApiField,
 			Title: "public preview", CheckedAt: &t, Caveat: p("Protection exceptions are not visible to the API."),
-			Explanation: "Deployment protection is off for this project, so the preview URL is reachable by anyone.",
-			Fix:         contract.Fix{Kind: contract.FixKindSteps, Text: "Project → Settings → Deployment Protection → enable Vercel Authentication for previews."}},
+			Explanation: "Deployment protection is off for this project, so the preview URL is reachable by anyone."},
 	}
 }
 

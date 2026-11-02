@@ -5,7 +5,7 @@ export type { Answer, SessionView, Summary, Warning } from "./answer";
 export type { Attribution, Evidence } from "./attribution";
 export type { CostRecord } from "./cost-record";
 export type { Developer } from "./developer";
-export type { ExposureFinding, Fix } from "./exposure-finding";
+export type { ExposureFinding } from "./exposure-finding";
 export type { Member, Org } from "./org";
 export type { ProviderCheck } from "./provider-check";
 export type { Resource } from "./resource";

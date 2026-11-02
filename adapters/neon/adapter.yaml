@@ -102,13 +102,6 @@ kinds:
           - { name: ip_allow_protected_branches_only, field: project.settings.allowed_ips.protected_branches_only, default: false }
           - { name: block_public_connections, field: project.settings.block_public_connections, default: false }
     match: { value: "{provider_id}" }
-    remove:
-      kind: command
-      text: "neon projects delete {provider_id}"
-      note: >-
-        Deletes the project with all its branches, computes and databases.
-        Deleted projects can be recovered for 7 days. Protected branches block
-        deletion.
 
   - kind: branch
     for_each: project
@@ -131,10 +124,6 @@ kinds:
           - expires_at
     # Branch ids (br-…) are printed without the project in CLI table output.
     match: { value: "{branch_id}" }
-    remove:
-      kind: command
-      text: "neon branches delete {branch_id} --project-id {project_id}"
-      note: Protected and default branches cannot be deleted this way.
 
   - kind: endpoint
     for_each: branch
@@ -158,14 +147,6 @@ kinds:
           - disabled
           - creation_source
     match: { value: "{endpoint_id}" }
-    remove:
-      kind: steps
-      text: |
-        The Neon CLI has no command to delete a compute. Delete it in the Neon
-        Console (project {project_id} > Branches > {branch_id} > Computes), or
-        with the Neon API:
-          curl -X DELETE "https://console.neon.tech/api/v2/projects/{project_id}/endpoints/{endpoint_id}" -H "Authorization: Bearer $NEON_API_KEY"
-      note: Deleting the branch ({branch_id}) also deletes its computes.
 
   - kind: database
     for_each: branch
@@ -190,10 +171,6 @@ kinds:
           - { name: data_api_anon_role, field: settings.db_anon_role }
           - { name: data_api_schemas, field: settings.db_schemas }
     match: { value: "{database_name}", container: "{branch_id}" }
-    remove:
-      kind: command
-      text: "neon databases delete {database_name} --project-id {project_id} --branch {branch_id}"
-      note: This deletes the database and all its data on this branch.
 
   - kind: role
     for_each: branch
@@ -210,10 +187,6 @@ kinds:
           - protected
           - authentication_method
     match: { value: "{role_name}", container: "{branch_id}" }
-    remove:
-      kind: command
-      text: "neon roles delete {role_name} --project-id {project_id} --branch {branch_id}"
-      note: Databases the role owns must be dropped or reassigned first.
 
 rules:
   - id: api_exposed_database
@@ -234,16 +207,6 @@ rules:
       authenticated roles can read: GRANTs and RLS are only visible with SQL,
       and Neon's API has no SQL endpoint. Whether the agent passed
       add_default_grants is only visible in its own tool call.
-    fix:
-      kind: steps
-      text: |
-        Check what the Data API can reach (SQL editor, as the owner):
-          SELECT grantee, table_schema, table_name, privilege_type FROM information_schema.role_table_grants WHERE grantee IN ('{data_api_anon_role|sql_literal}', 'authenticated');
-        Enable RLS on every exposed table (ALTER TABLE ... ENABLE ROW LEVEL SECURITY;) and add policies.
-        If the Data API is not needed, remove it:
-          neon data-api delete --project-id {project_id} --branch {branch_id} --database {database_name}
-      note: Removing the Data API makes existing Data API requests fail.
-      docs_url: https://neon.com/docs/data-api/access-control
 
   - id: open_project
     kind: project
@@ -269,17 +232,6 @@ rules:
       IP Allow is only offered on the Scale plan, so this rule does not run
       for free or Launch projects. Private Networking (VPC endpoints) is not
       checked.
-    fix:
-      kind: steps
-      text: |
-        Neon Console > project {name} > Settings > Networking > IP Allow:
-        add your trusted addresses or CIDR ranges and save.
-        Or: neon ip-allow add <ip-or-cidr> --project-id {provider_id}
-      note: >-
-        Add the Neon MCP server's addresses (34.192.103.46, 23.22.233.166) if
-        you use it. Choosing "Protected branches only" leaves other branches
-        open.
-      docs_url: https://neon.com/docs/introduction/ip-allow
 
   - id: long_running_endpoint
     kind: endpoint
@@ -307,14 +259,6 @@ rules:
     caveat: >-
       current_state is a snapshot: a compute that scales to zero may be idle a
       minute later. The API does not say whether anyone still uses the branch.
-    fix:
-      kind: steps
-      text: |
-        If the branch is no longer needed:
-          neon branches delete {branch_id} --project-id {project_id}
-        Otherwise give it an expiry:
-          neon branches set-expiration {branch_id} --project-id {project_id} --expires-at <RFC 3339 time>
-      docs_url: https://neon.com/docs/guides/branch-expiration
 
 signatures:
   # ---- Neon CLI (neon / neonctl). Output from neondatabase/neonctl v2.27.0

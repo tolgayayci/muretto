@@ -167,21 +167,6 @@ func TestMatches(t *testing.T) {
 	}
 }
 
-func TestRemoveHint(t *testing.T) {
-	r := loadEmbedded(t)
-	table := contract.Resource{
-		Provider: "supabase", Kind: "supabase.table",
-		Attributes: contract.ResourceAttributes{"schema": "public", "table": `we"ird`},
-	}
-	f := r.RemoveHint(table)
-	if f == nil || f.Kind != contract.FixKindSql || f.Text != `drop table if exists "public"."we""ird";` {
-		t.Fatalf("table remove hint = %+v", f)
-	}
-	if r.RemoveHint(contract.Resource{Provider: "nope", Kind: "nope.x"}) != nil {
-		t.Fatal("unknown provider must have no hint")
-	}
-}
-
 func TestParseJSONResults(t *testing.T) {
 	cases := []struct {
 		in   string

@@ -248,7 +248,7 @@ func TestFindingsReplacedOnlyBySuccessfulRuleCheck(t *testing.T) {
 		return c
 	}
 	f := contract.ExposureFinding{ID: "public_bucket:" + b.ID, ResourceID: b.ID, RuleID: "public_bucket", State: "exposed",
-		Severity: "high", Signal: "api_field", Title: "public", Explanation: "x", Fix: contract.Fix{Kind: "steps", Text: "make it private"}}
+		Severity: "high", Signal: "api_field", Title: "public", Explanation: "x"}
 	unknownCost := contract.CostRecord{ResourceID: b.ID, Source: "unknown", AmountMicros: ptr(0), Basis: "none", AsOf: t0}
 	if err := s.ApplyScan(ctx, "supabase", "org", Scan{Resources: []contract.Resource{b}, Findings: []contract.ExposureFinding{f},
 		Costs: []contract.CostRecord{unknownCost}, Checks: []contract.ProviderCheck{rule("ok", t0)}}, t0); err != nil {

@@ -41,7 +41,6 @@ type expectation struct {
 	Resources []string                        `yaml:"resources"`
 	Fields    map[string]map[string]any       `yaml:"fields"`
 	Findings  map[string]string               `yaml:"findings"`
-	Fixes     map[string]string               `yaml:"fixes"`
 	Checks    []string                        `yaml:"checks"`
 	Forbidden []string                        `yaml:"forbidden"`
 }
@@ -229,10 +228,8 @@ func TestScanFixtures(t *testing.T) {
 			}
 
 			gotF := map[string]string{}
-			fixes := map[string]string{}
 			for _, fi := range res.Findings {
 				gotF[fi.ID] = string(fi.State)
-				fixes[fi.ID] = fi.Fix.Text
 				if fi.State != contract.ExposureFindingStateUnknown && fi.CheckedAt == nil {
 					t.Errorf("%s: decided finding without checked_at", fi.ID)
 				}
@@ -244,11 +241,6 @@ func TestScanFixtures(t *testing.T) {
 				exp.Findings = map[string]string{}
 			}
 			assertSameMap(t, "findings", gotF, exp.Findings)
-			for id, want := range exp.Fixes {
-				if strings.TrimSpace(fixes[id]) != want {
-					t.Errorf("fix %s = %q, want %q", id, fixes[id], want)
-				}
-			}
 
 			var gotC []string
 			for _, c := range res.Checks {
@@ -414,7 +406,7 @@ func assertSameMultiset(t *testing.T, what string, got, want []string) {
 	}
 }
 
-// TestFindingTextFollowsState: an adapter's title, explanation and fix are
+// TestFindingTextFollowsState: an adapter's title and explanation are
 // written for the exposed state. A not_exposed or unknown finding must not
 // repeat "is publicly readable" next to a check mark or question mark.
 func TestFindingTextFollowsState(t *testing.T) {
@@ -467,9 +459,6 @@ func TestFindingTextFollowsState(t *testing.T) {
 	if exp.Title != "RLS off: public.customers is publicly readable" {
 		t.Errorf("exposed title changed: %q", exp.Title)
 	}
-	if !strings.Contains(exp.Fix.Text, "ENABLE ROW LEVEL SECURITY") {
-		t.Errorf("exposed fix lost the SQL: %q", exp.Fix.Text)
-	}
 
 	ne := get("orders")
 	if ne.State != contract.ExposureFindingStateNotExposed {
@@ -478,8 +467,8 @@ func TestFindingTextFollowsState(t *testing.T) {
 	if ne.Title != "Row level security: not exposed" {
 		t.Errorf("not_exposed title = %q", ne.Title)
 	}
-	if ne.Explanation != NotExposedExplanation || ne.Fix.Text != "Nothing to fix." {
-		t.Errorf("not_exposed explanation/fix = %q / %q", ne.Explanation, ne.Fix.Text)
+	if ne.Explanation != NotExposedExplanation {
+		t.Errorf("not_exposed explanation = %q", ne.Explanation)
 	}
 	if ne.CheckedAt == nil {
 		t.Error("not_exposed finding without checked_at")

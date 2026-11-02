@@ -246,18 +246,15 @@ func deriveFindings(resources []contract.Resource, stored []contract.ExposureFin
 				f.State = contract.ExposureFindingStateNotExposed
 				f.Title = adapters.NotExposedTitle(rule)
 				f.Explanation = adapters.NotExposedExplanation
-				f.Fix = adapters.NothingToFix()
 			case ok:
 				f.Title = adapters.HumanRule(rule) + ": not checked"
 				f.Explanation = "The last check of this rule did not succeed, so exposure is unknown."
 				if c.Error != nil {
 					f.Explanation += " Error: " + *c.Error
 				}
-				f.Fix = contract.Fix{Kind: contract.FixKindSteps, Text: "Run `muretto doctor` to see why the check failed."}
 			default:
 				f.Title = adapters.HumanRule(rule) + ": not checked"
 				f.Explanation = "This rule has not been checked for this resource yet, so exposure is unknown."
-				f.Fix = contract.Fix{Kind: contract.FixKindSteps, Text: "Run `muretto --refresh`, or `muretto doctor` if it stays unknown."}
 			}
 			out = append(out, f)
 		}
@@ -478,11 +475,11 @@ func Summarize(a contract.Answer, now time.Time) contract.Summary {
 
 func warnings(in Input, a contract.Answer, now time.Time) []contract.Warning {
 	out := []contract.Warning{}
-	add := func(code, msg, fix string) {
+	add := func(code, msg, hint string) {
 		w := contract.Warning{Code: code, Message: clip(msg, 500)}
-		if fix != "" {
-			f := clip(fix, 500)
-			w.Fix = &f
+		if hint != "" {
+			h := clip(hint, 500)
+			w.Hint = &h
 		}
 		out = append(out, w)
 	}
@@ -604,7 +601,6 @@ func Redact(a contract.Answer) contract.Answer {
 		f := &a.Findings[i]
 		f.Title, f.Explanation = redact.String(f.Title), redact.String(f.Explanation)
 		f.Caveat = rp(f.Caveat)
-		f.Fix.Text, f.Fix.Note = redact.String(f.Fix.Text), rp(f.Fix.Note)
 	}
 	for i := range a.Checks {
 		a.Checks[i].Error = rp(a.Checks[i].Error)
@@ -614,7 +610,7 @@ func Redact(a contract.Answer) contract.Answer {
 	}
 	for i := range a.Warnings {
 		a.Warnings[i].Message = redact.String(a.Warnings[i].Message)
-		a.Warnings[i].Fix = rp(a.Warnings[i].Fix)
+		a.Warnings[i].Hint = rp(a.Warnings[i].Hint)
 	}
 	return a
 }

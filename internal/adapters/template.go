@@ -113,7 +113,7 @@ func (t tmpl) render(ctx map[string]any) (string, bool) {
 }
 
 // renderLoose expands t, writing <path> for placeholders that resolve to
-// nothing. Used for human text (titles, fixes) where a hole beats no text.
+// nothing. Used for human text (titles, explanations) where a hole beats no text.
 func (t tmpl) renderLoose(ctx map[string]any) string {
 	var b strings.Builder
 	for _, p := range t.parts {

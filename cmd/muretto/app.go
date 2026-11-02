@@ -43,7 +43,6 @@ type Registry interface {
 	Accounts(ctx context.Context, b *broker.Broker, provider, token string) ([]adapters.Account, error)
 	Scan(ctx context.Context, b *broker.Broker, provider string, c adapters.Credentials) (adapters.ScanResult, error)
 	Extract(a observe.RawAction) []contract.Identifier
-	RemoveHint(res contract.Resource) *contract.Fix
 	Allowlist() []broker.Rule
 }
 
@@ -314,10 +313,10 @@ func (s *state) close() {
 	}
 }
 
-func (a *app) warn(s *state, code, msg, fix string) {
+func (a *app) warn(s *state, code, msg, hint string) {
 	w := contract.Warning{Code: code, Message: clip(msg, 500)}
-	if fix != "" {
-		w.Fix = &fix
+	if hint != "" {
+		w.Hint = &hint
 	}
 	s.warnings = append(s.warnings, w)
 }
