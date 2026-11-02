@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo/session.sh <dev>: one headless Claude Code session for the demo grid.
+# examples/live-demo/session.sh <dev>: one headless Claude Code session for the demo grid.
 #
 # Started by run.sh in a tmux pane (or in the background with run.sh --wait).
 # It waits for the shared "go" file, then runs `claude -p` with Muretto's
@@ -10,10 +10,10 @@
 #
 # Demo tool for TEST accounts only. Muretto itself never writes anything.
 set -euo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
-usage() { say "usage: demo/session.sh [--dry-run] [--no-wait] <alice|bob|carol|dan|eve>"; }
+usage() { say "usage: examples/live-demo/session.sh [--dry-run] [--no-wait] <alice|bob|carol|dan|eve>"; }
 NO_WAIT=0
 DEV=''
 while [ $# -gt 0 ]; do
@@ -94,7 +94,7 @@ SID_FILE=$DEMO_RUN_DIR/devs/$DEV/session-id
 if [ "$DRY_RUN" = 1 ] && [ ! -f "$SID_FILE" ]; then
 	SID=00000000-0000-4000-8000-000000000000
 else
-	[ -f "$SID_FILE" ] || die "no session id at $SID_FILE; start the demo with demo/run.sh"
+	[ -f "$SID_FILE" ] || die "no session id at $SID_FILE; start the demo with examples/live-demo/run.sh"
 	SID=$(cat "$SID_FILE")
 fi
 HOOKS=$DEMO_RUN_DIR/hooks.json

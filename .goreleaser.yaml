@@ -38,7 +38,7 @@ archives:
   - id: default
     ids: [muretto]
     formats: [tar.gz]
-    # muretto_1.2.3_darwin_arm64.tar.gz: install.sh and npm/scripts/assemble.mjs
+    # muretto_1.2.3_darwin_arm64.tar.gz: install.sh and packaging/npm/scripts/assemble.mjs
     # depend on this exact name.
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:

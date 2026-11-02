@@ -10,7 +10,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tolgayayci/muretto.git",
-    "directory": "npm/muretto-darwin-x64"
+    "directory": "packaging/npm/muretto-darwin-x64"
   },
   "os": [
     "darwin"

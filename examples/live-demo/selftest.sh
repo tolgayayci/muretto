@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo/selftest.sh: offline check of the demo's local plumbing.
+# examples/live-demo/selftest.sh: offline check of the demo's local plumbing.
 #
 # No provider accounts, no tokens, no network beyond 127.0.0.1, no Claude
 # sessions. It uses the same lib.sh functions run.sh uses:
@@ -11,7 +11,7 @@
 #   6. check the server has bob's session, in his view and in alice's team view
 # Then it stops the server and deletes its scratch directory.
 set -euo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 DRY_RUN=0

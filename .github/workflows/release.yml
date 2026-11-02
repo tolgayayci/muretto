@@ -75,14 +75,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          mkdir -p npm/.dist
-          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir npm/.dist \
+          mkdir -p packaging/npm/.dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir packaging/npm/.dist \
             --pattern 'muretto_*.tar.gz' --pattern 'checksums.txt'
-          (cd npm/.dist && sha256sum --strict -c checksums.txt)
+          (cd packaging/npm/.dist && sha256sum --strict -c checksums.txt)
       - name: assemble platform packages
         env:
           TAG: ${{ github.ref_name }}
-        run: node npm/scripts/assemble.mjs "${TAG#v}" --dist npm/.dist
+        run: node packaging/npm/scripts/assemble.mjs "${TAG#v}" --dist packaging/npm/.dist
       - name: publish platform packages first, then the launcher
         env:
           TAG: ${{ github.ref_name }}
@@ -95,5 +95,5 @@ jobs:
               echo "$p@$version already published; skipping (re-run)"
               continue
             fi
-            npm publish "./npm/$p" --access public --provenance --tag "$dist_tag" --ignore-scripts
+            npm publish "./packaging/npm/$p" --access public --provenance --tag "$dist_tag" --ignore-scripts
           done

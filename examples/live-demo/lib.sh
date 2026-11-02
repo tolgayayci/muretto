@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034 # variables here are used by the scripts that source this file
-# demo/lib.sh: shared guards and helpers for the Muretto demo harness.
+# examples/live-demo/lib.sh: shared guards and helpers for the Muretto demo harness.
 #
 # Sourced by run.sh, setup.sh, reset.sh, prove.sh, session.sh, syncloop.sh and
 # selftest.sh. Written for bash 3.2 (the macOS default): no associative
@@ -10,7 +10,7 @@
 # Muretto. Muretto itself never creates, changes or deletes anything.
 
 DEMO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT=$(cd "$DEMO_DIR/.." && pwd)
+REPO_ROOT=$(cd "$DEMO_DIR/../.." && pwd)
 DEMO_ENV_FILE=${DEMO_ENV_FILE:-$DEMO_DIR/.env}
 DEMO_RUN_DIR=${DEMO_RUN_DIR:-$DEMO_DIR/.run}
 MURETTO_BIN=${MURETTO_BIN:-$REPO_ROOT/bin/muretto}
@@ -48,7 +48,7 @@ die() {
 # load_env parses KEY=VALUE lines without executing anything (no `source`).
 # Surrounding single or double quotes are stripped. File values win.
 load_env() {
-	[ -f "$DEMO_ENV_FILE" ] || die "$DEMO_ENV_FILE not found. Copy demo/.env.example to demo/.env and fill it in."
+	[ -f "$DEMO_ENV_FILE" ] || die "$DEMO_ENV_FILE not found. Copy examples/live-demo/.env.example to examples/live-demo/.env and fill it in."
 	local line key val n=0
 	while IFS= read -r line || [ -n "$line" ]; do
 		n=$((n + 1))
@@ -291,7 +291,7 @@ start_server() {
 		return 0
 	fi
 	if curl -fsS "$SERVER_URL/healthz" >/dev/null 2>&1; then
-		die "something already answers on $SERVER_URL. Run demo/reset.sh --local, or change DEMO_SERVER_PORT."
+		die "something already answers on $SERVER_URL. Run examples/live-demo/reset.sh --local, or change DEMO_SERVER_PORT."
 	fi
 	(
 		# Dev login without a Supabase project: CLI dev tokens stand in for the
@@ -516,7 +516,7 @@ kill_tree() {
 
 # ---------------------------------------------------------------- providers
 # Only the demo scripts call these, and only against the TEST accounts in
-# demo/.env. Muretto itself goes through its read-only broker instead.
+# examples/live-demo/.env. Muretto itself goes through its read-only broker instead.
 
 SUPABASE_API=https://api.supabase.com
 VERCEL_API=https://api.vercel.com

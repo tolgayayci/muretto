@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# demo/setup.sh: one-time preparation of the TEST accounts.
+# examples/live-demo/setup.sh: one-time preparation of the TEST accounts.
 #
-#   demo/setup.sh            dry run: print what would be done (no network)
-#   demo/setup.sh --apply    do it (asks you to type the test project ref)
+#   examples/live-demo/setup.sh            dry run: print what would be done (no network)
+#   examples/live-demo/setup.sh --apply    do it (asks you to type the test project ref)
 #
 # Demo tool for TEST accounts only. Muretto itself never writes anything;
 # this script is not part of Muretto.
 set -euo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 DRY_RUN=1
@@ -16,7 +16,7 @@ while [ $# -gt 0 ]; do
 	--apply) DRY_RUN=0 ;;
 	--dry-run) DRY_RUN=1 ;;
 	-h | --help) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' && exit 0 ;;
-	*) say "usage: demo/setup.sh [--apply]" && exit 2 ;;
+	*) say "usage: examples/live-demo/setup.sh [--apply]" && exit 2 ;;
 	esac
 	shift
 done
@@ -52,7 +52,7 @@ confirm_ref "setup.sh changes default privileges on the test project(s)."
 #
 # So the demo restores the pre-change default ON THE TEST PROJECT ONLY, once,
 # with the statement Supabase's own docs show (adapters/supabase/research.md Q7,
-# option (a) in docs/OPEN_QUESTIONS.md §5). demo/SCRIPT.md discloses this in
+# option (a) in docs/OPEN_QUESTIONS.md §5). examples/live-demo/SCRIPT.md discloses this in
 # the video's on-screen text. Never run this on a real project: it makes every
 # future table in public reachable through the Data API.
 #
@@ -91,7 +91,7 @@ cat >&2 <<EOF
     3. Set Vercel Authentication / Standard Protection to Disabled ("None")
        for new projects, and save.
 
-  This does not change existing projects. demo/SCRIPT.md states it on screen.
+  This does not change existing projects. examples/live-demo/SCRIPT.md states it on screen.
   If your plan has no team-level default, alice's and eve's previews stay
   protected: Muretto then shows them as protected, which is also true.
   Plan notes: Hobby allows 1 concurrent build (alice's and eve's deploys
@@ -105,4 +105,4 @@ step "Local prerequisites"
 DRY_RUN=1 check_tools claude tmux jq curl go npm uuidgen vercel muretto
 [ -d "$REPO_ROOT/apps/dashboard/node_modules" ] || warn "apps/dashboard/node_modules is missing: (cd apps/dashboard && npm ci)"
 say ""
-say "Next: demo/run.sh --dry-run, then demo/run.sh"
+say "Next: examples/live-demo/run.sh --dry-run, then examples/live-demo/run.sh"

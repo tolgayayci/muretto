@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo/run.sh: the one-command Muretto demo.
+# examples/live-demo/run.sh: the one-command Muretto demo.
 #
 # Starts the local sync server (dev login, 127.0.0.1, in-memory) and the
 # dashboard, gives alice, bob, carol, dan and eve each their own MURETTO_HOME
@@ -9,16 +9,16 @@
 # projects first get one placeholder production deploy (a project's first
 # deploy always goes to production; the agents' deploys must be previews).
 #
-#   demo/run.sh --dry-run        print every command, run nothing
-#   demo/run.sh                  the real demo (asks you to type the test ref)
-#   demo/run.sh --only bob --wait
+#   examples/live-demo/run.sh --dry-run        print every command, run nothing
+#   examples/live-demo/run.sh                  the real demo (asks you to type the test ref)
+#   examples/live-demo/run.sh --only bob --wait
 #                                no tmux: run bob only, wait, sync, exit
 #                                (the 10-run reliability loop in SCRIPT.md)
 #
 # Demo tool for TEST accounts only. The agents create real resources in the
-# test accounts; demo/reset.sh removes them. Muretto itself never writes.
+# test accounts; examples/live-demo/reset.sh removes them. Muretto itself never writes.
 set -euo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 usage() {
@@ -67,7 +67,7 @@ fi
 
 if [ "$DRY_RUN" != 1 ]; then
 	if [ -f "$DEMO_RUN_DIR/server.pid" ] || { [ "$WAIT" != 1 ] && tmux has-session -t "$TMUX_SESSION" 2>/dev/null; }; then
-		die "a previous demo is still running or was not cleaned up. Run: demo/reset.sh --local --apply"
+		die "a previous demo is still running or was not cleaned up. Run: examples/live-demo/reset.sh --local --apply"
 	fi
 fi
 
@@ -196,7 +196,7 @@ for d in $DEMO_DEVS; do
 		sid=$(uuidgen | tr '[:upper:]' '[:lower:]')
 	fi
 	printf '%s\n' "$sid" | write_file "$DEMO_RUN_DIR/devs/$d/session-id" 600
-	run git init -q -b "demo/$d" "$work"
+	run git init -q -b "examples/live-demo/$d" "$work"
 	mcp_config "$(dev_ref "$d")" | write_file "$work/.mcp.json" 600
 	case $d in
 	alice) site=$work/demo-waitlist ;;
@@ -274,7 +274,7 @@ say ""
 say "${C_B}Dashboard:${C_0} $WEB_URL/login"
 say "  (press the development-only sign-in button: it signs you in as alice with a dev token from the local server)"
 say "${C_B}Start:${C_0} press Enter in the bottom-right pane to start all five sessions at once."
-say "${C_B}Stop and clean up:${C_0} demo/reset.sh --apply"
+say "${C_B}Stop and clean up:${C_0} examples/live-demo/reset.sh --apply"
 if [ "$NO_ATTACH" != 1 ] && [ "$DRY_RUN" != 1 ]; then
 	exec tmux attach -t "$TMUX_SESSION"
 fi

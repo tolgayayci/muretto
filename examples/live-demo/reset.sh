@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# demo/reset.sh: remove everything the demo created, so it can run again.
+# examples/live-demo/reset.sh: remove everything the demo created, so it can run again.
 #
 #   THIS IS A DEMO TOOL FOR TEST ACCOUNTS ONLY. IT IS NOT PART OF MURETTO.
 #   MURETTO ITSELF NEVER CREATES, CHANGES OR DELETES ANYTHING IN ANY ACCOUNT.
 #
-#   demo/reset.sh                  dry run: print every command (no network)
-#   demo/reset.sh --apply          list what the demo created, show it, ask you
+#   examples/live-demo/reset.sh                  dry run: print every command (no network)
+#   examples/live-demo/reset.sh --apply          list what the demo created, show it, ask you
 #                                  to type the test project ref, then delete it
-#   demo/reset.sh --local --apply  only the local part (no provider calls)
+#   examples/live-demo/reset.sh --local --apply  only the local part (no provider calls)
 #
 # What it can delete, and nothing else:
 #   - Supabase tables in the explicit list DEMO_TABLES (lib.sh): customers,
@@ -17,11 +17,11 @@
 #   - Vercel projects in the test team whose name starts with "demo-", and
 #     every deployment of those projects.
 #   - Locally: the tmux session, the sync server (its in-memory data goes with
-#     it), the dashboard dev server, and demo/.run (the five MURETTO_HOMEs,
+#     it), the dashboard dev server, and examples/live-demo/.run (the five MURETTO_HOMEs,
 #     dev tokens, logs).
 # Endpoints: adapters/supabase/research.md Q9 and adapters/vercel/research.md Q9.
 set -euo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 DRY_RUN=1
@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do
 	--dry-run) DRY_RUN=1 ;;
 	--local) LOCAL_ONLY=1 ;;
 	-h | --help) sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//' && exit 0 ;;
-	*) say "usage: demo/reset.sh [--apply] [--local]" && exit 2 ;;
+	*) say "usage: examples/live-demo/reset.sh [--apply] [--local]" && exit 2 ;;
 	esac
 	shift
 done
@@ -62,7 +62,7 @@ demo_transcript_dirs() {
 }
 
 reset_local() {
-	step "Local: tmux session, sync server, dashboard, demo/.run, demo transcripts"
+	step "Local: tmux session, sync server, dashboard, examples/live-demo/.run, demo transcripts"
 	local t
 	if [ "$DRY_RUN" = 1 ]; then
 		show_cmd tmux kill-session -t "$TMUX_SESSION"
@@ -221,6 +221,6 @@ done <"$PLAN"
 
 reset_local
 if [ "$FAIL" = 1 ]; then
-	die "some deletes failed (see above); run demo/reset.sh --apply again or finish by hand"
+	die "some deletes failed (see above); run examples/live-demo/reset.sh --apply again or finish by hand"
 fi
 [ "$DRY_RUN" = 1 ] || say "${C_GRN}Reset done.${C_0} The test accounts are back to their pre-demo state."

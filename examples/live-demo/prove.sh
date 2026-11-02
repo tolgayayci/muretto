@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo/prove.sh: the proof moment.
+# examples/live-demo/prove.sh: the proof moment.
 #
 # 1. curl the primary test project's public REST endpoint for bob's table,
 #    sending ONLY the publishable (anon) key, the key every browser has.
@@ -9,16 +9,16 @@
 #    `muretto fix customers` (the exact SQL a human can run; Muretto never
 #    runs it).
 #
-#   demo/prove.sh            both parts
-#   demo/prove.sh --curl     only the curl (e.g. again after the fix)
-#   demo/prove.sh --check    one line; exit 0 only if rows come back AND
+#   examples/live-demo/prove.sh            both parts
+#   examples/live-demo/prove.sh --curl     only the curl (e.g. again after the fix)
+#   examples/live-demo/prove.sh --check    one line; exit 0 only if rows come back AND
 #                            Muretto (as bob) flags customers as exposed
 #                            (the 10-run reliability loop in SCRIPT.md)
-#   demo/prove.sh --dry-run  print the commands
+#   examples/live-demo/prove.sh --dry-run  print the commands
 #
 # Reading with a public key is what the attacker would do; it writes nothing.
 set -euo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 MODE=all
@@ -28,7 +28,7 @@ while [ $# -gt 0 ]; do
 	--check) MODE=check ;;
 	--dry-run) DRY_RUN=1 ;;
 	-h | --help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//' && exit 0 ;;
-	*) say "usage: demo/prove.sh [--curl|--check] [--dry-run]" && exit 2 ;;
+	*) say "usage: examples/live-demo/prove.sh [--curl|--check] [--dry-run]" && exit 2 ;;
 	esac
 	shift
 done
@@ -86,7 +86,7 @@ else
 	jq -C . "$body" 2>/dev/null || cat "$body"
 	printf '\n%sHTTP %s%s\n' "$C_YEL" "$code" "$C_0"
 	if grep -q 42501 "$body" 2>/dev/null; then
-		say "42501: the table has no grant for anon. Was demo/setup.sh --apply run on this project? (SCRIPT.md, disclosure)"
+		say "42501: the table has no grant for anon. Was examples/live-demo/setup.sh --apply run on this project? (SCRIPT.md, disclosure)"
 	fi
 fi
 

@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 // Fill the npm platform packages from GoReleaser archives and set versions.
 //
-//   node npm/scripts/assemble.mjs <version> [--dist <dir>]
+//   node packaging/npm/scripts/assemble.mjs <version> [--dist <dir>]
 //
 // <version> is the release version without the "v" (e.g. 1.2.3, as in
 // muretto_1.2.3_darwin_arm64.tar.gz). <dir> holds the archives and
-// checksums.txt (default: npm/.dist, where the release workflow downloads them;
+// checksums.txt (default: packaging/npm/.dist, where the release workflow downloads them;
 // for a local snapshot pass --dist dist).
 //
 // For each platform it checks the archive's sha256 against checksums.txt
 // (refusing on a mismatch or a missing line), extracts only the `muretto`
-// binary into npm/<pkg>/bin/, copies LICENSE, and writes <version> into all
+// binary into packaging/npm/<pkg>/bin/, copies LICENSE, and writes <version> into all
 // five package.json files and the launcher's optionalDependencies.
 // It never publishes anything.
 import { createHash } from "node:crypto";
@@ -24,7 +24,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const NPM_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const REPO_DIR = resolve(NPM_DIR, "..");
+const REPO_DIR = resolve(NPM_DIR, "..", "..");
 
 // npm package -> GoReleaser {{ .Os }}_{{ .Arch }}
 const PLATFORMS = {
@@ -61,7 +61,7 @@ function parseArgs(argv) {
       die(`unexpected argument ${a}`);
     }
   }
-  if (!version) die("usage: node npm/scripts/assemble.mjs <version> [--dist <dir>]");
+  if (!version) die("usage: node packaging/npm/scripts/assemble.mjs <version> [--dist <dir>]");
   if (version.startsWith("v")) version = version.slice(1);
   if (!SEMVER.test(version)) die(`"${version}" is not a semver version`);
   return { version, dist };

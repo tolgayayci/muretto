@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# demo/syncloop.sh: the sixth pane of the demo grid.
+# examples/live-demo/syncloop.sh: the sixth pane of the demo grid.
 #
 # Waits for Enter (or --autostart), writes the "go" file that releases the
 # five sessions at once, then every DEMO_SYNC_INTERVAL seconds runs
@@ -9,7 +9,7 @@
 #
 # Muretto only reads the providers here; nothing is written to any account.
 set -uo pipefail
-# shellcheck source=demo/lib.sh
+# shellcheck source=examples/live-demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 AUTOSTART=0
@@ -19,7 +19,7 @@ while [ $# -gt 0 ]; do
 	--autostart) AUTOSTART=1 ;;
 	--once) ONCE=1 AUTOSTART=1 ;;
 	--dry-run) DRY_RUN=1 ;;
-	*) say "usage: demo/syncloop.sh [--autostart] [--once] [--dry-run]" && exit 2 ;;
+	*) say "usage: examples/live-demo/syncloop.sh [--autostart] [--once] [--dry-run]" && exit 2 ;;
 	esac
 	shift
 done

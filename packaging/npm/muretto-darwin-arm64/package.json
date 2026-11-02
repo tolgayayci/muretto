@@ -1,7 +1,7 @@
 {
-  "name": "muretto-linux-arm64",
+  "name": "muretto-darwin-arm64",
   "version": "0.0.0-dev",
-  "description": "The muretto binary for Linux arm64. Install the \"muretto\" package instead of this one.",
+  "description": "The muretto binary for macOS arm64 (Apple silicon). Install the \"muretto\" package instead of this one.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/tolgayayci/muretto#readme",
   "bugs": {
@@ -10,10 +10,10 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tolgayayci/muretto.git",
-    "directory": "npm/muretto-linux-arm64"
+    "directory": "packaging/npm/muretto-darwin-arm64"
   },
   "os": [
-    "linux"
+    "darwin"
   ],
   "cpu": [
     "arm64"

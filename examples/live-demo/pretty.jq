@@ -1,6 +1,6 @@
-# demo/pretty.jq: turns `claude -p --output-format stream-json --verbose
+# examples/live-demo/pretty.jq: turns `claude -p --output-format stream-json --verbose
 # --include-hook-events` lines into a calm, readable pane for the video.
-# Use with: jq --unbuffered -R -r -f demo/pretty.jq
+# Use with: jq --unbuffered -R -r -f examples/live-demo/pretty.jq
 # Non-JSON lines pass through. Token-shaped strings are masked.
 
 def esc: "\u001b[";

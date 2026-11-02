@@ -10,7 +10,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tolgayayci/muretto.git",
-    "directory": "npm/muretto"
+    "directory": "packaging/npm/muretto"
   },
   "keywords": [
     "claude-code",
