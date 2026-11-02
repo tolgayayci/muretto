@@ -15,6 +15,16 @@ spool/
 *.db-wal
 *.sqlite
 *.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+
+# Local tool state
+.wrangler/
+.dev.vars*
+.mint/
+.yk/
+.claude/
+apps/*/AGENTS.md
 
 # Build output
 /bin/
