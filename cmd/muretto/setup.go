@@ -107,7 +107,7 @@ func (a *app) cmdInit(ctx context.Context, args []string) error {
 	a.out("\nNext steps:")
 	a.out("  1. Use Claude Code as usual. Muretto's hooks record what sessions create.")
 	a.out("  2. Run `muretto` for a summary, or `muretto sessions`.")
-	a.out("  3. Optional: `muretto login` and `muretto sync on` for the team dashboard.")
+	a.out("  3. Optional: `muretto login` and `muretto sync on` for the dashboard.")
 	return nil
 }
 

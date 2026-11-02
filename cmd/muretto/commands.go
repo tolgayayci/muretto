@@ -18,14 +18,14 @@ const usage = `muretto: see what your AI coding agents created outside the repo.
 
 Usage:
   muretto                      summary: agent-created, exposed, needs review, recent sessions
-  muretto init                 add Claude Code hooks and connect Supabase / Vercel
+  muretto init                 add Claude Code hooks and connect your providers
   muretto sessions             recent agent sessions
   muretto session <id>         everything one session created
   muretto resources [--provider p] [--exposed] [--unknown]
   muretto show <resource>      one resource: timeline, creator, exposure, cost, review
   muretto why <resource>       the evidence behind its attribution label
   muretto exposed              exposure findings, worst first
-  muretto fix <resource>       print the command or SQL to fix it (never runs it)
+  muretto fix <resource>       print the provider's steps to close it (never runs them)
   muretto review [<resource> keep|not-needed]
   muretto providers [--coverage]
   muretto adapter new <openapi-file>   draft an adapter for any API from its OpenAPI spec
