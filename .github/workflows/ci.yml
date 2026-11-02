@@ -17,7 +17,58 @@ env:
   NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
+  # Which parts of the repo a pull request touches. Jobs below are gated on
+  # these outputs instead of workflow-level `paths:`, so a required check that
+  # does not apply is reported as skipped (which passes) instead of hanging.
+  # Pushes to main skip this job and run everything.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read  # paths-filter lists the PR's files through the API (no checkout needed)
+    outputs:
+      go: ${{ steps.filter.outputs.go }}
+      dashboard: ${{ steps.filter.outputs.dashboard }}
+      site: ${{ steps.filter.outputs.site }}
+      docs: ${{ steps.filter.outputs.docs }}
+      server-image: ${{ steps.filter.outputs.server-image }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - 'schema/**'
+              - 'adapters/**'
+              - 'tools/**'
+              - 'Makefile'
+              - '.golangci.yml'
+              - '.github/workflows/ci.yml'
+            dashboard:
+              - 'apps/dashboard/**'
+              - 'schema/**'
+              - '.github/workflows/ci.yml'
+            site:
+              - 'apps/site/**'
+              - '.github/workflows/ci.yml'
+            docs:
+              - 'apps/docs/**'
+              - '.github/workflows/ci.yml'
+            server-image:
+              - 'server/**'
+              - 'internal/contract/**'
+              - 'schema/**'
+              - 'go.mod'
+              - 'go.sum'
+              - '.github/workflows/ci.yml'
+
   go:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.go == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,6 +99,8 @@ jobs:
         run: go tool -modfile=tools/go.mod govulncheck ./...
 
   golangci:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.go == 'true') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,7 +113,23 @@ jobs:
         with:
           version: v2.14.0
 
-  secrets:
+  adapters:
+    # Also covered by `go test ./...` in the go job; run on its own so an
+    # adapter PR gets one readable, per-adapter result.
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.go == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: adapter gate
+        run: go test ./adapters/ -v -count=1
+
+  secrets:                 # runs on every PR and push, whatever changed
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,6 +148,8 @@ jobs:
         run: /tmp/gitleaks dir --redact --no-banner --verbose .
 
   dashboard:
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.dashboard == 'true') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -99,3 +170,74 @@ jobs:
       - run: npx --no-install tsc --noEmit
       - run: npm test
       - run: npm run build
+
+  dashboard-image:
+    # The image Railway builds for app.muretto.ai (context apps/dashboard).
+    # NEXT_PUBLIC_* are inlined at build time; dummy values are enough to build.
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.dashboard == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: docker build (no push)
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co \
+            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_ci_dummy \
+            -t muretto-dashboard:ci apps/dashboard
+
+  server-image:
+    # The image Railway builds for api.muretto.ai, from the repository root.
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.server-image == 'true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: docker build (no push)
+        run: docker build -f server/Dockerfile -t murettod:ci .
+
+  site:
+    # muretto.ai Worker: bundle and validate the config without deploying.
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.site == 'true') }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/site
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/site/package-lock.json
+      - run: npm ci --ignore-scripts
+      - name: wrangler deploy --dry-run (no secrets, nothing deployed)
+        run: npx --no-install wrangler deploy --dry-run --outdir dist
+
+  docs:
+    # Mintlify: internal links, anchors, snippet imports and docs.json redirects.
+    needs: changes
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.docs == 'true') }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/docs
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - name: mint broken-links (mint CLI pinned)
+        run: npx --yes mint@4.2.1063 broken-links --check-anchors --check-snippets --check-redirects
