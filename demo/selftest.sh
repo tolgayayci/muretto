@@ -124,12 +124,12 @@ printf '%s' "$me" | jq -e --arg f "$FIXTURE_SID" --arg d "$DECOY_SID" '
 ok "bob's muretto read his own transcript through the symlinked CLAUDE_CONFIG_DIR, not the decoy"
 ok "server has bob's session: $(printf '%s' "$me" | jq -c '{summary: .summary | {sessions, agent_created}, task_title: [.sessions[].session.task_title], sources: .sessions[0].session.sources}')"
 
-jar=$DEMO_RUN_DIR/alice.jar
-csrf=$(cookie_login alice "$jar")
-[ -n "$csrf" ] || fail "alice cookie login"
+# alice reads the team view as the dashboard would: Bearer auth (her dev
+# token stands in for a Supabase sign-in because the server runs dev login).
 org=$(cat "$DEMO_RUN_DIR/org-id" 2>/dev/null || true)
-[ -n "$org" ] || org=$(curl -fsS -b "$jar" "$SERVER_URL/v1/me" | jq -r '.orgs[0].id')
-team=$(curl -fsS -b "$jar" "$SERVER_URL/v1/orgs/$org/answer")
+[ -n "$org" ] || org=$(api_call alice GET /v1/me | jq -r '.orgs[0].id')
+[ -n "$org" ] && [ "$org" != null ] || fail "alice has no team"
+team=$(api_call alice GET "/v1/orgs/$org/answer") || fail "alice could not read the team view"
 printf '%s' "$team" | jq -e --arg s "$SID" '[.sessions[] | tostring | select(contains($s))] | length >= 1' >/dev/null ||
 	fail "bob's session is missing from alice's team view"
 ok "alice's team view shows bob's session ($(printf '%s' "$team" | jq -r '[.sessions[].developer_name // empty] | unique | join(", ")'))"

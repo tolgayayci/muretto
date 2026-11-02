@@ -286,7 +286,7 @@ start_server() {
 	step "Starting the local sync server on $SERVER_URL (dev login, in-memory)"
 	run go build -C "$REPO_ROOT" -o "$bin" ./server/cmd/murettod
 	if [ "$DRY_RUN" = 1 ]; then
-		show_cmd env -u MURETTO_DATABASE_URL MURETTO_DEV_LOGIN=1 "MURETTO_ADDR=127.0.0.1:$DEMO_SERVER_PORT" \
+		show_cmd env -u MURETTO_DATABASE_URL -u MURETTO_SUPABASE_URL -u MURETTO_SUPABASE_JWT_SECRET MURETTO_DEV_LOGIN=1 "MURETTO_ADDR=127.0.0.1:$DEMO_SERVER_PORT" \
 			"MURETTO_DASHBOARD_URL=$WEB_URL" "$bin"
 		return 0
 	fi
@@ -294,7 +294,9 @@ start_server() {
 		die "something already answers on $SERVER_URL. Run demo/reset.sh --local, or change DEMO_SERVER_PORT."
 	fi
 	(
-		unset MURETTO_DATABASE_URL MURETTO_GITHUB_CLIENT_ID MURETTO_GITHUB_CLIENT_SECRET PORT
+		# Dev login without a Supabase project: CLI dev tokens stand in for the
+		# dashboard's Supabase sign-in.
+		unset MURETTO_DATABASE_URL MURETTO_SUPABASE_URL MURETTO_SUPABASE_JWT_SECRET PORT
 		MURETTO_DEV_LOGIN=1 MURETTO_ADDR=127.0.0.1:$DEMO_SERVER_PORT MURETTO_DASHBOARD_URL=$WEB_URL \
 			nohup "$bin" >"$log" 2>&1 &
 		echo $! >"$DEMO_RUN_DIR/server.pid"
@@ -307,29 +309,32 @@ start_server() {
 	die "the sync server did not become healthy (log above: $log)"
 }
 
-# start_web starts the Next.js dashboard against the local server.
+# start_web starts the Next.js dashboard (apps/dashboard) against the local
+# server, with its dev-only sign-in (MURETTO_DEV_AUTH=1: the /login page's
+# dev button gets a token from the server's /v1/dev/token).
 start_web() {
+	local app=$REPO_ROOT/apps/dashboard
 	step "Starting the dashboard on $WEB_URL"
-	if [ ! -d "$REPO_ROOT/web/node_modules" ]; then
+	if [ ! -d "$app/node_modules" ]; then
 		if [ "$DRY_RUN" = 1 ]; then
-			warn "web/node_modules is missing (a real run would stop here). Run: (cd web && npm ci)"
+			warn "apps/dashboard/node_modules is missing (a real run would stop here). Run: (cd apps/dashboard && npm ci)"
 		else
-			die "web/node_modules is missing. Run: (cd $REPO_ROOT/web && npm ci). This script never installs anything."
+			die "apps/dashboard/node_modules is missing. Run: (cd $app && npm ci). This script never installs anything."
 		fi
 	fi
 	if [ "$DRY_RUN" = 1 ]; then
-		show_cmd cd "$REPO_ROOT/web"
-		show_cmd env "MURETTO_API_URL=$SERVER_URL" NEXT_PUBLIC_MURETTO_SAMPLE=0 npm run dev -- --port "$DEMO_WEB_PORT"
+		show_cmd cd "$app"
+		show_cmd env MURETTO_DEV_AUTH=1 "MURETTO_API_URL=$SERVER_URL" NEXT_TELEMETRY_DISABLED=1 npx next dev --port "$DEMO_WEB_PORT"
 		return 0
 	fi
 	(
-		cd "$REPO_ROOT/web" || exit 1
-		MURETTO_API_URL=$SERVER_URL NEXT_PUBLIC_MURETTO_SAMPLE=0 nohup npm run dev -- --port "$DEMO_WEB_PORT" \
+		cd "$app" || exit 1
+		MURETTO_DEV_AUTH=1 MURETTO_API_URL=$SERVER_URL NEXT_TELEMETRY_DISABLED=1 nohup npx next dev --port "$DEMO_WEB_PORT" \
 			>"$DEMO_RUN_DIR/web.log" 2>&1 &
 		echo $! >"$DEMO_RUN_DIR/web.pid"
 	)
-		for _ in $(seq 1 120); do
-		curl -fsS -o /dev/null "$WEB_URL/" 2>/dev/null && return 0
+	for _ in $(seq 1 120); do
+		curl -fsS -o /dev/null "$WEB_URL/login" 2>/dev/null && return 0
 		sleep 0.5
 	done
 	warn "the dashboard is not answering yet; see $DEMO_RUN_DIR/web.log"
@@ -418,49 +423,45 @@ setup_dev() {
 	muretto_as "$dev" sync on --yes >/dev/null
 }
 
-# cookie_login <dev> <jar>: dev-only browser login; prints the CSRF token.
-cookie_login() {
-	local dev=$1 jar=$2
+# api_call <dev> <method> <path> [json]: calls the local API as <dev> with
+# "Authorization: Bearer <dev token>". With MURETTO_DEV_LOGIN=1 the server
+# accepts the dev CLI token where the dashboard's Supabase sign-in is needed
+# (orgs, invites). The header goes through stdin, never the command line.
+api_call() {
+	local dev=$1 method=$2 path=$3 data=${4:-} file
+	file=$(dev_token_file "$dev")
 	if [ "$DRY_RUN" = 1 ]; then
-		show_cmd curl -fsS -c "$jar" -o /dev/null "$SERVER_URL/auth/dev/login?login=$dev&name=$(dev_name "$dev")&return_to=/app"
-		show_cmd curl -fsS -b "$jar" "$SERVER_URL/v1/me"
-		echo csrf-placeholder
-		return 0
-	fi
-	curl -fsS -c "$jar" -o /dev/null "$SERVER_URL/auth/dev/login?login=$dev&name=$(dev_name "$dev")&return_to=/app" ||
-		die "dev login failed for $dev"
-	curl -fsS -b "$jar" "$SERVER_URL/v1/me" | jq -er .csrf_token
-}
-
-# cookie_post <jar> <csrf> <path> <json>
-cookie_post() {
-	if [ "$DRY_RUN" = 1 ]; then
-		show_cmd curl -fsS -b "$1" -X POST "$SERVER_URL$3" -H "X-CSRF-Token: <csrf>" -H 'Content-Type: application/json' --data "$4"
+		if [ -n "$data" ]; then
+			show_cmd curl -fsS -X "$method" "$SERVER_URL$path" -H "Authorization: Bearer \$(cat $file)" -H 'Content-Type: application/json' --data "$data"
+		else
+			show_cmd curl -fsS -X "$method" "$SERVER_URL$path" -H "Authorization: Bearer \$(cat $file)"
+		fi
 		echo '{}'
 		return 0
 	fi
-	curl -fsS -b "$1" -X POST "$SERVER_URL$3" -H "X-CSRF-Token: $2" -H 'Content-Type: application/json' --data "$4"
+	[ -s "$file" ] || dev_token "$dev"
+	if [ -n "$data" ]; then
+		printf 'Authorization: Bearer %s\n' "$(cat "$file")" |
+			curl -fsS -X "$method" "$SERVER_URL$path" -H @- -H 'Content-Type: application/json' --data "$data"
+	else
+		printf 'Authorization: Bearer %s\n' "$(cat "$file")" | curl -fsS -X "$method" "$SERVER_URL$path" -H @-
+	fi
 }
 
 # setup_org <owner> <member>...: the owner creates the demo team and every
 # member joins with a single-use invite, so the Team view shows everyone.
 setup_org() {
-	local owner=$1 jar csrf org_id url token m
+	local owner=$1 org_id url token m
 	shift
 	step "Creating the team '$DEMO_ORG_NAME' (owner $owner) and inviting: $*"
-	jar=$DEMO_RUN_DIR/cookies-$owner.txt
-	csrf=$(cookie_login "$owner" "$jar")
-	org_id=$(cookie_post "$jar" "$csrf" /v1/orgs "$(jq -cn --arg n "$DEMO_ORG_NAME" '{name:$n}')" | jq -r '.id // "org_placeholder"')
+	org_id=$(api_call "$owner" POST /v1/orgs "$(jq -cn --arg n "$DEMO_ORG_NAME" '{name:$n}')" | jq -r '.id // "org_placeholder"')
 	[ -n "$org_id" ] && [ "$org_id" != null ] || die "could not create the team"
 	[ "$DRY_RUN" = 1 ] || printf '%s\n' "$org_id" >"$DEMO_RUN_DIR/org-id"
 	for m in "$@"; do
-		url=$(cookie_post "$jar" "$csrf" "/v1/orgs/$org_id/invites" '{}' | jq -r '.url // "/join/mri_placeholder"')
+		url=$(api_call "$owner" POST "/v1/orgs/$org_id/invites" '{}' | jq -r '.url // "/join/mri_placeholder"')
 		token=${url##*/join/}
-		local mjar=$DEMO_RUN_DIR/cookies-$m.txt mcsrf
-		mcsrf=$(cookie_login "$m" "$mjar")
-		cookie_post "$mjar" "$mcsrf" "/v1/invites/$token/accept" '{}' >/dev/null || die "$m could not join the team"
+		api_call "$m" POST "/v1/invites/$token/accept" '{}' >/dev/null || die "$m could not join the team"
 	done
-	[ "$DRY_RUN" = 1 ] || rm -f "$DEMO_RUN_DIR"/cookies-*.txt
 }
 
 # hooks_settings prints the per-run --settings file: Muretto's hook events

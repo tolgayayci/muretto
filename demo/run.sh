@@ -271,8 +271,8 @@ for p in 0 1 3 4; do
 done
 
 say ""
-say "${C_B}Dashboard:${C_0} $WEB_URL/api/auth/dev/login?login=alice&name=Alice&return_to=/app"
-say "  (signs you in as alice through the dashboard's /api proxy; switch to the Team scope)"
+say "${C_B}Dashboard:${C_0} $WEB_URL/login"
+say "  (press the development-only sign-in button: it signs you in as alice with a dev token from the local server)"
 say "${C_B}Start:${C_0} press Enter in the bottom-right pane to start all five sessions at once."
 say "${C_B}Stop and clean up:${C_0} demo/reset.sh --apply"
 if [ "$NO_ATTACH" != 1 ] && [ "$DRY_RUN" != 1 ]; then

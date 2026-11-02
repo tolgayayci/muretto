@@ -103,6 +103,6 @@ EOF
 # =============================================================================
 step "Local prerequisites"
 DRY_RUN=1 check_tools claude tmux jq curl go npm uuidgen vercel muretto
-[ -d "$REPO_ROOT/web/node_modules" ] || warn "web/node_modules is missing: (cd web && npm ci)"
+[ -d "$REPO_ROOT/apps/dashboard/node_modules" ] || warn "apps/dashboard/node_modules is missing: (cd apps/dashboard && npm ci)"
 say ""
 say "Next: demo/run.sh --dry-run, then demo/run.sh"

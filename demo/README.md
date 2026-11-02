@@ -38,7 +38,7 @@ One command runs the real demo behind the 60-second video (`SCRIPT.md`): five he
 
 ```sh
 cp demo/.env.example demo/.env && chmod 600 demo/.env   # fill it in, set MURETTO_DEMO=1
-make build && (cd web && npm ci)
+make build && (cd apps/dashboard && npm ci)
 demo/selftest.sh                 # offline: server, dev tokens, hooks -> spool -> sync
 demo/setup.sh                    # read the dry run
 demo/setup.sh --apply            # once per test project (see "Why setup.sh" below)
@@ -55,9 +55,9 @@ What `run.sh` does, in order:
 
 1. Refuses unless `MURETTO_DEMO=1`, every project name contains `demo`/`test`, and you type the primary project ref.
 2. When alice and/or eve run: seeds their Vercel projects (`demo-waitlist`, `demo-landing-staging`) with one placeholder **production** deploy of a tiny `index.html`, from a temp dir named like the project (`vercel deploy --yes --prod`, token from the environment). A project's first deploy always goes to production, even with `--target preview`; after the seed, the agents' `vercel deploy --yes` links to the project by name and makes a **preview**. A project that already has a READY production deployment is skipped (`GET /v10/projects`, `GET /v7/deployments?target=production`). If a seed fails, `run.sh` stops (log: `demo/.run/logs/seed-<project>.log`).
-3. Builds and starts `murettod` with `MURETTO_DEV_LOGIN=1` on `127.0.0.1:$DEMO_SERVER_PORT`, in-memory (stopping it clears all server data), and the dashboard on `localhost:$DEMO_WEB_PORT` with `MURETTO_API_URL` pointing at it.
+3. Builds and starts `murettod` with `MURETTO_DEV_LOGIN=1` on `127.0.0.1:$DEMO_SERVER_PORT`, in-memory (stopping it clears all server data), and the dashboard (`apps/dashboard`, `next dev`) on `localhost:$DEMO_WEB_PORT` with `MURETTO_API_URL` pointing at it and `MURETTO_DEV_AUTH=1`.
 4. For each developer: their own `MURETTO_HOME` under `demo/.run/devs/<dev>/home`, a CLI token from the dev-only `POST /v1/dev/token` (stored 0600, local server only), `muretto init --yes --no-hooks` (connects the test accounts from `MURETTO_SUPABASE_TOKEN` / `MURETTO_VERCEL_TOKEN`), `sync.server` set to the local server, `muretto sync on --yes`.
-5. alice creates the team `DEMO_ORG_NAME`; bob, carol, dan and eve join with invites (dev cookie login + CSRF, the same API the dashboard uses).
+5. alice creates the team `DEMO_ORG_NAME`; bob, carol, dan and eve join with invites (Bearer auth with each developer's dev token, which a dev-login server accepts where the dashboard would send a Supabase access token).
 6. Writes `demo/.run/hooks.json` (Muretto's six hook events in exec form, pointing at the repo-built `bin/muretto`, plus `enabledMcpjsonServers: ["supabase"]`; passed with `--settings`, so your own Claude Code settings are never touched), and a `.mcp.json` in each developer's workdir with the Supabase MCP server pinned to that developer's test project (`?project_ref=<ref>`; the token is `"Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"`, expanded by Claude Code, never written to disk).
 7. Creates the tmux grid. Each pane runs `claude -p` in its workdir with `--settings`, `--session-id`, `-n "<dev>: <task>"`, `--permission-mode dontAsk --allowedTools …` (only what that task needs), `--max-budget-usd`, `--output-format stream-json --verbose --include-hook-events`, piped through `pretty.jq`. Never `--bare` (it would skip hooks).
 
@@ -80,8 +80,8 @@ The Vercel side needs one more step, done by `run.sh` on every run rather than b
 | `missing: tmux` (or another tool) | Install it with the printed hint; the scripts never install anything. |
 | `a previous demo is still running` | `demo/reset.sh --local --apply` (local only, no provider calls). |
 | `something already answers on http://127.0.0.1:8080` | Another server is running; stop it or change `DEMO_SERVER_PORT`. |
-| `web/node_modules is missing` | `(cd web && npm ci)`, or run with `--no-dashboard`. |
-| Dashboard shows nothing | Use the printed link (it signs in through the dashboard's `/api` proxy so the cookie is same-origin), switch to **Team**, and check pane 6 shows ✓ for each developer. Server log: `demo/.run/server.log`. |
+| `apps/dashboard/node_modules is missing` | `(cd apps/dashboard && npm ci)`, or run with `--no-dashboard`. |
+| Dashboard shows nothing | Open the printed `/login` link and use the development-only sign-in button (it signs in as alice through the local server's `/v1/dev/token`; the dashboard runs with `MURETTO_DEV_AUTH=1`), and check pane 6 shows ✓ for each developer. Server log: `demo/.run/server.log`. |
 | A pane shows `mcp: supabase=failed` | Check `SUPABASE_ACCESS_TOKEN`, and that the project ref is right. `demo/.run/logs/<dev>.stderr` has the details. |
 | A pane says a tool was denied | That task's `--allowedTools` list in `session.sh` lacks it. Add the narrowest rule that works. |
 | `prove.sh` gets HTTP 401/403 or `42501` | 42501: `setup.sh --apply` was not run on that project. 401: wrong publishable key or project ref. |
