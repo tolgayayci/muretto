@@ -67,6 +67,8 @@ func decided(item contract.ReviewItem, d store.ReviewDecision) contract.ReviewIt
 			note := d.Note
 			item.Note = &note
 		}
+	case contract.ReviewItemStatePending:
+		fallthrough
 	default: // pending: undo
 		item.State = contract.ReviewItemStatePending
 	}

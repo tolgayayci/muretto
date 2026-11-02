@@ -176,7 +176,7 @@ func snakeToCamel(s string) string {
 	return strings.Join(parts, "")
 }
 
-func pickName(item *openapi.Schema, id string) string {
+func pickName(item *openapi.Schema) string {
 	for _, n := range []string{"name", "title", "display_name", "displayName", "slug", "label", "hostname", "domain", "key", "handle", "login", "username"} {
 		if k, p := prop(item, n); k != "" && p.Scalar() && !isSecretField(k, p) && !rePII.MatchString(snake(k)) {
 			return k
@@ -308,7 +308,7 @@ func pickAttrs(item *openapi.Schema, skip map[string]bool) []attr {
 			parentSec := reSecurity.MatchString(snake(k))
 			for _, ck := range p.Order {
 				cp := p.Properties[ck]
-				if cp == nil || !reTmplSafe.MatchString(ck) || !(cp.Is("boolean") || len(cp.Enum) > 0 || cp.Is("string")) {
+				if cp == nil || !reTmplSafe.MatchString(ck) || (!cp.Is("boolean") && len(cp.Enum) == 0 && !cp.Is("string")) {
 					continue
 				}
 				if !parentSec && !reSecurity.MatchString(snake(ck)) {
@@ -603,7 +603,7 @@ func pageSize(op *openapi.Operation) (string, string) {
 		if p.In != "query" || !reSizeParam.MatchString(snake(p.Name)) || p.Schema == nil {
 			continue
 		}
-		if !(p.Schema.Is("integer") || p.Schema.Is("number") || len(p.Schema.Types) == 0) {
+		if !p.Schema.Is("integer") && !p.Schema.Is("number") && len(p.Schema.Types) != 0 {
 			continue
 		}
 		if p.Schema.Maximum != nil && *p.Schema.Maximum >= 1 {

@@ -277,7 +277,7 @@ func dollarTag(s string) (string, bool) {
 			return s[:i+1], true
 		}
 		letter := c == '_' || c >= 0x80 || (c|0x20 >= 'a' && c|0x20 <= 'z')
-		if !letter && !(i > 1 && c >= '0' && c <= '9') {
+		if !letter && (i <= 1 || c < '0' || c > '9') {
 			return "", false
 		}
 	}

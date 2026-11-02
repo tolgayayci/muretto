@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -59,7 +60,7 @@ are answered locally.
 The spec is read from disk only: Muretto never fetches it or its $refs.
 `
 
-func (a *app) cmdAdapter(ctx context.Context, args []string) error {
+func (a *app) cmdAdapter(args []string) error {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Fprint(a.stdout, adapterUsage)
 		return nil
@@ -120,14 +121,14 @@ func (a *app) adapterNew(args []string) error {
 	if err != nil {
 		return err
 	}
-	st, err := os.Stat(specPath)
+	st, err := os.Stat(specPath) // #nosec G703 -- a file the user named
 	if err != nil {
 		return err
 	}
 	if st.Size() > openapi.MaxFileSize {
 		return fmt.Errorf("%s is larger than %d MB", pos[0], openapi.MaxFileSize>>20)
 	}
-	data, err := os.ReadFile(specPath) // #nosec G304 -- a file the user named
+	data, err := os.ReadFile(specPath) // #nosec G304 G703 -- a file the user named
 	if err != nil {
 		return err
 	}
@@ -195,14 +196,14 @@ func (a *app) adapterNew(args []string) error {
 }
 
 func writeNew(path string, data []byte, force bool) error {
-	if _, err := os.Stat(path); err == nil && !force {
+	if _, err := os.Stat(path); err == nil && !force { // #nosec G703 -- an output path the user named
 		return fmt.Errorf("%s exists; pass --force to overwrite it", path)
 	}
 	// -o adapters/<provider>/adapter.yaml creates the provider's folder.
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil { // #nosec G703 -- an output path the user named
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	return os.WriteFile(path, data, 0o600) // #nosec G703 -- an output path the user named
 }
 
 func (a *app) printReport(r *adaptergen.Report, out string) {
@@ -334,14 +335,14 @@ func (a *app) adapterCheck(args []string) error {
 }
 
 func readAdapterFile(path string) ([]byte, error) {
-	st, err := os.Stat(path)
+	st, err := os.Stat(path) // #nosec G703 -- a file the user named
 	if err != nil {
 		return nil, err
 	}
 	if st.Size() > maxAdapterFile {
 		return nil, fmt.Errorf("%s is larger than %d bytes", path, maxAdapterFile)
 	}
-	return os.ReadFile(path) // #nosec G304 -- a file the user named
+	return os.ReadFile(path) // #nosec G304 G703 -- a file the user named
 }
 
 func builtIn(provider string) bool {
@@ -385,7 +386,7 @@ func (a *app) installAdapter(from string, data []byte, force bool) error {
 		return fmt.Errorf("%q is a built-in provider; rename it (provider: ...) to install a copy", p.Name)
 	}
 	for _, r := range reg.Allowlist() {
-		if r.Method != "GET" {
+		if r.Method != http.MethodGet {
 			return fmt.Errorf("installed adapters may only use GET (endpoint %s %s)", r.Method, r.PathPattern)
 		}
 	}
@@ -400,7 +401,7 @@ func (a *app) installAdapter(from string, data []byte, force bool) error {
 	if old, err := os.ReadFile(dest); err == nil && !force && string(old) != string(data) { // #nosec G304 -- our own directory
 		return fmt.Errorf("%s is already installed (%s); pass --force to replace it", p.Name, dest)
 	}
-	if err := os.WriteFile(dest, data, paths.FilePerm); err != nil {
+	if err := os.WriteFile(dest, data, paths.FilePerm); err != nil { // #nosec G703 -- our own directory; the provider name is a validated slug
 		return err
 	}
 	a.out("\nInstalled %s to %s.", p.DisplayName, dest)
@@ -500,7 +501,7 @@ func (a *app) writeFixtures(res *adaptergen.Result, dir string, force bool) erro
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil { // #nosec G301 -- fixtures are committed test data
 			return err
 		}
-		if err := os.WriteFile(p, files[n], 0o644); err != nil { // #nosec G306 -- fixtures are committed test data
+		if err := os.WriteFile(p, files[n], 0o644); err != nil { // #nosec G306 G703 -- fixtures are committed test data, under a directory the user named
 			return err
 		}
 	}
@@ -597,7 +598,7 @@ func (a *app) adapterTest(args []string) error {
 }
 
 func dirExists(p string) bool {
-	st, err := os.Stat(p)
+	st, err := os.Stat(p) // #nosec G703 -- a path the user named
 	return err == nil && st.IsDir()
 }
 

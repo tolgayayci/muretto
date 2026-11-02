@@ -182,7 +182,7 @@ func TestVerify(t *testing.T) {
 		{"RS256 token naming the EC kid", sign(t, jwt.SigningMethodRS256, "ec-1", p.rsa, p.claims()), false},
 		{"ES256 token naming the RSA kid", sign(t, jwt.SigningMethodES256, "rsa-1", p.ec, p.claims()), false},
 		{"HS256 without a configured secret", sign(t, jwt.SigningMethodHS256, "", []byte(testSecret), p.claims()), false},
-		{"HS256 signed with the RSA public key", sign(t, jwt.SigningMethodHS256, "rsa-1", p.rsa.PublicKey.N.Bytes(), p.claims()), false},
+		{"HS256 signed with the RSA public key", sign(t, jwt.SigningMethodHS256, "rsa-1", p.rsa.N.Bytes(), p.claims()), false},
 		{"alg none", sign(t, jwt.SigningMethodNone, "ec-1", jwt.UnsafeAllowNoneSignatureType, p.claims()), false},
 		{"ES384", sign(t, jwt.SigningMethodES384, "ec-1", mustEC(t, elliptic.P384()), p.claims()), false},
 		{"PS256", sign(t, jwt.SigningMethodPS256, "rsa-1", p.rsa, p.claims()), false},

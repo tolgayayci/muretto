@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
@@ -407,11 +408,11 @@ func (a *adapterSpec) validate() error {
 		}
 		where := "endpoint " + name
 		switch ep.Method {
-		case "GET":
+		case http.MethodGet:
 			if ep.PinnedBody != "" {
 				bad("%s: pinned_body is only for POST", where)
 			}
-		case "POST":
+		case http.MethodPost:
 			if _, _, ok := broker.PinnedBody(ep.PinnedBody); !ok {
 				bad("%s: POST needs pinned_body naming a body declared in Go (internal/broker/pinned.go)", where)
 			}
@@ -638,7 +639,7 @@ func (a *adapterSpec) validate() error {
 				bad("%s: unknown kind %q", where, e.Kind)
 			}
 			for _, c := range e.Capture {
-				if c.Pattern == nil || !(c.From == "output" || c.From == "command" || strings.HasPrefix(c.From, "input.")) {
+				if c.Pattern == nil || (c.From != "output" && c.From != "command" && !strings.HasPrefix(c.From, "input.")) {
 					bad("%s: capture needs from (output, command, input.<path>) and pattern", where)
 				}
 			}

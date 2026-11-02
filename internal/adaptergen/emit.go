@@ -130,11 +130,7 @@ func (g *gen) emit(sel []*col) ([]byte, error) {
 	var sigs []*yaml.Node
 	for _, c := range sel {
 		g.prepare(c)
-		ep, err := g.endpoint(c)
-		if err != nil {
-			return nil, err
-		}
-		kk := add(endpoints, c.kind, ep)
+		kk := add(endpoints, c.kind, g.endpoint(c))
 		kk.HeadComment = opComment(c.opInfo)
 		kr, ruleIDs := g.rules(c)
 		rules = append(rules, kr...)
@@ -243,7 +239,7 @@ func (g *gen) prepare(c *col) {
 		}
 	}
 	core := map[string]bool{c.idField: true}
-	if n := pickName(c.item, c.idField); n != "" && reTmplSafe.MatchString(n) {
+	if n := pickName(c.item); n != "" && reTmplSafe.MatchString(n) {
 		c.nameF, core[n] = n, true
 	}
 	if s := pickStatus(c.item); s != "" && reTmplSafe.MatchString(s) {
@@ -314,7 +310,7 @@ func (g *gen) paramTemplate(c *col, i int) (string, bool) {
 	return "", false
 }
 
-func (g *gen) endpoint(c *col) (*yaml.Node, error) {
+func (g *gen) endpoint(c *col) *yaml.Node {
 	ep := mapping()
 	path := c.path
 	params := flow(mapping())
@@ -369,7 +365,7 @@ func (g *gen) endpoint(c *col) (*yaml.Node, error) {
 	if strip := stripPaths(c.resp); len(strip) > 0 {
 		add(ep, "strip", strSeq(strip))
 	}
-	return ep, nil
+	return ep
 }
 
 func hasKey(m *yaml.Node, k string) bool {
@@ -699,7 +695,7 @@ func errorKeys(op *openapi.Operation) []string {
 	seen := map[string]bool{}
 	var out []string
 	for _, r := range op.Responses {
-		if !(strings.HasPrefix(r.Code, "4") || strings.HasPrefix(r.Code, "5") || r.Code == "default") || r.Schema == nil {
+		if (!strings.HasPrefix(r.Code, "4") && !strings.HasPrefix(r.Code, "5") && r.Code != "default") || r.Schema == nil {
 			continue
 		}
 		for _, k := range r.Schema.Order {
@@ -990,7 +986,7 @@ func (g *gen) recorder(sel []*col) *yaml.Node {
 	}
 	for _, c := range sel {
 		set[c.idField] = true
-		if n := pickName(c.item, c.idField); n != "" {
+		if n := pickName(c.item); n != "" {
 			set[n] = true
 		}
 		if u := pickURL(c.item); u != "" {

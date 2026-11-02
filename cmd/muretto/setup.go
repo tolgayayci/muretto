@@ -603,7 +603,7 @@ func (a *app) cmdUninstall(ctx context.Context, args []string) error {
 		a.out("Run `muretto uninstall --purge` to delete them too.")
 		return nil
 	}
-	if !*yes && !(a.interactive() && a.confirm("Delete all tokens and "+s.p.Home+"?", false)) {
+	if !*yes && (!a.interactive() || !a.confirm("Delete all tokens and "+s.p.Home+"?", false)) {
 		s.close()
 		a.out("Kept tokens and local data.")
 		return nil

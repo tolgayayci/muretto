@@ -16,7 +16,7 @@ const schemaBase = "https://github.com/tolgayayci/muretto/schema/"
 var (
 	compileOnce sync.Once
 	answerSch   *jsonschema.Schema
-	compileErr  error
+	errCompile  error
 )
 
 // ValidateAnswer checks raw JSON against schema/answer.schema.json (with
@@ -28,29 +28,29 @@ func ValidateAnswer(raw []byte) error {
 		c.AssertFormat()
 		names, err := fs.Glob(schema.Files, "*.schema.json")
 		if err != nil {
-			compileErr = err
+			errCompile = err
 			return
 		}
 		for _, n := range names {
 			b, err := schema.Files.ReadFile(n)
 			if err != nil {
-				compileErr = err
+				errCompile = err
 				return
 			}
 			doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(b))
 			if err != nil {
-				compileErr = fmt.Errorf("%s: %w", n, err)
+				errCompile = fmt.Errorf("%s: %w", n, err)
 				return
 			}
 			if err := c.AddResource(schemaBase+n, doc); err != nil {
-				compileErr = err
+				errCompile = err
 				return
 			}
 		}
-		answerSch, compileErr = c.Compile(schemaBase + "answer.schema.json")
+		answerSch, errCompile = c.Compile(schemaBase + "answer.schema.json")
 	})
-	if compileErr != nil {
-		return compileErr
+	if errCompile != nil {
+		return errCompile
 	}
 	v, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
 	if err != nil {

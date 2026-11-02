@@ -218,13 +218,13 @@ func TestLoginSlowDownAndDenied(t *testing.T) {
 			n := polls.Add(1)
 			switch {
 			case deny.Load():
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 				_, _ = w.Write([]byte(`{"error":"access_denied"}`))
 			case n == 1:
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 				_, _ = w.Write([]byte(`{"error":"slow_down","interval":6}`))
 			case n < 3:
-				w.WriteHeader(400)
+				w.WriteHeader(http.StatusBadRequest)
 				_, _ = w.Write([]byte(`{"error":"authorization_pending"}`))
 			default:
 				_, _ = w.Write([]byte(`{"access_token":"` + fakeToken() + `","token_type":"bearer","login":"alice"}`))

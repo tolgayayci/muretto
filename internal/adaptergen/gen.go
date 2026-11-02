@@ -12,6 +12,7 @@ package adaptergen
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
@@ -276,7 +277,7 @@ func (g *gen) pickBase() error {
 		}
 		h, err := broker.CanonicalHost(u.Hostname())
 		if err != nil {
-			return fmt.Errorf("%s host %q: %v", from, u.Host, err)
+			return fmt.Errorf("%s host %q: %w", from, u.Host, err)
 		}
 		if strings.Contains(u.Path, "{") {
 			return fmt.Errorf("%s %q has a server variable with no default; pass --base-url", from, u.String())
@@ -386,7 +387,7 @@ func supported(s *openapi.SecurityScheme) (header, scheme string, rank int, ok b
 func (g *gen) pickAuth() error {
 	counts := map[string]int{}
 	for _, op := range g.doc.Operations {
-		if op.Method != "get" {
+		if !strings.EqualFold(op.Method, http.MethodGet) {
 			continue
 		}
 		for _, req := range g.doc.EffectiveSecurity(op) {
@@ -464,7 +465,7 @@ func (g *gen) collect() {
 	for _, op := range g.doc.Operations {
 		full, ok := g.fullPath(op)
 		if !ok {
-			if op.Method == "get" {
+			if strings.EqualFold(op.Method, http.MethodGet) {
 				g.skip(op.Path, "served from another host")
 			}
 			continue
@@ -472,7 +473,7 @@ func (g *gen) collect() {
 		oi := &opInfo{op: op, path: full, segs: segments(full)}
 		oi.norm = normKey(oi.segs)
 		g.ops = append(g.ops, oi)
-		if op.Method != "get" {
+		if !strings.EqualFold(op.Method, http.MethodGet) {
 			continue
 		}
 		resp := op.Success()
@@ -563,7 +564,7 @@ func (g *gen) pickAccounts() error {
 	case g.opt.Accounts != "":
 		want := strings.TrimSuffix(g.opt.Accounts, "/")
 		for _, oi := range g.ops {
-			if oi.op.Method == "get" && (strings.TrimSuffix(oi.path, "/") == want || strings.TrimSuffix(oi.op.Path, "/") == want) {
+			if strings.EqualFold(oi.op.Method, http.MethodGet) && (strings.TrimSuffix(oi.path, "/") == want || strings.TrimSuffix(oi.op.Path, "/") == want) {
 				a.op = oi
 			}
 		}
@@ -613,7 +614,7 @@ func (g *gen) pickAccounts() error {
 			auto = true
 			for _, n := range meNorms {
 				for _, oi := range g.ops {
-					if oi.op.Method == "get" && oi.norm == n && g.colFor(oi) == nil && g.authOK(oi.op) {
+					if strings.EqualFold(oi.op.Method, http.MethodGet) && oi.norm == n && g.colFor(oi) == nil && g.authOK(oi.op) {
 						if r := oi.op.Success(); r != nil && r.JSON && r.Schema != nil && len(r.Schema.Properties) > 0 {
 							a.op, a.single = oi, true
 							break
@@ -634,7 +635,7 @@ func (g *gen) pickAccounts() error {
 		// org_slug): the user types it at `muretto init`.
 		var names []string
 		for _, oi := range g.ops {
-			if oi.op.Method != "get" {
+			if !strings.EqualFold(oi.op.Method, http.MethodGet) {
 				continue
 			}
 			for _, p := range oi.op.Params {
@@ -723,7 +724,7 @@ func (g *gen) pickAccounts() error {
 	if a.idF == "" {
 		return fmt.Errorf("accounts endpoint %s: items have no id field; pass --accounts with another endpoint or none", a.op.path)
 	}
-	a.nameF = pickName(item, a.idF)
+	a.nameF = pickName(item)
 	if k, p := prop(item, "slug"); k != "" && p.Is("string") {
 		a.slugF = k
 	}

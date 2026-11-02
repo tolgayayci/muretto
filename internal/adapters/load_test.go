@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,7 +35,7 @@ func TestLoadEmbedded(t *testing.T) {
 		}
 	}
 	for _, rule := range r.Allowlist() {
-		if rule.Method != "GET" && rule.BodySHA256 == "" {
+		if rule.Method != http.MethodGet && rule.BodySHA256 == "" {
 			t.Errorf("non-GET rule without pinned body: %+v", rule)
 		}
 		for _, q := range rule.Query {

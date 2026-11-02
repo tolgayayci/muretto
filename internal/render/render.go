@@ -391,7 +391,6 @@ func (p *printer) warnings(a contract.Answer) {
 // Summary is `muretto`.
 func Summary(w io.Writer, a contract.Answer, o Options) error {
 	p := newPrinter(w, o)
-	ix := newIndex(a)
 	s := a.Summary
 	p.line("%s", p.bold("Muretto")+" · "+a.Developer.DisplayName+" · "+p.dim(p.checked(a)))
 	p.line("")
@@ -416,7 +415,7 @@ func Summary(w io.Writer, a contract.Answer, o Options) error {
 		if n > 5 {
 			n = 5
 		}
-		p.sessionRows(ix, a.Sessions[:n])
+		p.sessionRows(a.Sessions[:n])
 	}
 	p.line("")
 	var hints []string
@@ -435,7 +434,7 @@ func Summary(w io.Writer, a contract.Answer, o Options) error {
 	return p.err
 }
 
-func (p *printer) sessionRows(ix *index, views []contract.SessionView) {
+func (p *printer) sessionRows(views []contract.SessionView) {
 	for _, v := range views {
 		title := "(no title)"
 		if v.Session.TaskTitle != nil {
@@ -464,7 +463,7 @@ func Sessions(w io.Writer, a contract.Answer, o Options) error {
 	}
 	p.line("%s", p.bold(fmt.Sprintf("%d %s", len(a.Sessions), plural(len(a.Sessions), "session", "sessions")))+" · "+p.dim(p.checked(a)))
 	p.line("")
-	p.sessionRows(newIndex(a), a.Sessions)
+	p.sessionRows(a.Sessions)
 	p.line("")
 	p.line("  → muretto session <id>")
 	return p.err
@@ -1063,10 +1062,12 @@ func Providers(w io.Writer, a contract.Answer, rows []ProviderRow, coverage bool
 			if c.Provider != row.Name {
 				continue
 			}
-			if c.Status == contract.ProviderCheckStatusOk {
+			switch c.Status {
+			case contract.ProviderCheckStatusOk:
 				ok++
-			} else if c.Status == contract.ProviderCheckStatusError {
+			case contract.ProviderCheckStatusError:
 				failed++
+			case contract.ProviderCheckStatusSkipped:
 			}
 			if c.LastSuccessAt != nil && (last == nil || c.LastSuccessAt.Before(*last)) {
 				t := *c.LastSuccessAt

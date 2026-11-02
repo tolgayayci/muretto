@@ -492,7 +492,7 @@ func keyBefore(s string, sep int) (string, bool) {
 	for k > 0 && e-k < 100 && isKeyByte(s[k-1]) {
 		k--
 	}
-	for k < e && !(isLetter(s[k]) || s[k] == '_') {
+	for k < e && !isLetter(s[k]) && s[k] != '_' {
 		k++
 	}
 	if k == e {
@@ -575,9 +575,10 @@ func listSpan(s string, i int) (start, end int, ok bool) {
 		c := s[j]
 		switch {
 		case q != 0:
-			if c == '\\' {
+			switch c {
+			case '\\':
 				j++
-			} else if c == q {
+			case q:
 				q = 0
 			}
 		case c == '"' || c == '\'':

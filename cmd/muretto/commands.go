@@ -75,7 +75,7 @@ func (a *app) run(ctx context.Context, args []string) int {
 	case "providers":
 		err = a.cmdProviders(ctx, args)
 	case "adapter", "adapters":
-		err = a.cmdAdapter(ctx, args)
+		err = a.cmdAdapter(args)
 	case "init":
 		err = a.cmdInit(ctx, args)
 	case "login":
@@ -178,7 +178,6 @@ func (a *app) emit(f flags, an contract.Answer, text func(io.Writer, render.Opti
 	return text(a.stdout, a.renderOpts(f, a.stdout))
 }
 
-func all(contract.Resource) bool           { return true }
 func noSessions(contract.SessionView) bool { return false }
 
 // sessionSubset is the session plus what it created or claimed.
@@ -201,7 +200,7 @@ func sessionSubset(an contract.Answer, id string) contract.Answer {
 	}
 	// Parents come along so headers can name the project they belong to.
 	for _, r := range an.Resources {
-		if keep[r.ID] && !(r.SeenVia == contract.ResourceSeenViaEvidence || exactFor(an, r.ID, id)) {
+		if keep[r.ID] && r.SeenVia != contract.ResourceSeenViaEvidence && !exactFor(an, r.ID, id) {
 			delete(keep, r.ID)
 		}
 	}

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -201,7 +202,7 @@ func (r *Registry) AddLocal(file string, data []byte) error {
 		return fmt.Errorf("%s: provider %q is already defined (by %s)", file, a.Provider, r.byName[a.Provider].source)
 	}
 	for name, ep := range a.Endpoints {
-		if ep.Method != "GET" {
+		if ep.Method != http.MethodGet {
 			return fmt.Errorf("%s: endpoint %s: local adapters may only use GET", file, name)
 		}
 	}

@@ -669,7 +669,7 @@ func TestHookFastPath(t *testing.T) {
 		t.Skip("builds the binary")
 	}
 	bin := filepath.Join(t.TempDir(), "muretto")
-	build := exec.Command("go", "build", "-o", bin, ".")
+	build := exec.CommandContext(context.Background(), "go", "build", "-o", bin, ".")
 	build.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
@@ -681,7 +681,7 @@ func TestHookFastPath(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "home")
 	var best time.Duration
 	for i := 0; i < 5; i++ {
-		cmd := exec.Command(bin, "hook", "PostToolUse")
+		cmd := exec.CommandContext(context.Background(), bin, "hook", "PostToolUse")
 		cmd.Stdin = bytes.NewReader(fixture)
 		cmd.Env = append(os.Environ(), "MURETTO_HOME="+home)
 		var out, errb bytes.Buffer
@@ -700,7 +700,7 @@ func TestHookFastPath(t *testing.T) {
 	}
 	// Garbage and an empty event also exit 0 silently.
 	for _, args := range [][]string{{"hook"}, {"hook", "PostToolUse"}} {
-		cmd := exec.Command(bin, args...)
+		cmd := exec.CommandContext(context.Background(), bin, args...)
 		cmd.Stdin = strings.NewReader("{not json")
 		var out bytes.Buffer
 		cmd.Stdout, cmd.Stderr = &out, &out

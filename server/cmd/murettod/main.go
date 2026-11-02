@@ -114,7 +114,7 @@ func checkListenURL(raw string) error {
 	if err != nil {
 		return errors.New("MURETTO_DATABASE_LISTEN_URL is not a valid URL")
 	}
-	if p, _ := strconv.Atoi(u.Port()); pgstore.IsTransactionPooler(uint16(p)) {
+	if p, err := strconv.ParseUint(u.Port(), 10, 16); err == nil && pgstore.IsTransactionPooler(uint16(p)) {
 		return errors.New("LISTEN/NOTIFY does not work through the transaction-mode pooler (port 6543): set MURETTO_DATABASE_LISTEN_URL to the session-mode pooler (port 5432) or a direct connection")
 	}
 	return nil

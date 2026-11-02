@@ -61,17 +61,24 @@ func newTestBroker(t *testing.T, rules []Rule) (*Broker, *fakeTransport) {
 	return New(&http.Client{Transport: ft}, rules), ft
 }
 
-func do(t *testing.T, b *Broker, method, url string, body []byte) (*http.Response, error) {
+func do(t *testing.T, b *Broker, method, url string, body []byte) ([]byte, error) {
 	t.Helper()
 	req, err := NewRequest(context.Background(), method, url, body)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return doReq(b, req)
+}
+
+// doReq sends req through b and returns the response body, read and closed.
+func doReq(b *Broker, req *http.Request) ([]byte, error) {
 	resp, err := b.Do(context.Background(), req)
-	if err == nil {
-		t.Cleanup(func() { _ = resp.Body.Close() })
+	if err != nil {
+		return nil, err
 	}
-	return resp, err
+	defer func() { _ = resp.Body.Close() }()
+	out, _ := io.ReadAll(resp.Body)
+	return out, nil
 }
 
 func TestAllowedGET(t *testing.T) {
@@ -289,11 +296,10 @@ func TestStripping(t *testing.T) {
 		"https://api.vercel.com/v10/projects/prj_EXAMPLE/env?teamId=team_EXAMPLE",
 		"https://api.vercel.com/v10/projects?teamId=team_EXAMPLE",
 	} {
-		resp, err := do(t, b, "GET", u, nil)
+		body, err := do(t, b, "GET", u, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		body, _ := io.ReadAll(resp.Body)
 		if bytes.Contains(body, []byte("MURETTO_FAKE_SECRET")) {
 			t.Fatalf("secret survived stripping: %s", body)
 		}
@@ -360,11 +366,10 @@ func TestOffline(t *testing.T) {
 		seen = append(seen, method+" "+path+"?"+rawQuery)
 		return 200, []byte(`[{"id":"t1","secret":"MURETTO_FAKE_SECRET","value":"x"}]`)
 	})
-	resp, err := do(t, b, "GET", "https://api.acme.dev/v1/things?limit=10", nil)
+	got, err := do(t, b, "GET", "https://api.acme.dev/v1/things?limit=10", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, _ := io.ReadAll(resp.Body)
 	if strings.Contains(string(got), "MURETTO_FAKE_SECRET") || strings.Contains(string(got), `"value"`) || !strings.Contains(string(got), "t1") {
 		t.Errorf("offline response not stripped: %s", got)
 	}

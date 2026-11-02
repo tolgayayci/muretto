@@ -158,7 +158,7 @@ func extractVersion(fsys ...fs.FS) string {
 		}
 		_ = fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() {
-				return nil
+				return nil //nolint:nilerr // skip unreadable entries; hash what can be read
 			}
 			b, err := fs.ReadFile(f, path)
 			if err == nil {
@@ -209,7 +209,7 @@ func (a *app) loadAllAdapters() (Registry, error) {
 	}
 	p, err := a.resolvePaths()
 	if err != nil {
-		return r, nil
+		return r, nil //nolint:nilerr // no home directory: the built-in adapters only
 	}
 	// Installed adapters change what signatures extract: re-extract when
 	// they change.
@@ -570,7 +570,7 @@ func (a *app) push(ctx context.Context, s *state) error {
 	server := s.cfg.SyncServer()
 	token, _, err := a.secrets.Sync(hostOf(server))
 	if err != nil {
-		return fmt.Errorf("not logged in (%v); run `muretto login`", err)
+		return fmt.Errorf("not logged in (%w); run `muretto login`", err)
 	}
 	revs, err := s.st.SyncRevs(ctx)
 	if err != nil {

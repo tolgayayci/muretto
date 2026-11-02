@@ -126,6 +126,8 @@ func deref(n *yaml.Node) *yaml.Node {
 			n = n.Content[0]
 		case yaml.AliasNode:
 			n = n.Alias
+		case yaml.SequenceNode, yaml.MappingNode, yaml.ScalarNode:
+			fallthrough
 		default:
 			return n
 		}

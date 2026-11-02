@@ -143,16 +143,6 @@ func versionScore(segs []string) int {
 	return best
 }
 
-func pathVersion(segs []string) int {
-	v := 0
-	for _, s := range segs {
-		if n := versionOf(s); n > v {
-			v = n
-		}
-	}
-	return v
-}
-
 var reSlugBad = regexp.MustCompile(`[^a-z0-9]+`)
 
 var slugStop = map[string]bool{

@@ -8,6 +8,7 @@ package testserver
 
 import (
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -208,15 +209,21 @@ func (s *Server) Login(t testing.TB, login string) *Browser {
 // AccessToken is a fresh Supabase access token for this user.
 func (b *Browser) AccessToken() string { return b.s.SupabaseToken(b.t, b.Login) }
 
+// Reply is a finished response: its body has been read and closed.
+type Reply struct {
+	StatusCode int
+	Header     http.Header
+}
+
 // Do sends a request with a fresh Supabase access token.
-func (b *Browser) Do(method, path string, body any) (*http.Response, []byte) {
+func (b *Browser) Do(method, path string, body any) (*Reply, []byte) {
 	b.t.Helper()
 	var rd io.Reader
 	if body != nil {
 		raw, _ := json.Marshal(body)
 		rd = bytes.NewReader(raw)
 	}
-	req, _ := http.NewRequest(method, b.s.URL+path, rd)
+	req, _ := http.NewRequestWithContext(context.Background(), method, b.s.URL+path, rd)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -227,7 +234,7 @@ func (b *Browser) Do(method, path string, body any) (*http.Response, []byte) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	out, _ := io.ReadAll(resp.Body)
-	return resp, out
+	return &Reply{StatusCode: resp.StatusCode, Header: resp.Header}, out
 }
 
 // JSON sends a request, checks the status and decodes the body into out.
@@ -262,7 +269,9 @@ func (s *Server) Token(t testing.TB, login string) string {
 func (s *Server) DeviceToken(t testing.TB, b *Browser, host string) string {
 	t.Helper()
 	post := func(path, body string) (int, map[string]any) {
-		resp, err := http.Post(s.URL+path, "application/json", strings.NewReader(body))
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, s.URL+path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -291,7 +300,9 @@ func (s *Server) DeviceToken(t testing.TB, b *Browser, host string) string {
 // dev-only route (not available with Options.Prod).
 func (s *Server) DevToken(t testing.TB, login string) string {
 	t.Helper()
-	resp, err := http.Post(s.URL+"/v1/dev/token", "application/json", strings.NewReader(`{"login":"`+login+`","name":"`+strings.ToUpper(login[:1])+login[1:]+`"}`))
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, s.URL+"/v1/dev/token", strings.NewReader(`{"login":"`+login+`","name":"`+strings.ToUpper(login[:1])+login[1:]+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}

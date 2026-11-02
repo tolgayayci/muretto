@@ -3,6 +3,7 @@ package adaptergen
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
@@ -36,7 +37,7 @@ type fakeRoute struct {
 func NewFakeAPI(doc *openapi.Doc, basePath string) *FakeAPI {
 	f := &FakeAPI{}
 	for _, op := range doc.Operations {
-		if op.Method != "get" {
+		if !strings.EqualFold(op.Method, http.MethodGet) {
 			continue
 		}
 		r := op.Success()

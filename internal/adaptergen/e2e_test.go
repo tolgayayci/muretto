@@ -3,6 +3,7 @@ package adaptergen
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"net/url"
 	"os"
@@ -91,7 +92,7 @@ func scan(t *testing.T, doc *openapi.Doc, res *Result, account string) scanOut {
 	ctx := context.Background()
 	accts, err := reg.Accounts(ctx, b, res.Provider, "tok")
 	switch {
-	case err == adapters.ErrAccountInput:
+	case errors.Is(err, adapters.ErrAccountInput):
 		accts = []adapters.Account{{ID: "typed-org", Name: "typed-org"}}
 	case err != nil:
 		t.Fatalf("accounts: %v", err)

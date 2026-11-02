@@ -95,7 +95,7 @@ func (s *Store) get(env, key string) (string, Source, error) {
 		return "", SourceNone, ErrNotFound
 	}
 	if err != nil {
-		return "", SourceNone, fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return "", SourceNone, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	return v, SourceKeychain, nil
 }
@@ -108,7 +108,7 @@ func (s *Store) Set(key, value string) error {
 	}
 	err := s.timed(func() error { return s.Backend.Set(Service, key, value) })
 	if err != nil && !errors.Is(err, ErrUnavailable) {
-		return fmt.Errorf("%w: %v", ErrUnavailable, err)
+		return fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	return err
 }

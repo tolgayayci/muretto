@@ -401,7 +401,7 @@ func TestUnwritableSpool(t *testing.T) {
 	if err := os.Chmod(p.Spool, 0o500); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chmod(p.Spool, 0o700)
+	defer func() { _ = os.Chmod(p.Spool, 0o700) }()
 	stdout, stderr := captureStdio(t, func() {
 		Run("PostToolUse", bytes.NewReader(readFixture(t, "hook-posttooluse-bash.json")), p, now)
 	})

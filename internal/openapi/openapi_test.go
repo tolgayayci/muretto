@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -949,7 +950,7 @@ func TestOpenAPI32(t *testing.T) {
 	}
 	gets := 0
 	for _, o := range d.Operations {
-		if o.Method == "get" && o.Path == "/search" {
+		if strings.EqualFold(o.Method, http.MethodGet) && o.Path == "/search" {
 			gets++
 			if o.Responses[0].Description != "plain get" {
 				t.Errorf("additionalOperations GET replaced the real get")

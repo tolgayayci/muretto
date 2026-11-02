@@ -65,7 +65,7 @@ func TestReviewDecisionsFromDashboard(t *testing.T) {
 	// GET /v1/reviews: the caller's own, also with the CLI token.
 	resp, body := get(t, s.URL+"/v1/reviews", aliceTok)
 	var ad decisionsResp
-	if resp.StatusCode != 200 || json.Unmarshal(body, &ad) != nil || len(ad.Decisions) != 1 || ad.Decisions[0].State != "keep" ||
+	if resp.StatusCode != http.StatusOK || json.Unmarshal(body, &ad) != nil || len(ad.Decisions) != 1 || ad.Decisions[0].State != "keep" ||
 		ad.Decisions[0].ResourceID != reviewRes || ad.Decisions[0].Note == nil || ad.Decisions[0].DecidedAt.IsZero() {
 		t.Fatalf("GET /v1/reviews with CLI token: %d %s", resp.StatusCode, body)
 	}
@@ -133,25 +133,25 @@ func TestReviewDecisionValidationAndAuth(t *testing.T) {
 	}
 	for _, c := range bad {
 		resp, body := post(t, s.URL+"/v1/reviews", alice.AccessToken(), "application/json", []byte(c.body))
-		if resp.StatusCode != 400 || !strings.Contains(string(body), `"`+c.code+`"`) {
+		if resp.StatusCode != http.StatusBadRequest || !strings.Contains(string(body), `"`+c.code+`"`) {
 			t.Errorf("%s: %d %s", c.name, resp.StatusCode, body)
 		}
 	}
 	good := []byte(`{"resource_id":"vercel.env_var:prj_x/API_KEY","state":"not_needed","note":"line one\nline two"}`)
-	if resp, body := post(t, s.URL+"/v1/reviews", alice.AccessToken(), "application/json", good); resp.StatusCode != 204 {
+	if resp, body := post(t, s.URL+"/v1/reviews", alice.AccessToken(), "application/json", good); resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("good body: %d %s", resp.StatusCode, body)
 	}
-	if resp, _ := post(t, s.URL+"/v1/reviews", alice.AccessToken(), "text/plain", good); resp.StatusCode != 415 {
+	if resp, _ := post(t, s.URL+"/v1/reviews", alice.AccessToken(), "text/plain", good); resp.StatusCode != http.StatusUnsupportedMediaType {
 		t.Fatalf("content type: %d", resp.StatusCode)
 	}
 	// Auth matrix: in production a CLI token cannot decide; no token at all is 401.
-	if resp, _ := post(t, s.URL+"/v1/reviews", tok, "application/json", good); resp.StatusCode != 403 {
+	if resp, _ := post(t, s.URL+"/v1/reviews", tok, "application/json", good); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("POST with CLI token in prod: %d", resp.StatusCode)
 	}
-	if resp, _ := post(t, s.URL+"/v1/reviews", "", "application/json", good); resp.StatusCode != 401 {
+	if resp, _ := post(t, s.URL+"/v1/reviews", "", "application/json", good); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("POST without auth: %d", resp.StatusCode)
 	}
-	if resp, _ := get(t, s.URL+"/v1/reviews", ""); resp.StatusCode != 401 {
+	if resp, _ := get(t, s.URL+"/v1/reviews", ""); resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("GET without auth: %d", resp.StatusCode)
 	}
 
@@ -168,13 +168,13 @@ func TestReviewDecisionValidationAndAuth(t *testing.T) {
 		t.Fatal("no rate limit on POST /v1/reviews")
 	}
 	bob := s.Login(t, "bob")
-	if resp, _ := post(t, s.URL+"/v1/reviews", bob.AccessToken(), "application/json", good); resp.StatusCode != 204 {
+	if resp, _ := post(t, s.URL+"/v1/reviews", bob.AccessToken(), "application/json", good); resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("bob limited by alice: %d", resp.StatusCode)
 	}
 
 	// Dev login: a CLI token may decide (local dev and the demo).
 	dev := testserver.Start(t, testserver.Options{})
-	if resp, body := post(t, dev.URL+"/v1/reviews", dev.DevToken(t, "dana"), "application/json", good); resp.StatusCode != 204 {
+	if resp, body := post(t, dev.URL+"/v1/reviews", dev.DevToken(t, "dana"), "application/json", good); resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("dev token POST: %d %s", resp.StatusCode, body)
 	}
 }

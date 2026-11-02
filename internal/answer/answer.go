@@ -229,7 +229,6 @@ func deriveFindings(resources []contract.Resource, stored []contract.ExposureFin
 			if have[findingKey(r.ID, rule)] {
 				continue
 			}
-			rule := rule
 			f := contract.ExposureFinding{
 				ID: findingKey(r.ID, rule), ResourceID: r.ID, RuleID: rule,
 				State: contract.ExposureFindingStateUnknown, Severity: contract.ExposureFindingSeverityInfo,
@@ -462,10 +461,12 @@ func Summarize(a contract.Answer, now time.Time) contract.Summary {
 	}
 	s.NeedsReview = len(reviewDueSet(a.Reviews, now))
 	for _, c := range a.Checks {
-		if c.Status == contract.ProviderCheckStatusOk {
+		switch c.Status {
+		case contract.ProviderCheckStatusOk:
 			s.ChecksOk++
-		} else if c.Status == contract.ProviderCheckStatusError {
+		case contract.ProviderCheckStatusError:
 			s.ChecksFailed++
+		case contract.ProviderCheckStatusSkipped:
 		}
 		if c.LastSuccessAt != nil && (s.OldestCheckAt == nil || c.LastSuccessAt.Before(*s.OldestCheckAt)) {
 			t := *c.LastSuccessAt

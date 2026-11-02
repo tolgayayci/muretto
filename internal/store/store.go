@@ -80,11 +80,11 @@ func (s *Store) migrate(ctx context.Context) error {
 			return err
 		}
 		if _, err := tx.ExecContext(ctx, string(body)); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("%s: %w", names[i], err)
 		}
 		if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", i+1)); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return err
 		}
 		if err := tx.Commit(); err != nil {
@@ -125,7 +125,7 @@ func (s *Store) SaveBatch(ctx context.Context, sessions []contract.Session, acti
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for _, sess := range sessions {
 		var body string
 		err := tx.QueryRowContext(ctx, "SELECT body FROM sessions WHERE id = ?", sess.ID).Scan(&body)
@@ -370,7 +370,7 @@ func (s *Store) SetIdentifiers(ctx context.Context, ids map[string][]contract.Id
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for id, idents := range ids {
 		var body string
 		if err := tx.QueryRowContext(ctx, "SELECT body FROM actions WHERE id = ?", id).Scan(&body); err != nil {
@@ -455,26 +455,27 @@ func (s *Store) ApplyScan(ctx context.Context, provider, accountID string, sc Sc
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	existing := map[string]contract.Resource{}
-	rows, err := tx.QueryContext(ctx, "SELECT body FROM resources WHERE provider = ? AND account_id = ?", provider, accountID)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
-		var body string
-		if err := rows.Scan(&body); err != nil {
-			rows.Close()
+	if err := func() error {
+		rows, err := tx.QueryContext(ctx, "SELECT body FROM resources WHERE provider = ? AND account_id = ?", provider, accountID)
+		if err != nil {
 			return err
 		}
-		var r contract.Resource
-		if err := json.Unmarshal([]byte(body), &r); err == nil {
-			existing[r.ID] = r
+		defer rows.Close()
+		for rows.Next() {
+			var body string
+			if err := rows.Scan(&body); err != nil {
+				return err
+			}
+			var r contract.Resource
+			if err := json.Unmarshal([]byte(body), &r); err == nil {
+				existing[r.ID] = r
+			}
 		}
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
+		return rows.Err()
+	}(); err != nil {
 		return err
 	}
 
@@ -688,7 +689,7 @@ func (s *Store) RecordCheckFailure(ctx context.Context, provider, accountID stri
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	for _, c := range failed {
 		scope, rule := "", ""
 		if c.Scope != nil {
@@ -840,7 +841,7 @@ func (s *Store) SetSyncRevs(ctx context.Context, revs map[string]string) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 	if _, err := tx.ExecContext(ctx, "DELETE FROM sync_revs"); err != nil {
 		return err
 	}

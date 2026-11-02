@@ -221,6 +221,8 @@ func (p *predicate) eval(ctx map[string]any) tri {
 			return triFalse
 		case triFalse:
 			return triTrue
+		case triUnknown:
+			fallthrough
 		default:
 			return triUnknown
 		}

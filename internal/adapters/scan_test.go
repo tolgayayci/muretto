@@ -3,6 +3,7 @@ package adapters
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -359,7 +360,7 @@ func readYAML(t *testing.T, path string, v any) {
 	}
 	dec := yaml.NewDecoder(strings.NewReader(string(data)))
 	dec.KnownFields(true)
-	if err := dec.Decode(v); err != nil && err != io.EOF {
+	if err := dec.Decode(v); err != nil && !errors.Is(err, io.EOF) {
 		t.Fatalf("%s: %v", path, err)
 	}
 }

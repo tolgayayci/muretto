@@ -634,11 +634,10 @@ func (s *scanner) nextPage(ep *endpointSpec, doc any, hdr http.Header, q url.Val
 		if pg.Total != "" {
 			if tv, ok := lookup(doc, pg.Total); ok && tv != nil {
 				ts, _ := scalarString(tv)
-				total, err := strconv.ParseFloat(ts, 64)
-				if err != nil || float64(cur) >= total {
-					return nil, "", false, nil
+				if total, err := strconv.ParseFloat(ts, 64); err == nil && float64(cur) < total {
+					return set(strconv.Itoa(cur + 1))
 				}
-				return set(strconv.Itoa(cur + 1))
+				return nil, "", false, nil // the last page, or a total that isn't a number
 			}
 		}
 		// No count in the body: keep going until a page is empty.
@@ -694,14 +693,14 @@ func linkNext(values []string) string {
 }
 
 func statusCode(status int) contract.ProviderCheckErrorCode {
-	switch {
-	case status == http.StatusUnauthorized:
+	switch status {
+	case http.StatusUnauthorized:
 		return contract.ProviderCheckErrorCodeAuth
-	case status == http.StatusForbidden:
+	case http.StatusForbidden:
 		return contract.ProviderCheckErrorCodePermission
-	case status == http.StatusNotFound:
+	case http.StatusNotFound:
 		return contract.ProviderCheckErrorCodeNotFound
-	case status == http.StatusTooManyRequests:
+	case http.StatusTooManyRequests:
 		return contract.ProviderCheckErrorCodeRateLimit
 	default:
 		return contract.ProviderCheckErrorCodeProvider

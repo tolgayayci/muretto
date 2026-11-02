@@ -274,8 +274,8 @@ func extractWith(a *adapterSpec, s *signatureSpec, e *extractSpec, d *action, re
 	}
 	var hits []hit
 
-	switch {
-	case e.From == "result" || e.From == "input":
+	switch e.From {
+	case "result", "input":
 		if e.From == "result" && result == nil {
 			return nil
 		}

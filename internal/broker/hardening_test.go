@@ -79,7 +79,7 @@ func TestDenyListBypassesRefused(t *testing.T) {
 		if _, err := b.Check(req); !errors.Is(err, ErrRefused) {
 			t.Errorf("Check(%s) = %v, want refusal", u, err)
 		}
-		if _, err := b.Do(context.Background(), req); !errors.Is(err, ErrRefused) {
+		if _, err := doReq(b, req); !errors.Is(err, ErrRefused) {
 			t.Errorf("Do(%s) = %v, want refusal", u, err)
 		}
 	}
@@ -148,7 +148,7 @@ func TestGETWithAnyBodyRefused(t *testing.T) {
 			}
 			req.Method = method
 			set(req)
-			if _, err := b.Do(context.Background(), req); !errors.Is(err, ErrRefused) {
+			if _, err := doReq(b, req); !errors.Is(err, ErrRefused) {
 				t.Errorf("%s (method %q): want refusal, got %v", name, method, err)
 			}
 		}
@@ -159,7 +159,7 @@ func TestGETWithAnyBodyRefused(t *testing.T) {
 	// NoBody is fine.
 	req, _ := NewRequest(context.Background(), "GET", "https://api.supabase.com/v1/projects", nil)
 	req.Body = http.NoBody
-	if _, err := b.Do(context.Background(), req); err != nil {
+	if _, err := doReq(b, req); err != nil {
 		t.Fatalf("GET with NoBody refused: %v", err)
 	}
 }
@@ -210,7 +210,7 @@ func TestPOSTSendsExactlyHashedBytes(t *testing.T) {
 	req.Body = &shiftyBody{first: pinned, later: evil}
 	req.ContentLength = 0
 	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(evil)), nil }
-	if _, err := b.Do(context.Background(), req); err != nil {
+	if _, err := doReq(b, req); err != nil {
 		t.Fatalf("pinned POST refused: %v", err)
 	}
 	if !bytes.Equal(got, pinned) || gotLen != int64(len(pinned)) {

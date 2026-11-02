@@ -28,7 +28,7 @@ import (
 )
 
 // FakeSecret is the marker fixtures put in every field an adapter must strip.
-const FakeSecret = "MURETTO_FAKE_SECRET"
+const FakeSecret = "MURETTO_FAKE_SECRET" // #nosec G101 -- a fixture marker, not a credential
 
 // Route is one fixture response (routes.yaml).
 type Route struct {
@@ -233,9 +233,9 @@ func fixturesContain(dir, s string) bool {
 	found := false
 	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || found {
-			return nil
+			return nil //nolint:nilerr // skip unreadable entries; best-effort search
 		}
-		if b, err := os.ReadFile(p); err == nil && bytes.Contains(b, []byte(s)) { // #nosec G304 -- fixture directory
+		if b, err := os.ReadFile(p); err == nil && bytes.Contains(b, []byte(s)) { // #nosec G304 G122 -- read-only scan of a fixture directory
 			found = true
 		}
 		return nil
