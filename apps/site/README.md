@@ -16,7 +16,9 @@ wrangler.jsonc   Worker config; custom domains muretto.ai and www.muretto.ai
 ## Run locally
 
 ```sh
-npx wrangler dev        # http://localhost:8787
+npm ci
+npm run dev             # http://localhost:8787
+npm run check           # dry-run build into dist/, no deploy
 ```
 
 ## Deploy
@@ -25,7 +27,7 @@ Deploys need a login to the Cloudflare account that owns the muretto.ai zone:
 
 ```sh
 npx wrangler login
-CLOUDFLARE_ACCOUNT_ID=<account id> npx wrangler deploy
+CLOUDFLARE_ACCOUNT_ID=<account id> npm run deploy
 ```
 
 In CI, set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` instead of logging in.
