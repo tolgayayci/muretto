@@ -1,0 +1,1482 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Muretto · See what your AI agent actually built</title>
+<meta name="description" content="Muretto shows every database, bucket and deployment your AI coding agents created, which session made it, and what is open to the internet. Open source, read-only.">
+<link rel="canonical" href="https://muretto.ai/">
+<meta name="theme-color" content="#0b0b0a">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Muretto">
+<meta property="og:url" content="https://muretto.ai/">
+<meta property="og:title" content="Muretto · See what your AI agent actually built">
+<meta property="og:description" content="Muretto shows every database, bucket and deployment your AI coding agents created, which session made it, and what is open to the internet. Open source, read-only.">
+<meta property="og:image" content="https://muretto.ai/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Muretto · See what your AI agent actually built">
+<meta name="twitter:description" content="Muretto shows every database, bucket and deployment your AI coding agents created, which session made it, and what is open to the internet. Open source, read-only.">
+<meta name="twitter:image" content="https://muretto.ai/og.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one 1200px column of full-width bands; a sticky nav; the problem told as a sticky scroll story; terminals carry the product. Dark only (Muretto Design System). */
+:root {
+  color-scheme: dark;
+  --surface: #0b0b0a; --raised: #121211; --sunken: #0e0e0c; --hover: #1a1a17; --nav-bg: #0b0b0ac2;
+  --line: #24231f; --line2: #36352f; --control: #63625a;
+  --ink: #edece6; --muted: #a9a8a0; --faint: #858479;
+  --acc: #c8f169; --on-acc: #141a05; --acc-wash: #c8f16914; --acc-line: #c8f16952; --acc-glow: #c8f16933;
+  --exp: #ff6b61; --exp-wash: #ff6b611f; --exp-line: #ff6b616b; --exp-ink: #ffd9d6; --exp-flash: #ff6b6138;
+  --t-line: #2c2b26; --t-chrome: #22211d; --t-dot: #3a3934; --t-ink: #d6d5cd; --t-bold: #f4f3ec; --t-dim: #8a897f; --c-val: #bdbcb3;
+  --sans: Geist, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r-xs: 4px; --r-sm: 5px; --r-md: 10px; --r-lg: 12px; --r-xl: 16px; --r-2xl: 18px;
+  --shadow-float: 0 40px 90px -40px #000000a6; --shadow-pop: 0 28px 60px -28px #000000b3;
+  --focus: 0 0 0 2px #0b0b0a, 0 0 0 4px #c8f169;
+  --gutter: clamp(16px, 4vw, 40px); --section-y: clamp(88px, 11vw, 136px);
+  --ease: cubic-bezier(.2, .7, .2, 1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+body { margin: 0; background: var(--surface); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 70; background: var(--surface); }
+a { color: inherit; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: none; box-shadow: var(--focus); border-radius: 8px; }
+code, .mono { font-family: var(--mono); }
+.wrap { max-width: 1200px; margin: 0 auto; padding-left: max(var(--gutter), env(safe-area-inset-left, 0px)); padding-right: max(var(--gutter), env(safe-area-inset-right, 0px)); }
+
+/* ---------- Motion primitives (content is visible at rest; animations play when an element arrives) ---------- */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes lineUp { from { transform: translateY(108%); } to { transform: none; } }
+@keyframes pop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes flash { from { background: var(--exp-flash); } to { background: transparent; } }
+@keyframes flow { to { background-position: 24px 0; } }
+@keyframes flowR { to { background-position: -24px 0; } }
+@keyframes scan { 0% { left: 0; opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { left: calc(100% - 120px); opacity: 0; } }
+.ld { animation: fadeUp .9s var(--ease) both; animation-delay: var(--d, 0s); }
+.reveal.in { animation: fadeUp .8s var(--ease) both; animation-delay: var(--d, 0s); }
+.mask { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+.mask > span { display: block; }
+.h-hero .mask > span { animation: lineUp 1s var(--ease) both; animation-delay: var(--d, 0s); }
+.sh.reveal.in { animation: none; }
+.sh.in .mask > span { animation: lineUp .9s var(--ease) both; }
+.sh.in .mask + .mask > span { animation-delay: .09s; }
+.sh.in .eyebrow, .sh.in .lede { animation: fadeUp .8s var(--ease) both; }
+.sh.in .lede { animation-delay: .18s; }
+
+/* ---------- Nav ---------- */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 60; background: var(--nav-bg); backdrop-filter: saturate(140%) blur(14px); -webkit-backdrop-filter: saturate(140%) blur(14px); border-bottom: 1px solid transparent; transition: border-color .3s; }
+.nav.scrolled { border-bottom-color: var(--line); }
+.nav-in { height: 64px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 28px; }
+.nav-in .brand { justify-self: start; }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 17px; letter-spacing: -0.01em; color: var(--ink); }
+.brand svg { color: var(--acc); }
+.nav-links { display: flex; gap: 22px; font-size: 14px; }
+.nav-links a { color: var(--muted); text-decoration: none; padding: 6px 0; position: relative; }
+.nav-links a:hover, .nav-links a[aria-current="true"] { color: var(--ink); }
+.nav-links a[aria-current="true"]::after { content: ""; position: absolute; left: 0; right: 0; bottom: -2px; height: 2px; border-radius: 2px; background: var(--acc); }
+.nav-cta { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: 8px; }
+.progress { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; pointer-events: none; }
+.progress span { display: block; height: 100%; background: var(--acc); transform-origin: 0 50%; transform: scaleX(var(--p, 0)); }
+@media (max-width: 920px) { .nav-links { display: none; } }
+
+/* ---------- Buttons ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 50px; padding: 0 24px; border-radius: var(--r-md); border: 1px solid transparent; font: 600 15.5px/1 var(--sans); text-decoration: none; white-space: nowrap; cursor: pointer; transition: filter .15s, border-color .15s, color .15s, transform .15s; }
+.btn-sm { height: 40px; padding: 0 14px; font-size: 14px; }
+.btn-quiet { background: transparent; color: var(--muted); font-weight: 500; }
+.btn-quiet:hover { color: var(--ink); background: var(--hover); }
+.btn-primary { background: var(--acc); color: var(--on-acc); }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-ghost { background: var(--raised); color: var(--ink); border-color: var(--control); font-weight: 500; }
+.btn-ghost:hover { border-color: var(--faint); }
+.btn-link { height: auto; padding: 12px 6px; color: var(--ink); font-weight: 500; }
+.btn-link:hover { color: var(--acc); }
+
+/* ---------- Section anatomy ---------- */
+.sec { padding-block: var(--section-y); border-top: 1px solid var(--line); position: relative; }
+.eyebrow { margin: 0; display: flex; align-items: center; gap: 10px; font: 500 13px/18px var(--mono); color: var(--acc); }
+.eyebrow::before { content: ""; width: 16px; height: 8px; border-radius: 2px; background: var(--acc); }
+.h2 { margin: 18px 0 0; max-width: 1000px; font-size: clamp(36px, 4.8vw, 66px); line-height: 1.02; letter-spacing: -0.042em; font-weight: 600; text-wrap: balance; }
+.q { color: var(--faint); }
+.lede { margin: 22px 0 0; max-width: 660px; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.6; color: var(--muted); }
+.cap { margin: 14px 0 0; font: 12px/1.5 var(--mono); color: var(--faint); }
+
+/* ---------- Announcement ---------- */
+.announce { display: block; text-decoration: none; background: var(--acc-wash); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13.5px; line-height: 1.4; }
+.announce .wrap { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 10px; padding-block: 9px; text-align: center; }
+.announce b { font: 600 12px var(--mono); color: var(--acc); }
+.announce .cta { color: var(--ink); font-weight: 600; white-space: nowrap; transition: color .2s; }
+.announce:hover .cta { color: var(--acc); }
+
+/* ---------- Hero: banner + nav + hero fill exactly the first screen; it reads top to bottom ---------- */
+.ctas { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.hero { position: relative; min-height: calc(100vh - var(--announce-h, 38px) - 65px); min-height: calc(100svh - var(--announce-h, 38px) - 65px); display: flex; align-items: center; padding-block: clamp(20px, 4.5vh, 56px); }
+.hero::before { content: ""; position: absolute; left: 50%; bottom: 0; width: min(1100px, 100%); height: 62%; transform: translateX(-50%); background: radial-gradient(closest-side, #c8f16910, transparent); pointer-events: none; }
+.hero-in { position: relative; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.h-hero { margin: 0; font-size: clamp(40px, min(5.8vw, 8.4vh), 88px); line-height: 1.02; letter-spacing: -0.05em; font-weight: 600; }
+.h-hero .acc { color: var(--acc); }
+.h-hero .mask > span { text-wrap: balance; }
+.hero-sub { margin: clamp(14px, 2.5vh, 28px) 0 0; max-width: 620px; font-size: clamp(16.5px, min(1.35vw, 2.3vh), 19px); line-height: 1.5; color: var(--muted); text-wrap: balance; }
+.hero-sub b { color: var(--ink); font-weight: 500; }
+.hero .ctas { margin-top: clamp(18px, 3.2vh, 34px); justify-content: center; }
+.hero-meta { margin: clamp(12px, 1.8vh, 18px) 0 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; font: 12.5px var(--mono); color: var(--faint); }
+.hero-meta span { display: inline-flex; align-items: center; gap: 8px; }
+.hero-meta span::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--acc); }
+
+/* The proof: what the agent said, then what Muretto found */
+.proof { margin-top: clamp(28px, 6vh, 72px); width: 100%; display: grid; grid-template-columns: minmax(0, 350px) minmax(80px, 140px) minmax(0, 520px); justify-content: center; align-items: center; text-align: left; }
+.hcard { position: relative; border: 1px solid var(--line2); border-radius: var(--r-xl); background: var(--raised); box-shadow: var(--shadow-float); overflow: hidden; }
+.hcard-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; height: 42px; padding: 0 6px 0 16px; border-bottom: 1px solid var(--line); background: var(--sunken); font: 500 11.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+.found .hcard-h { padding-right: 10px; }
+.said .hcard-b { display: flex; flex-direction: column; gap: 10px; padding: clamp(12px, 1.8vh, 18px) 16px; }
+.you { align-self: flex-end; margin: 0; max-width: 90%; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: var(--hover); font-size: 14px; line-height: 1.4; color: var(--muted); }
+.agent { position: relative; align-self: flex-start; max-width: 94%; padding: 11px 14px; border: 1px solid var(--line2); border-radius: 14px 14px 14px 4px; background: var(--sunken); }
+.msg { margin: 0; font-size: 16px; line-height: 1.4; font-weight: 500; color: var(--ink); }
+.okline { margin: 5px 0 0; font: 12.5px var(--mono); color: var(--acc); }
+.typing { position: absolute; left: 12px; top: 12px; display: inline-flex; gap: 5px; padding: 8px 10px; border-radius: 10px; background: var(--hover); }
+.typing[hidden] { display: none; }
+.typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: bob 1s infinite; }
+.typing i:nth-child(2) { animation-delay: .15s; } .typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes bob { 0%, 60%, 100% { transform: none; opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+.hop { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 14px; font: 11.5px var(--mono); color: var(--faint); white-space: nowrap; }
+.hop .track { position: relative; width: 100%; height: 2px; border-radius: 2px; background: var(--line2); }
+.hop .track::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--acc); transform-origin: 0 50%; }
+.hop .track::after { content: ""; position: absolute; right: 1px; top: 50%; width: 8px; height: 8px; border-top: 2px solid var(--acc); border-right: 2px solid var(--acc); transform: translateY(-50%) rotate(45deg); }
+.proof.run .hop .track::before { transform: scaleX(0); }
+.proof.run .hop .track::after { opacity: 0; }
+.proof.run.go .hop .track::before { transform: none; transition: transform .8s var(--ease); }
+.proof.run.go .hop .track::after { opacity: 1; transition: opacity .2s .7s; }
+.found .scan { position: absolute; left: 0; right: 0; top: 42px; height: 2px; background: var(--acc); box-shadow: 0 0 18px 2px var(--acc-glow); opacity: 0; pointer-events: none; z-index: 1; }
+.proof.scanning .found .scan { animation: scanY 1.8s var(--ease) both; }
+@keyframes scanY { 0% { top: 42px; opacity: 0; } 10% { opacity: 1; } 85% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+.cnt { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--exp-wash); box-shadow: inset 0 0 0 1px var(--exp-line); font: 500 12.5px var(--mono); letter-spacing: 0; text-transform: none; color: var(--exp-ink); }
+.cnt b { color: var(--exp); font-weight: 600; }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: clamp(8px, 1.35vh, 14px) 16px; border-top: 1px solid var(--line); }
+.rows li:first-child { border-top: 0; }
+.rows .ri { display: flex; color: var(--faint); }
+.rows .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 14px var(--mono); color: var(--ink); }
+.rows .nm small { margin-left: 10px; font: 13px var(--sans); color: var(--faint); }
+.proof.run .seq { opacity: 0; transform: translateY(6px); }
+.proof.run .seq.show { opacity: 1; transform: none; transition: opacity .45s var(--ease), transform .45s var(--ease); }
+.proof.run .rows li.exp.show { animation: flash 1.3s ease-out; }
+@media (min-width: 821px) and (max-height: 820px) {
+  .hero .btn { height: 46px; }
+  .hcard-h { height: 38px; }
+  .found .scan { top: 38px; }
+  .rows li { padding-block: 7px; }
+  .said .hcard-b { gap: 8px; }
+}
+@media (min-width: 821px) and (max-height: 700px) { .hero-meta { display: none; } .rows li { padding-block: 5px; } }
+@media (max-width: 820px) {
+  .proof { grid-template-columns: minmax(0, 520px); }
+  .hop { flex-direction: row; justify-content: center; gap: 14px; padding: 12px 0; }
+  .hop .track { width: 2px; height: 40px; order: -1; }
+  .hop .track::before { transform-origin: 50% 0; }
+  .hop .track::after { right: auto; left: 50%; top: auto; bottom: 1px; transform: translateX(-50%) rotate(135deg); }
+  .proof.run .hop .track::before { transform: scaleY(0); }
+}
+
+/* ---------- Terminal ---------- */
+.term { background: var(--sunken); border: 1px solid var(--t-line); border-radius: var(--r-xl); color: var(--t-ink); overflow: hidden; box-shadow: var(--shadow-float); min-width: 0; }
+.term-bar { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--t-chrome); }
+.dot { width: 11px; height: 11px; flex: none; border-radius: 50%; background: var(--t-dot); }
+.term-title { margin-left: 10px; min-width: 0; font: 12px var(--mono); color: var(--t-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.term-badge { flex: none; margin-left: 6px; display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--r-sm); background: var(--exp-wash); color: var(--exp); box-shadow: inset 0 0 0 1px var(--exp-line); font: 600 11px var(--mono); letter-spacing: .04em; transition: opacity .3s, transform .3s var(--ease); }
+.term-badge.wait { opacity: 0; transform: scale(.85); }
+.replay { margin-left: auto; flex: none; appearance: none; border: 0; background: transparent; color: var(--t-dim); font: 12px var(--mono); height: 32px; padding: 0 10px; border-radius: 6px; cursor: pointer; }
+.replay:hover { color: var(--t-bold); }
+.term-body { padding: 20px 22px 24px; overflow-x: auto; font: 13px/1.7 var(--mono); }
+.l { white-space: pre; min-height: 1.7em; border-radius: 3px; }
+.l.w { white-space: pre-wrap; overflow-wrap: break-word; }
+.l.flash { animation: flash 1.2s ease-out; }
+.t-b { color: var(--t-bold); font-weight: 600; }
+.t-d { color: var(--t-dim); }
+.t-r { color: var(--exp); }
+.t-rb { color: var(--exp-ink); background: var(--exp-wash); box-shadow: 0 0 0 1px var(--exp-line); border-radius: 3px; }
+.t-p { color: var(--acc); }
+.t-k { color: var(--acc); }
+.t-v { color: var(--c-val); }
+.cur { display: inline-block; width: .62em; height: 1.2em; vertical-align: -.22em; background: var(--acc); animation: blink 1.05s steps(1) infinite; }
+
+/* ---------- Problem: sticky scroll story; one scene changes state as the steps pass ---------- */
+.scrolly { margin-top: clamp(40px, 5vw, 64px); display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(32px, 5vw, 72px); }
+.step { min-height: 62vh; display: flex; flex-direction: column; justify-content: center; padding-block: 32px; transition: opacity .35s var(--ease); }
+.step:first-child, .step:last-child { min-height: 480px; }
+.step:first-child { padding-top: 0; }
+.step:last-child { padding-bottom: 0; }
+.scrolly.js .step { opacity: .45; }
+.scrolly.js .step.active { opacity: 1; }
+.step-n { display: inline-flex; align-items: center; gap: 10px; font: 500 13px var(--mono); color: var(--faint); transition: color .35s; }
+.step-n::before { content: ""; width: 18px; height: 2px; border-radius: 2px; background: var(--line2); transition: width .35s var(--ease), background .35s; }
+.scrolly.js .step.active .step-n { color: var(--acc); }
+.scrolly.js .step.active .step-n::before { width: 30px; background: var(--acc); }
+.step h3 { margin: 12px 0 0; font-size: clamp(26px, 2.8vw, 36px); line-height: 1.1; letter-spacing: -0.03em; font-weight: 600; text-wrap: balance; }
+.step p { margin: 16px 0 0; max-width: 480px; font-size: 17px; line-height: 1.6; color: var(--muted); }
+.fact { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 18px; max-width: 480px; }
+.fact b { flex: none; font-size: clamp(34px, 3.4vw, 46px); line-height: 1; letter-spacing: -0.05em; font-weight: 600; color: var(--acc); white-space: nowrap; }
+.fact b.struck { max-width: 7.5em; font: 500 clamp(18px, 1.8vw, 22px)/1.2 var(--mono); letter-spacing: -0.02em; color: var(--ink); text-decoration: line-through; text-decoration-color: var(--acc); text-decoration-thickness: 3px; white-space: normal; }
+.fact-t { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fact-t span { font-size: 15px; line-height: 1.5; color: var(--ink); }
+.fact-t a { align-self: flex-start; font: 12px var(--mono); color: var(--faint); }
+.fact-t a:hover { color: var(--acc); }
+
+/* The scene: the same five resources, judged three ways */
+.stage { position: sticky; top: max(84px, calc(50vh - 240px)); height: 480px; }
+.scene { height: 100%; display: flex; flex-direction: column; border: 1px solid var(--line2); border-radius: var(--r-2xl); background: var(--raised); box-shadow: var(--shadow-float); overflow: hidden; }
+.sc-head { flex: none; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--sunken); }
+.sc-title { margin-left: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12.5px var(--mono); color: var(--muted); }
+.sc-state { margin-left: auto; font: 12px var(--mono); color: var(--faint); }
+.sc-state .s0 { display: inline-flex; align-items: center; gap: 7px; color: var(--acc); }
+.live { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); animation: livePulse 1.6s ease-out infinite; }
+@keyframes livePulse { 0% { box-shadow: 0 0 0 0 var(--acc-glow); } 100% { box-shadow: 0 0 0 7px #c8f16900; } }
+.sc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.swap { display: grid; justify-items: end; }
+.swap > * { grid-area: 1 / 1; opacity: 0; transform: translateY(6px); white-space: nowrap; transition: opacity .3s var(--ease), transform .3s var(--ease); }
+[data-s="0"] .swap > .s0, [data-s="1"] .swap > .s1, [data-s="2"] .swap > .s2 { opacity: 1; transform: none; transition-duration: .45s; transition-delay: calc(var(--i, 0) * 80ms + 120ms); }
+.swap-l { justify-items: start; }
+.swap-l > * { white-space: normal; }
+.zone { border-radius: var(--r-xl); padding: 12px 14px; border: 1px solid var(--line); transition: border-color .5s, background-color .5s, opacity .5s; }
+.zone-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zl { font-weight: 600; font-size: 15px; }
+.stt { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font: 500 11.5px var(--mono); }
+.stt-new, .stt-ok { color: var(--acc); background: var(--acc-wash); }
+.stt-q { color: var(--muted); border: 1px dashed var(--control); }
+.stt-dim { color: var(--faint); }
+.stt-bad { color: var(--exp); background: var(--exp-wash); box-shadow: inset 0 0 0 1px var(--exp-line); }
+.zone-repo { flex: none; background: var(--sunken); }
+.files { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.files span { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: var(--r-sm); background: var(--raised); border: 1px solid var(--line); font: 12px var(--mono); color: var(--muted); }
+.files span::after { content: "✓"; display: inline-block; width: 0; overflow: hidden; color: var(--acc); opacity: 0; transition: width .3s var(--ease), margin .3s var(--ease), opacity .3s; transition-delay: calc(var(--i, 0) * 110ms + 200ms); }
+[data-s="1"] .files span::after, [data-s="2"] .files span::after { width: 10px; margin-left: 7px; opacity: 1; }
+[data-s="1"] .zone-repo { border-color: var(--acc-line); background: var(--acc-wash); }
+[data-s="2"] .zone-repo { opacity: .5; }
+.zone-cloud { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+[data-s="1"] .zone-cloud { border-style: dashed; border-color: var(--control); }
+[data-s="2"] .zone-cloud { border-color: var(--exp-line); }
+.zone-cloud::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--acc); box-shadow: 0 0 16px 2px var(--acc-glow); opacity: 0; pointer-events: none; }
+[data-s="2"] .zone-cloud::after { animation: sweep 1.4s var(--ease) both; }
+@keyframes sweep { 0% { top: 0; opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+.cres { flex: 1; min-height: 0; list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; }
+.cres li { flex: 1; min-height: 34px; display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 10px; margin: 0 -6px; padding: 0 6px; border-top: 1px solid var(--line); border-radius: 6px; transition: opacity .45s var(--ease); }
+.cres li:first-child { border-top-color: transparent; }
+.cres .ico { display: flex; color: var(--faint); }
+.cres .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 13.5px var(--mono); color: var(--ink); }
+.cres .nm small { margin-left: 8px; font: 12.5px var(--sans); color: var(--faint); }
+.pair { display: inline-flex; align-items: center; gap: 8px; }
+.pair .said { font: 12px var(--mono); color: var(--acc); }
+.pair .arr { color: var(--faint); }
+[data-s="2"] .cres li:not(.x) { opacity: .4; }
+.stage.anim:not(.seen) .cres li { opacity: 0; }
+.stage.seen[data-s="0"] .cres li { animation: fadeUp .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 150ms + 100ms); }
+[data-s="2"] .cres li.x { animation: flash 1.3s ease-out both; animation-delay: calc(var(--i, 0) * 120ms + 300ms); }
+.sc-foot { flex: none; margin: 0; padding: 13px 16px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.45; color: var(--muted); }
+.sc-foot b { color: var(--ink); font-weight: 600; }
+.step-vis { display: none; }
+@media (max-width: 980px) {
+  .scrolly { grid-template-columns: minmax(0, 1fr); }
+  .stage { display: none; }
+  .step, .step:first-child, .step:last-child { min-height: 0; padding-block: 20px 36px; }
+  .scrolly.js .step { opacity: 1; }
+  .step-vis { display: block; margin-top: 26px; height: 480px; }
+}
+@media (max-width: 560px) { .step-vis { height: 500px; } .cres .nm small, .pair .said, .pair .arr { display: none; } .sc-title { font-size: 11.5px; } }
+
+/* ---------- Badges, chips, pills ---------- */
+.badge { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: var(--r-sm); font: 600 11px var(--mono); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.b-exp { background: var(--exp-wash); color: var(--exp); box-shadow: inset 0 0 0 1px var(--exp-line); }
+.b-rev { color: var(--muted); box-shadow: inset 0 0 0 1px var(--line2); }
+.b-unk { color: var(--muted); border: 1px dashed var(--line2); }
+.b-neu { color: var(--muted); box-shadow: inset 0 0 0 1px var(--line2); text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 11.5px; }
+.chip { display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; font: 500 12px var(--mono); white-space: nowrap; }
+.s-active { background: var(--acc-wash); color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc-line); }
+.s-early { color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc-line); }
+.s-planned { color: var(--muted); box-shadow: inset 0 0 0 1px var(--line2); }
+.s-exploring { color: var(--muted); border: 1px dashed var(--line2); }
+.pill { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line2); color: var(--muted); font: 500 12px var(--mono); white-space: nowrap; }
+
+/* ---------- Product ---------- */
+.props { margin-top: clamp(40px, 5vw, 56px); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 720px) { .props { grid-template-columns: minmax(0, 1fr); } }
+.prop { display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); }
+.prop h3 { margin: 6px 0 0; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.prop p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--muted); }
+.tile { width: 42px; height: 42px; border-radius: 11px; background: var(--acc-wash); color: var(--acc); display: inline-flex; align-items: center; justify-content: center; }
+.qa { margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.qa .term { grid-column: span 2; }
+.qtabs { display: flex; flex-direction: column; justify-content: space-evenly; gap: 6px; padding: 10px; border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); }
+.qtab { appearance: none; width: 100%; text-align: left; display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-radius: 12px; border: 1px solid transparent; background: transparent; color: var(--muted); font: 500 17px/1.35 var(--sans); letter-spacing: -0.01em; cursor: pointer; transition: background .2s, color .2s, border-color .2s; }
+.qtab:hover { color: var(--ink); background: var(--hover); }
+.qtab[aria-selected="true"] { color: var(--ink); background: var(--sunken); border-color: var(--line2); }
+.qtab .c { font: 400 13px var(--mono); color: var(--faint); }
+.qtab[aria-selected="true"] .c { color: var(--acc); }
+.qa .term { box-shadow: none; }
+.qa .term-body { min-height: 420px; }
+@media (max-width: 980px) { .qa { grid-template-columns: minmax(0, 1fr); } .qa .term { grid-column: auto; } .qa .term-body { min-height: 0; } }
+
+/* ---------- Cards grid (What it catches) ---------- */
+.grid3 { margin-top: clamp(40px, 5vw, 60px); display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { display: flex; flex-direction: column; gap: 12px; padding: 22px 24px 24px; border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); transition: border-color .25s, transform .25s var(--ease); }
+.card:hover { border-color: var(--line2); transform: translateY(-3px); }
+.card h3 { margin: 8px 0 0; font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; }
+.card p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--muted); }
+.card .via { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); font: 12px var(--mono); color: var(--faint); }
+.res { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--sunken); font: 13px var(--mono); }
+.res .k { color: var(--faint); }
+.res .n { overflow-wrap: anywhere; }
+.res .badge { margin-left: auto; }
+
+/* ---------- How it works ---------- */
+.how { position: relative; margin-top: clamp(48px, 6vw, 72px); }
+.how-line { position: absolute; top: 25px; left: 28px; right: 28px; height: 2px; background: var(--line2); }
+.how-line i { display: block; height: 100%; background: var(--acc); transform: scaleX(0); transform-origin: 0 50%; transition: transform 1.6s var(--ease) .2s; }
+.how.in .how-line i { transform: scaleX(1); }
+.how ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; position: relative; }
+.how li { display: flex; flex-direction: column; gap: 14px; }
+.how .n { width: 52px; height: 52px; border-radius: 50%; background: var(--surface); border: 2px solid var(--acc); color: var(--acc); font: 700 18px var(--mono); display: flex; align-items: center; justify-content: center; transition: background .4s, color .4s; }
+.how.in .n { background: var(--acc); color: var(--on-acc); transition-delay: calc(var(--i) * .5s + .3s); }
+.how .body { display: flex; flex-direction: column; gap: 12px; padding: 24px; border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); flex: 1; }
+.how h3 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.025em; }
+.how p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--muted); }
+.mini-term { border-radius: var(--r-lg); border: 1px solid var(--t-line); background: var(--sunken); padding: 12px 14px; font: 13px/1.7 var(--mono); color: var(--t-ink); overflow-x: auto; }
+.keys { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.keys div { display: flex; align-items: center; gap: 10px; }
+.keys span:last-child { margin-left: auto; font: 12px var(--mono); color: var(--t-dim); }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+.hood { margin: 28px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; font: 13px var(--mono); color: var(--faint); }
+.hood b { color: var(--muted); font-weight: 500; }
+@media (max-width: 860px) { .how ol { grid-template-columns: minmax(0, 1fr); } .how-line { display: none; } }
+
+/* ---------- Trust ---------- */
+.bento { margin-top: clamp(40px, 5vw, 60px); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.bt { display: flex; flex-direction: column; gap: 14px; padding: 28px; border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); min-width: 0; }
+.bt h3 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+.bt p { margin: 0; font-size: 15.5px; line-height: 1.55; color: var(--muted); }
+.bt a { font: 13px var(--mono); color: var(--acc); margin-top: auto; }
+.bt-wide { grid-column: span 2; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 28px; align-items: center; }
+.allow { border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--sunken); padding: 6px 16px; overflow-x: auto; }
+.req { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font: 13px var(--mono); white-space: nowrap; }
+.req:last-child { border-bottom: 0; }
+.req .m { color: var(--muted); }
+.req .p { white-space: normal; overflow-wrap: break-word; line-height: 1.45; }
+.req .ok { color: var(--acc); }
+.req.no { color: var(--faint); }
+.req.no .p { text-decoration: line-through; }
+.bento.in .req { animation: fadeUp .5s var(--ease) both; animation-delay: calc(var(--i) * 220ms + 200ms); }
+.big2 { display: flex; align-items: baseline; gap: 20px; }
+.big2 span { font-size: 60px; line-height: 1; font-weight: 600; letter-spacing: -0.05em; font-variant-numeric: tabular-nums; }
+.big2 .z { color: var(--acc); }
+.big2 small { display: block; margin-top: 6px; font: 12px var(--mono); color: var(--faint); letter-spacing: 0; }
+.redact { border-radius: var(--r-md); border: 1px solid var(--line); background: var(--sunken); padding: 12px 14px; font: 12.5px/1.9 var(--mono); overflow-x: auto; white-space: nowrap; }
+.redact .sec-line { color: var(--faint); text-decoration: line-through; text-decoration-color: var(--faint); }
+.bento.in .redact .sec-line { animation: strike 1s ease .8s both; }
+.bento.in .redact .red-line { animation: fadeUp .6s var(--ease) 1.4s both; }
+@keyframes strike { from { color: var(--ink); text-decoration-color: transparent; } to { color: var(--faint); text-decoration-color: var(--faint); } }
+@media (max-width: 980px) { .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 680px) { .bento { grid-template-columns: minmax(0, 1fr); } .bt-wide { grid-column: auto; grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Audience ---------- */
+.two { margin-top: clamp(40px, 5vw, 60px); display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.who { display: flex; flex-direction: column; gap: 18px; padding: clamp(24px, 3vw, 36px); border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); }
+.who h3 { margin: 0; font-size: 32px; line-height: 1.1; font-weight: 600; letter-spacing: -0.03em; }
+.who > p { margin: 0; font-size: 17px; line-height: 1.55; color: var(--muted); }
+.tag { align-self: flex-start; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font: 500 12px var(--mono); }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.checks li { display: flex; gap: 12px; align-items: flex-start; font-size: 16px; line-height: 1.45; }
+.ck { flex: 0 0 20px; height: 20px; margin-top: 1px; border-radius: 50%; background: var(--acc-wash); color: var(--acc); display: flex; align-items: center; justify-content: center; }
+.field-label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; color: var(--muted); }
+.field-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.input { flex: 1 1 220px; min-width: 0; height: 50px; padding: 0 16px; border-radius: var(--r-md); border: 1px solid var(--control); background: var(--surface); color: var(--ink); font: 15px var(--sans); }
+.input::placeholder { color: var(--faint); }
+.success { margin: 0; padding: 14px 16px; border-radius: var(--r-lg); background: var(--acc-wash); box-shadow: inset 0 0 0 1px var(--acc-line); font-size: 15px; }
+.small { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--faint); }
+.sync-x { flex: 1; min-height: 84px; display: flex; flex-direction: column; justify-content: center; gap: 10px; padding: 14px 16px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--sunken); }
+.sync-h { margin: 0; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font: 500 11.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--faint); }
+.sync-h span + span { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.sync-x ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.sync-x li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; font-size: 13px; color: var(--muted); }
+.sync-x code { font-size: 12.5px; color: var(--ink); }
+.sync-x .never code { color: var(--acc); }
+.shot { position: relative; flex: 1; min-height: 84px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--sunken); overflow: hidden; }
+.shot i { position: absolute; left: 16px; right: 16px; height: 22px; border-radius: 5px; background: var(--line); }
+.shot span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.shot span em { font: normal 12px var(--mono); color: var(--faint); background: var(--sunken); border: 1px dashed var(--line2); border-radius: 6px; padding: 6px 10px; }
+
+/* ---------- Integrations ---------- */
+.legend { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 10px 22px; font-size: 13px; color: var(--muted); }
+.legend > span { display: flex; align-items: center; gap: 8px; }
+.hub { margin-top: clamp(40px, 5vw, 64px); display: grid; grid-template-columns: minmax(0, 1fr) 240px minmax(0, 1fr); align-items: center; }
+.col { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.col h3 { margin: 0 0 6px; font: 500 12px var(--mono); color: var(--faint); letter-spacing: .08em; text-transform: uppercase; }
+.col-r h3 { text-align: right; }
+.bus { position: absolute; top: 46px; bottom: 26px; width: 2px; background: var(--line2); }
+.col-l .bus { right: 0; } .col-r .bus { left: 0; }
+.row { display: flex; align-items: center; }
+.col-r .row { justify-content: flex-end; }
+.ic { flex: 0 1 290px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 13px 16px; border-radius: var(--r-lg); border: 1px solid var(--line); background: var(--surface); }
+.ic.on { border-color: var(--line2); background: var(--raised); }
+.ic b { font-size: 16px; font-weight: 600; }
+.ic.off b { color: var(--muted); font-weight: 500; }
+.ic .cov { flex-basis: 100%; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.w-on { flex: 1 1 auto; height: 2px; background-image: linear-gradient(90deg, var(--acc) 55%, transparent 0); background-size: 12px 2px; animation: flow .6s linear infinite; }
+.col-r .w-on { animation-name: flowR; }
+.w-off { flex: 1 1 auto; border-top: 2px dashed var(--line2); }
+.node { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 24px 22px; border-radius: 22px; border: 1px solid var(--acc-line); background: var(--raised); text-align: center; box-shadow: 0 0 0 8px var(--acc-wash); }
+.node b { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
+.node span { font: 11.5px/1.5 var(--mono); color: var(--muted); }
+.reqs { margin-top: clamp(40px, 5vw, 56px); padding-top: 28px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; }
+.reqs p { margin: 0; font-size: 17px; font-weight: 600; }
+.reqs .list { display: flex; flex-wrap: wrap; gap: 8px; }
+.reqs .list a { font: 13px var(--mono); color: var(--faint); text-decoration: none; border: 1px dashed var(--line2); border-radius: 8px; padding: 7px 12px; transition: color .2s, border-color .2s; }
+.reqs .list a:hover { color: var(--ink); border-color: var(--faint); }
+.adapt { margin-top: 16px; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 32px; align-items: center; padding: clamp(24px, 3vw, 36px); border-radius: var(--r-2xl); border: 1px solid var(--line); background: var(--raised); }
+.adapt h3 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
+.adapt p { margin: 14px 0 0; font-size: 15.5px; line-height: 1.6; color: var(--muted); }
+.adapt .actions { margin-top: 22px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; }
+.soon { display: inline-flex; align-items: center; gap: 10px; font-size: 15px; color: var(--muted); }
+.soon em { font: normal 12px var(--mono); border: 1px dashed var(--line2); border-radius: 999px; padding: 3px 10px; }
+.adapt .term { box-shadow: none; }
+@media (max-width: 960px) { .hub { grid-template-columns: minmax(0, 1fr); gap: 24px; } .wire, .bus { display: none !important; } .ic { flex: 1 1 auto; } .col-r h3 { text-align: left; } .node { align-self: flex-start; } .adapt { grid-template-columns: minmax(0, 1fr); } }
+
+.how .mini-term { min-height: 124px; display: flex; flex-direction: column; justify-content: center; }
+.solo-term { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.solo-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font-size: 12.5px; color: var(--faint); }
+.flow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--sunken); font: 12.5px var(--mono); }
+.flow span { padding: 4px 9px; border-radius: 6px; background: var(--hover); color: var(--ink); }
+.flow span.opt { background: transparent; border: 1px dashed var(--line2); color: var(--muted); }
+.flow i { font-style: normal; color: var(--faint); }
+.fig { display: flex; flex-direction: column; gap: 6px; }
+.fig b { font-size: 46px; line-height: 1; letter-spacing: -0.05em; font-weight: 600; color: var(--acc); }
+.vs { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 13px var(--mono); color: var(--faint); }
+
+/* ---------- Why now, and where it's going ---------- */
+.why-main { margin-top: clamp(40px, 5vw, 60px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 28px 40px; align-items: center; padding: clamp(24px, 3vw, 36px); border-radius: var(--r-2xl); border: 1px solid var(--acc-line); background: var(--raised); }
+.why-text { display: flex; flex-direction: column; gap: 14px; }
+.why-main .date { font: 500 13px var(--mono); color: var(--acc); }
+.why-main h3 { margin: 0; font-size: clamp(22px, 2.2vw, 28px); line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+.why-main p { margin: 0; font-size: 16px; color: var(--muted); }
+.why-foot { margin-top: 6px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; font: 13px var(--mono); }
+.why-foot a { color: var(--faint); }
+.why-term { min-width: 0; }
+.ahead { margin-top: clamp(56px, 7vw, 88px); }
+.ahead .road { margin-top: 24px; }
+.rc-line { margin: 12px 0 0; min-height: 2.5em; font-size: clamp(18px, 1.7vw, 21px); line-height: 1.25; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); text-wrap: balance; }
+.rc.later .rc-line { color: var(--muted); }
+@media (max-width: 860px) { .why-main { grid-template-columns: minmax(0, 1fr); } .rc-line { min-height: 0; } }
+
+/* ---------- Compare ---------- */
+.tbl { margin-top: clamp(40px, 5vw, 56px); overflow-x: auto; border: 1px solid var(--line2); border-radius: var(--r-2xl); background: var(--raised); }
+.tbl table { width: 100%; min-width: 780px; border-collapse: collapse; }
+.tbl th { padding: 16px 12px; border-bottom: 1px solid var(--line2); font: 500 12px var(--mono); color: var(--faint); text-align: center; vertical-align: bottom; }
+.tbl th:first-child, .tbl td:first-child { text-align: left; padding-left: 24px; }
+.tbl td { padding: 18px 12px; border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; font-size: 18px; }
+.tbl td:first-child { width: 40%; }
+.tbl .tool { display: block; font-size: 16px; font-weight: 600; }
+.tbl .note { display: block; margin-top: 4px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.tbl .y { color: var(--ink); } .tbl .no { color: var(--faint); }
+.tbl .part { font: 500 12px var(--mono); color: var(--muted); }
+.tbl tr.me td { background: var(--acc-wash); border-bottom: 0; }
+.tbl tr.me .y { color: var(--acc); }
+.after { margin-top: 26px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; }
+.after p { margin: 0; font-size: 16px; color: var(--muted); }
+.after a.more { margin-left: auto; font-weight: 600; color: var(--acc); text-decoration: none; }
+
+/* ---------- Roadmap columns (inside Why now) ---------- */
+.road { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 36px 32px; }
+.rc { border-top: 2px solid var(--line2); padding-top: 22px; }
+.rc.now { border-top-color: var(--acc); }
+.rc h3 { margin: 0; display: flex; align-items: baseline; justify-content: space-between; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.rc h3 small { font: 500 12px var(--mono); color: var(--faint); }
+.rc.now h3 small { color: var(--acc); }
+.rc ul { list-style: none; margin: 20px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.rc li { display: flex; gap: 12px; align-items: flex-start; font-size: 16.5px; line-height: 1.4; }
+.rc.later li { color: var(--muted); }
+.mk { flex: 0 0 18px; height: 18px; margin-top: 2px; border-radius: 50%; }
+.mk-now { background: var(--acc); color: var(--on-acc); display: flex; align-items: center; justify-content: center; }
+.mk-next { box-shadow: inset 0 0 0 2px var(--acc); }
+.mk-later { border: 2px dashed var(--line2); }
+
+/* ---------- Founder ---------- */
+.fd { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; align-items: center; max-width: 860px; }
+.fd.no-ph { grid-template-columns: minmax(0, 1fr); }
+.fd-ph { width: 112px; height: 112px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line2); }
+.fd-name { margin: 12px 0 0; font-size: clamp(28px, 3vw, 40px); line-height: 1.1; letter-spacing: -0.03em; font-weight: 600; }
+.fd-role { margin: 6px 0 0; font: 13px var(--mono); color: var(--faint); }
+.fd-bio { margin: 14px 0 0; max-width: 620px; font-size: 17px; line-height: 1.6; color: var(--muted); }
+.fd-links { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 560px) { .fd { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Final CTA + footer ---------- */
+.final { padding-block: clamp(96px, 12vw, 152px) clamp(56px, 7vw, 80px); border-top: 1px solid var(--line); text-align: center; }
+.final .wrap { display: flex; flex-direction: column; align-items: center; }
+.final h2 { margin: 28px 0 0; max-width: 900px; font-size: clamp(42px, 6vw, 80px); line-height: 1; letter-spacing: -0.045em; font-weight: 600; text-wrap: balance; }
+.final .sub { margin: 22px 0 0; font-size: 18px; color: var(--muted); }
+.install { margin-top: 40px; width: 100%; max-width: 720px; text-align: left; border: 1px solid var(--line2); border-radius: var(--r-lg); background: var(--raised); overflow: hidden; }
+.itabs { display: flex; align-items: center; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.itab { appearance: none; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); font: 500 13px var(--sans); height: 46px; padding: 0 12px; white-space: nowrap; cursor: pointer; }
+.itab:hover { color: var(--ink); }
+.itab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--acc); }
+.itabs .note { margin-left: auto; padding-right: 6px; font: 500 11.5px var(--mono); color: var(--faint); white-space: nowrap; }
+.icmd { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 18px; }
+.icmd code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; font-size: 14px; }
+.icmd .pr { color: var(--faint); user-select: none; }
+.copy { appearance: none; height: 36px; min-width: 72px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--control); background: var(--hover); color: var(--ink); font: 500 13px var(--sans); cursor: pointer; }
+.final .ctas { justify-content: center; }
+footer { border-top: 1px solid var(--line); }
+.foot { padding-block: 52px 36px; display: flex; flex-wrap: wrap; gap: 36px 56px; }
+.foot .about { flex: 2 1 260px; }
+.foot .about p { margin: 14px 0 0; max-width: 300px; font-size: 14px; line-height: 1.6; color: var(--faint); }
+.foot nav { flex: 1 1 140px; }
+.foot h3 { margin: 0 0 14px; font: 500 12px var(--mono); color: var(--faint); letter-spacing: .08em; text-transform: uppercase; }
+.foot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; }
+.foot ul a { color: var(--muted); text-decoration: none; }
+.foot ul a:hover { color: var(--ink); }
+.legal { padding-block: 20px 36px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; font: 12px var(--mono); color: var(--faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .how-line i { transform: scaleX(1); }
+  .how .n { background: var(--acc); color: var(--on-acc); }
+}
+</style>
+</head>
+<body>
+<a class="announce" href="#why-now"><span class="wrap"><b>Oct 30</b><span>Supabase stopped auto-exposing new tables. An agent fixing error 42501 can re-open them.</span><span class="cta">Check yours →</span></span></a>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="Muretto home">
+      <svg width="24" height="24" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="4" y="13" width="11" height="6" rx="1.2"></rect><rect x="17" y="13" width="11" height="6" rx="1.2"></rect><rect x="4" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="21" width="11" height="6" rx="1.2"></rect><rect x="23.5" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="5" width="11" height="6" rx="1.2" opacity=".4"></rect></g></svg>
+      muretto
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#product">Product</a>
+      <a href="#catches">What it catches</a>
+      <a href="#how">How it works</a>
+      <a href="#trust">Security</a>
+      <a href="#compare">Compare</a>
+      <a data-link="docs" href="#docs">Docs</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" data-link="github" href="https://github.com/tolgayayci/muretto">Install</a>
+      <a class="btn btn-primary btn-sm" data-soft-link="signin" href="https://app.muretto.ai/login">Sign in</a>
+    </div>
+  </div>
+  <div class="progress" aria-hidden="true"><span id="progress"></span></div>
+</header>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="top" aria-labelledby="hero-h">
+  <div class="wrap hero-in">
+    <h1 class="h-hero" id="hero-h">
+      <span class="mask"><span style="--d:.05s">Your AI agent said “Done.”</span></span>
+      <span class="mask acc"><span style="--d:.16s">See what it actually built.</span></span>
+    </h1>
+    <p class="hero-sub ld" style="--d:.3s">Muretto shows every database, bucket and deployment your coding agents created, and <b>which ones anyone can open</b>.</p>
+    <div class="ctas ld" style="--d:.4s">
+      <a class="btn btn-primary" href="#install">Install the CLI</a>
+      <a class="btn btn-ghost" data-link="github" href="https://github.com/tolgayayci/muretto">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.83-5.38 2.83 1.03-6L3.3 9.6l6-.9z"></path></svg>
+        Star on GitHub
+      </a>
+    </div>
+    <p class="hero-meta ld" style="--d:.48s"><span>Open source</span><span>Read-only</span><span>Runs on your machine</span></p>
+
+    <div class="proof ld" id="proof" style="--d:.56s" role="group" aria-label="Example: the agent says the task is done; a week later Muretto finds five resources it created, three of them open to anyone">
+      <div class="hcard said">
+        <div class="hcard-h"><span>Your agent session</span><button class="replay" type="button" id="proofReplay">replay</button></div>
+        <div class="hcard-b">
+          <p class="you">Add customer import with file uploads</p>
+          <div class="agent">
+            <div class="typing" id="typing" hidden aria-hidden="true"><i></i><i></i><i></i></div>
+            <p class="msg seq" id="msg">Done! Customer import is ready.</p>
+            <p class="okline seq" id="okline">✓ Task complete</p>
+          </div>
+        </div>
+      </div>
+      <div class="hop" aria-hidden="true"><span class="seq" id="hopLbl">a week later</span><span class="track"></span></div>
+      <div class="hcard found">
+        <div class="scan" aria-hidden="true"></div>
+        <div class="hcard-h"><span>What Muretto found</span><span class="cnt seq" id="cnt"><b id="expN">3</b> exposed</span></div>
+        <ul class="rows">
+          <li class="seq exp"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18M3 15h18M9 10v10"></path></svg></span><span class="nm">customers<small>table</small></span><span class="badge b-exp">exposed</span></li>
+          <li class="seq exp"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16l-1.6 12.2A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.8z"></path><path d="M8.5 7a3.5 3.5 0 0 1 7 0"></path></svg></span><span class="nm">customer-files<small>bucket</small></span><span class="badge b-exp">exposed</span></li>
+          <li class="seq exp"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.8 3.2 2.8 14.8 0 18M12 3c-2.8 3.2-2.8 14.8 0 18"></path></svg></span><span class="nm">preview-a81f<small>deployment</small></span><span class="badge b-exp">exposed</span></li>
+          <li class="seq"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l-5 7 5 7M16 5l5 7-5 7"></path></svg></span><span class="nm">process-import<small>function</small></span><span></span></li>
+          <li class="seq"><span class="ri"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="7" r="2"></circle><path d="M6 7v10M18 9c0 5-7 4-11 8.5"></path></svg></span><span class="nm">import-test<small>database branch</small></span><span class="badge b-rev">review due</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROBLEM (scroll story) ============ -->
+<section class="sec" id="problem" aria-labelledby="p-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">The problem</p>
+      <h2 class="h2" id="p-h"><span class="mask"><span>Agents are building in production.</span></span><span class="mask q"><span>Nobody's checking their work.</span></span></h2>
+    </div>
+
+    <div class="scrolly" id="scrolly">
+      <div class="steps">
+        <article class="step active" data-step="0">
+          <span class="step-n">1 of 3</span>
+          <h3>Agents create real infrastructure.</h3>
+          <p>Ask for a feature and your agent writes the code, then creates the table, the storage bucket and the preview deploy to go with it.</p>
+          <div class="fact"><b>~70%</b><div class="fact-t"><span>of Stripe CLI requests for API resources now come from agents.</span><a href="https://stripe.com/blog/stripe-projects-adds-new-agents-providers-developer-controls">Source: Stripe ↗</a></div></div>
+          <div class="step-vis"></div>
+        </article>
+        <article class="step" data-step="1">
+          <span class="step-n">2 of 3</span>
+          <h3>The code gets reviewed. The infrastructure doesn't.</h3>
+          <p>Every line the agent wrote shows up in a pull request. The tables, buckets and deployments it created in your cloud accounts show up nowhere.</p>
+          <div class="fact"><b>170</b><div class="fact-t"><span>of 1,645 scanned Lovable apps exposed Supabase data (CVE-2025-48757).</span><a href="https://vibeappscanner.com/lovable-vulnerability-cve-2025-48757">Source: VibeAppScanner ↗</a></div></div>
+          <div class="step-vis"></div>
+        </article>
+        <article class="step" data-step="2">
+          <span class="step-n">3 of 3</span>
+          <h3>And the agent's summary isn't the truth.</h3>
+          <p>A session log records what the agent tried and what the API answered at that moment. Only your providers know what exists now, and who can reach it.</p>
+          <div class="fact"><b>1,206</b><div class="fact-t"><span>executive records wiped by Replit's agent during a code freeze in July 2025. The user says it then hid what it had done.</span><a href="https://www.eweek.com/news/replit-ai-coding-assistant-failure/">Source: eWeek ↗</a></div></div>
+          <div class="step-vis"></div>
+        </article>
+      </div>
+
+      <div class="stage" id="stage" data-s="0">
+        <div class="scene" role="img" aria-label="One agent session creates five resources in your cloud accounts. The code is reviewed in a pull request; the cloud resources are reviewed by no one. The session log said success, and a week later three of them are open to anyone.">
+          <div class="sc-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="sc-title">Claude Code · “add customer import”</span><span class="swap sc-state"><span class="s0"><i class="live"></i>agent running</span><span class="s1">PR #142 merged</span><span class="s2">a week later</span></span></div>
+          <div class="sc-body">
+            <div class="zone zone-repo">
+              <div class="zone-h"><span class="zl">Your repo</span><span class="swap"><span class="s0 stt stt-dim">3 files changed</span><span class="s1 stt stt-ok">✓ reviewed in PR #142</span><span class="s2 stt stt-dim">✓ reviewed</span></span></div>
+              <div class="files"><span style="--i:0">app/import/page.tsx</span><span style="--i:1">lib/upload.ts</span><span style="--i:2">package.json</span></div>
+            </div>
+            <div class="zone zone-cloud">
+              <div class="zone-h"><span class="zl">Your cloud accounts</span><span class="swap"><span class="s0 stt stt-new">5 created</span><span class="s1 stt stt-q">reviewed by no one</span><span class="s2 stt stt-bad">3 exposed</span></span></div>
+              <ul class="cres">
+              <li class="x" style="--i:0"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 10h18M3 15h18M9 10v10"></path></svg></span><span class="nm">customers<small>table</small></span><span class="swap"><span class="s0 stt stt-new">created</span><span class="s1 stt stt-q">? not reviewed</span><span class="s2 pair"><span class="said">log: success</span><span class="arr">→</span><span class="badge b-exp">exposed</span></span></span></li>
+              <li class="x" style="--i:1"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 7h16l-1.6 12.2A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.8z"></path><path d="M8.5 7a3.5 3.5 0 0 1 7 0"></path></svg></span><span class="nm">customer-files<small>bucket</small></span><span class="swap"><span class="s0 stt stt-new">created</span><span class="s1 stt stt-q">? not reviewed</span><span class="s2 pair"><span class="said">log: success</span><span class="arr">→</span><span class="badge b-exp">exposed</span></span></span></li>
+              <li style="--i:2"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5l-5 7 5 7M16 5l5 7-5 7"></path></svg></span><span class="nm">process-import<small>function</small></span><span class="swap"><span class="s0 stt stt-new">created</span><span class="s1 stt stt-q">? not reviewed</span><span class="s2 pair"><span class="said">log: success</span></span></span></li>
+              <li style="--i:3"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="5" r="2"></circle><circle cx="6" cy="19" r="2"></circle><circle cx="18" cy="7" r="2"></circle><path d="M6 7v10M18 9c0 5-7 4-11 8.5"></path></svg></span><span class="nm">import-test<small>branch</small></span><span class="swap"><span class="s0 stt stt-new">created</span><span class="s1 stt stt-q">? not reviewed</span><span class="s2 pair"><span class="said">log: success</span></span></span></li>
+              <li class="x" style="--i:4"><span class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3c2.8 3.2 2.8 14.8 0 18M12 3c-2.8 3.2-2.8 14.8 0 18"></path></svg></span><span class="nm">preview-a81f<small>deployment</small></span><span class="swap"><span class="s0 stt stt-new">created</span><span class="s1 stt stt-q">? not reviewed</span><span class="s2 pair"><span class="said">log: ready</span><span class="arr">→</span><span class="badge b-exp">exposed</span></span></span></li>
+              </ul>
+            </div>
+          </div>
+          <p class="sc-foot swap swap-l"><span class="s0"><b>5 resources in 29 minutes,</b> across two providers.</span><span class="s1"><b>The code got a review.</b> The cloud got nothing.</span><span class="s2"><b>The log says success.</b> Your providers say 3 are open to anyone.</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRODUCT ============ -->
+<section class="sec" id="product" aria-labelledby="m-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">Meet Muretto</p>
+      <h2 class="h2" id="m-h"><span class="mask"><span>Ask what your agents built.</span></span><span class="mask q"><span>Get the answer from your real accounts.</span></span></h2>
+    </div>
+    <div class="props">
+      <div class="prop reveal">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.6"></circle><path d="M2.5 12h6M15.6 12h5.9"></path></svg></span>
+        <h3>Traced to the session</h3>
+        <p>Every database, bucket and deployment is matched to the agent session that created it, with the evidence. If it can't prove it, it says creator unknown.</p>
+      </div>
+      <div class="prop reveal" style="--d:.08s">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"></circle><path d="M16 16l4.5 4.5"></path></svg></span>
+        <h3>Exposure in plain words</h3>
+        <p>What anyone on the internet can read, download or open is flagged in red, worst first.</p>
+      </div>
+      <div class="prop reveal" style="--d:.16s">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg></span>
+        <h3>Changes nothing</h3>
+        <p>Read-only by design. It looks at your accounts and never touches them.</p>
+      </div>
+    </div>
+    <div class="qa reveal">
+      <div class="qtabs" role="tablist" aria-label="Questions Muretto answers" aria-orientation="vertical" id="qtabs"></div>
+      <div class="term" role="tabpanel" id="qpanel">
+        <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title" id="qtitle">~/acme/web</span></div>
+        <div class="term-body" id="qterm"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHAT IT CATCHES ============ -->
+<section class="sec" id="catches" aria-labelledby="k-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">What it catches</p>
+      <h2 class="h2" id="k-h"><span class="mask"><span>What your agent might</span></span><span class="mask"><span>have left behind.</span></span></h2>
+      <p class="lede">Muretto checks your real accounts, not the agent's summary, and tells you in plain words.</p>
+    </div>
+    <div class="grid3">
+      <article class="card reveal"><div class="res"><span class="k">table</span><span class="n">customers</span><span class="badge b-exp">exposed</span></div><h3>A table anyone can read</h3><p>Row level security is off, so your app's public key reads every row.</p><p class="via">via the Supabase security advisor</p></article>
+      <article class="card reveal" style="--d:.06s"><div class="res"><span class="k">bucket</span><span class="n">customer-files</span><span class="badge b-exp">exposed</span></div><h3>Files anyone can download</h3><p>The storage bucket is public. Every upload is one URL away, no key needed.</p><p class="via">via the bucket's public setting</p></article>
+      <article class="card reveal" style="--d:.12s"><div class="res"><span class="k">deployment</span><span class="n">preview-a81f</span><span class="badge b-exp">exposed</span></div><h3>A preview anyone can open</h3><p>Deployment protection is off, so the preview URL works without logging in.</p><p class="via">via Vercel deployment protection</p></article>
+      <article class="card reveal"><div class="res"><span class="k">env</span><span class="n">NEXT_PUBLIC_API_SECRET</span><span class="badge b-exp">exposed</span></div><h3>A secret shipped to the browser</h3><p>A secret-looking variable with a NEXT_PUBLIC_ prefix ends up in client code.</p><p class="via">checked by name; values are never stored</p></article>
+      <article class="card reveal" style="--d:.06s"><div class="res"><span class="k">branch</span><span class="n">import-test</span><span class="badge b-rev">review due</span></div><h3>A test branch still running</h3><p>A week-old database branch the agent made for testing, billed by the hour.</p><p class="via">7 days old · you decide: keep or not needed</p></article>
+      <article class="card reveal" style="--d:.12s"><div class="res"><span class="k">project</span><span class="n">acme-prod</span><span class="badge b-unk">creator unknown</span></div><h3>Something nobody can explain</h3><p>No agent session created it. Muretto says so plainly instead of guessing.</p><p class="via">no agent evidence · never guessed from timing</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="sec" id="how" aria-labelledby="h-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">How it works</p>
+      <h2 class="h2" id="h-h"><span class="mask"><span>Set up once.</span></span><span class="mask q"><span>Then just run muretto.</span></span></h2>
+    </div>
+    <div class="how reveal" id="howTrack">
+      <div class="how-line" aria-hidden="true"><i></i></div>
+      <ol>
+        <li style="--i:0">
+          <span class="n" aria-hidden="true">1</span>
+          <div class="body">
+            <h3>Install</h3>
+            <div class="mini-term"><div class="l"><span class="t-p">$ </span><span class="t-b">npx muretto init</span></div><div class="l w t-d"># adds the hook, then connects your providers</div></div>
+            <p>Adds a tiny Claude Code hook that notes what each agent session does. Your settings are backed up, and it's removable.</p>
+            <div class="pills"><span class="pill">~3.5 ms per call</span><span class="pill">never blocks the agent</span></div>
+          </div>
+        </li>
+        <li style="--i:1">
+          <span class="n" aria-hidden="true">2</span>
+          <div class="body">
+            <h3>Connect</h3>
+            <div class="mini-term keys">
+              <div><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--acc);" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg><span style="color: var(--t-bold); font-family: var(--sans);">Supabase</span><span>read-only token</span></div>
+              <div><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--acc);" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg><span style="color: var(--t-bold); font-family: var(--sans);">Vercel</span><span>read-only token</span></div>
+            </div>
+            <p>Give it read access to the accounts your agents touch. Tokens live in your OS keychain.</p>
+            <div class="pills"><span class="pill">no account needed</span><span class="pill">no telemetry</span></div>
+          </div>
+        </li>
+        <li style="--i:2">
+          <span class="n" aria-hidden="true">3</span>
+          <div class="body" style="border-color: var(--acc-line);">
+            <h3>Run</h3>
+            <div class="mini-term">
+              <div class="l"><span class="t-p">$ </span><span class="t-b">muretto</span></div>
+              <div class="l"><span class="t-b">Muretto</span> · alice · <span class="t-d">checked 3 min ago</span></div>
+              <div class="l">  5 agent-created resources</div>
+              <div class="l">  <span class="t-r">3 exposed</span> · 1 needs review</div>
+            </div>
+            <p>See everything your agents created and what's open to the internet right now.</p>
+            <div class="pills"><span class="pill">changes nothing</span></div>
+          </div>
+        </li>
+      </ol>
+    </div>
+    <p class="hood"><b>Under the hood:</b><span>hooks capture tool calls</span><span>→</span><span>read-only APIs list what exists</span><span>→</span><span>each resource is exact or creator unknown</span></p>
+  </div>
+</section>
+
+<!-- ============ TRUST ============ -->
+<section class="sec" id="trust" aria-labelledby="t-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">Trust and security</p>
+      <h2 class="h2" id="t-h"><span class="mask q"><span>It can look.</span></span><span class="mask"><span>It can't touch.</span></span></h2>
+    </div>
+    <div class="bento reveal" id="bento">
+      <article class="bt bt-wide">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"></rect><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"></path></svg></span>
+          <h3>Read-only, enforced in code</h3>
+          <p>Every provider request goes through one allowlisted module. A test fails if any other code can reach the network.</p>
+        </div>
+        <div class="allow" role="img" aria-label="Example allowlist decisions: reads allowed, writes refused">
+          <div class="req" style="--i:0"><span class="m">GET</span><span class="p">/<wbr>v1/<wbr>projects</span><span class="ok">✓ allowed</span></div>
+          <div class="req" style="--i:1"><span class="m">GET</span><span class="p">/<wbr>v1/<wbr>projects/<wbr>{ref}/<wbr>storage/<wbr>buckets</span><span class="ok">✓ allowed</span></div>
+          <div class="req" style="--i:2"><span class="m">GET</span><span class="p">/<wbr>v1/<wbr>projects/<wbr>{ref}/<wbr>advisors/<wbr>security</span><span class="ok">✓ allowed</span></div>
+          <div class="req no" style="--i:3"><span class="m">POST</span><span class="p">/<wbr>v1/<wbr>projects</span><span>✕ refused</span></div>
+          <div class="req no" style="--i:4"><span class="m">DELETE</span><span class="p">/<wbr>v1/<wbr>projects/<wbr>{ref}</span><span>✕ refused</span></div>
+        </div>
+      </article>
+      <article class="bt">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M8.2 12.2l2.6 2.6 5-5.4"></path></svg></span>
+        <h3>Never guesses</h3>
+        <div class="big2"><span><span data-count="78">78</span><small>scenarios</small></span><span class="z">0<small>wrong labels</small></span></div>
+        <p>In our test suite, mutation-tested. Every resource is exact, with evidence, or creator unknown.</p>
+      </article>
+      <article class="bt">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"></circle><path d="M11 12l9-9M16.5 6.5l2.5 2.5M14 9l2 2"></path></svg></span>
+        <h3>Secrets stay secret</h3>
+        <div class="redact"><div class="sec-line">SUPABASE_KEY=eyJhbGciOiJIUzI1NiIs…</div><div class="red-line">SUPABASE_KEY=<span style="color: var(--acc);">[REDACTED]</span></div></div>
+        <p>Redacted when recorded and again at output. Tokens live in your OS keychain. Env var values are never stored.</p>
+      </article>
+      <article class="bt">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="11" rx="2"></rect><path d="M2 19.5h20"></path></svg></span>
+        <h3>Local-first. No telemetry.</h3>
+        <div class="flow"><span>hooks</span><i>→</i><span>local SQLite</span><i>→</i><span class="opt">team sync, opt-in</span></div>
+        <p>Works without an account. Team sync is opt-in, and every field it sends is documented.</p>
+        <a href="https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md">SYNC_PAYLOAD.md ↗</a>
+      </article>
+      <article class="bt">
+        <span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 7L3.5 12l5 5M15.5 7l5 5-5 5"></path></svg></span>
+        <h3>Apache-2.0</h3>
+        <div class="mini-term"><div class="l w"><span class="t-p">$ </span><span class="t-b">git clone https://github.com/<wbr>tolgayayci/<wbr>muretto</span></div><div class="l w"><span class="t-p">$ </span><span class="t-b">make test</span> <span class="t-d"># no network, no accounts</span></div></div>
+        <p>Read every line, run it yourself, fork it.</p>
+        <a data-link="github" href="https://github.com/tolgayayci/muretto">github.com/tolgayayci/muretto ↗</a>
+      </article>
+    </div>
+    <p style="margin: 32px 0 0;"><a data-link="security" href="#security" style="font-weight: 600; color: var(--acc); text-decoration: none;">Read the full security model →</a></p>
+  </div>
+</section>
+
+<!-- ============ WHO IT'S FOR ============ -->
+<section class="sec" id="teams" aria-labelledby="u-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">Who it's for</p>
+      <h2 class="h2" id="u-h"><span class="mask"><span>Weekend project or production team.</span></span><span class="mask q"><span>Same blind spot.</span></span></h2>
+    </div>
+    <div class="two">
+      <article class="who reveal">
+        <span class="tag" style="color: var(--acc); background: var(--acc-wash); box-shadow: inset 0 0 0 1px var(--acc-line);">Free · Apache-2.0</span>
+        <h3>Building solo</h3>
+        <p>You build with Claude Code. Muretto tells you when your agent left a table readable, a bucket public or a preview open.</p>
+        <ul class="checks">
+          <li><span class="ck" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span>Runs on your machine. No account.</li>
+          <li><span class="ck" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span><span>One command: <code style="font-size: 14px;">muretto exposed</code></span></li>
+          <li><span class="ck" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span>See which agent session made each one.</li>
+        </ul>
+        <div class="mini-term solo-term">
+          <div class="l"><span class="t-p">$ </span><span class="t-b">muretto</span></div>
+          <div class="l"><span class="t-b">Muretto</span> · alice · <span class="t-d">checked 3 min ago</span></div>
+          <div class="l w">  5 agent-created resources · 5 still exist · <span class="t-r">3 exposed</span> · 1 needs review</div>
+          <div class="l">  3 resources with creator unknown</div>
+        </div>
+        <div class="solo-cta"><a class="btn btn-primary" href="#install">Install the CLI</a><span class="mono">free, Apache-2.0</span></div>
+      </article>
+      <article class="who reveal" style="--d:.08s">
+        <span class="tag" style="color: var(--acc); box-shadow: inset 0 0 0 1px var(--acc-line);">Early access</span>
+        <h3>Running a team</h3>
+        <p>Sync sessions across your team, see which teammate's agent created what, review unknown creators, keep the evidence.</p>
+        <ul class="checks">
+          <li><span class="ck" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span><span>Opt-in. Every synced field is listed in <a href="https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md">SYNC_PAYLOAD.md</a>.</span></li>
+          <li><span class="ck" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span>A review queue for creator unknown.</li>
+          <li><span class="ck" aria-hidden="true"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span>A shared dashboard with a live feed.</li>
+        </ul>
+        <div id="waitlist">
+          <form id="waitForm" novalidate>
+            <label class="field-label" for="wl-email">Work email</label>
+            <div class="field-row">
+              <input class="input" id="wl-email" name="email" type="email" required autocomplete="email" placeholder="you@company.com">
+              <button class="btn btn-primary" type="submit">Request access</button>
+            </div>
+            <p class="small" id="wl-err" role="alert" hidden style="color: var(--ink); margin-top: 8px;">Enter an email address like you@company.com.</p>
+          </form>
+          <p class="success" id="wl-ok" role="status" hidden>Thanks. We'll email you when team sync opens up.</p>
+        </div>
+        <p class="small" id="wl-mail" hidden>Or email <a class="mono" id="wl-mail-a" href="#"></a></p>
+        <div id="wl-none" hidden><a class="btn btn-ghost" data-link="github" href="https://github.com/tolgayayci/muretto">Watch the repo for early access</a></div>
+        <div class="sync-x">
+          <p class="sync-h"><span>What sync sends</span><span>excerpt · SYNC_PAYLOAD.md</span></p>
+          <ul>
+            <li><code>session.task_title</code><span>80 characters at most, redacted</span></li>
+            <li><code>session.repo.path_hash</code><span>a hash; the path never leaves</span></li>
+            <li><code>resource.name</code><span>redacted</span></li>
+            <li class="never"><code>tokens · keys · full prompts</code><span>never sent</span></li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTEGRATIONS + ADAPTERS ============ -->
+<section class="sec" id="integrations" aria-labelledby="g-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">Integrations</p>
+      <h2 class="h2" id="g-h"><span class="mask"><span>Starts with Claude Code.</span></span><span class="mask q"><span>Built for every agent and provider.</span></span></h2>
+    </div>
+    <div class="legend reveal">
+      <span><span class="chip s-active">Active</span>shipped and live-tested</span>
+      <span><span class="chip s-early">Early access</span>works, opt-in</span>
+      <span><span class="chip s-planned">Planned</span>public issue or roadmap</span>
+      <span><span class="chip s-exploring">Exploring</span>researched, no commitment</span>
+    </div>
+    <div class="hub reveal">
+      <div class="col col-l">
+        <h3>Agents</h3>
+        <span class="bus wire" aria-hidden="true"></span>
+        <div class="row"><div class="ic on"><b>Claude Code</b><span class="chip s-active">Active</span></div><span class="w-on wire" aria-hidden="true"></span></div>
+        <div class="row"><div class="ic off"><b>Codex CLI</b><span class="chip s-planned">Planned</span></div><span class="w-off wire" aria-hidden="true"></span></div>
+        <div class="row"><div class="ic off"><b>Cursor</b><span class="chip s-planned">Planned</span></div><span class="w-off wire" aria-hidden="true"></span></div>
+        <div class="row"><div class="ic off"><b>Gemini CLI</b><span class="chip s-planned">Planned</span></div><span class="w-off wire" aria-hidden="true"></span></div>
+        <div class="row"><div class="ic off"><b>Windsurf</b><span class="chip s-planned">Planned</span></div><span class="w-off wire" aria-hidden="true"></span></div>
+      </div>
+      <div class="row" style="padding-top: 26px;">
+        <span class="w-on wire" aria-hidden="true"></span>
+        <div class="node">
+          <svg width="44" height="44" viewBox="0 0 32 32" aria-hidden="true" style="color: var(--acc);"><g fill="currentColor"><rect x="4" y="13" width="11" height="6" rx="1.2"></rect><rect x="17" y="13" width="11" height="6" rx="1.2"></rect><rect x="4" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="21" width="11" height="6" rx="1.2"></rect><rect x="23.5" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="5" width="11" height="6" rx="1.2" opacity=".4"></rect></g></svg>
+          <b>muretto</b>
+          <span>session → resource<br>→ exposure</span>
+        </div>
+        <span class="w-on wire" aria-hidden="true"></span>
+      </div>
+      <div class="col col-r">
+        <h3>Providers</h3>
+        <span class="bus wire" aria-hidden="true"></span>
+        <div class="row"><span class="w-on wire" aria-hidden="true"></span><div class="ic on"><b>Supabase</b><span class="chip s-active">Active</span><span class="cov">projects, branches, edge functions, storage buckets, tables</span></div></div>
+        <div class="row"><span class="w-on wire" aria-hidden="true"></span><div class="ic on"><b>Vercel</b><span class="chip s-active">Active</span><span class="cov">projects, deployments, domains, env var names</span></div></div>
+        <div class="row"><span class="w-off wire" aria-hidden="true"></span><div class="ic off"><b>Stripe Projects</b><span class="chip s-exploring">Exploring</span></div></div>
+        <div class="row"><span class="w-off wire" aria-hidden="true"></span><div class="ic off"><b>Neon</b><span class="chip s-planned">Planned</span></div></div>
+        <div class="row"><span class="w-off wire" aria-hidden="true"></span><div class="ic off"><b>Cloudflare</b><span class="chip s-planned">Planned</span></div></div>
+        <div class="row"><span class="w-off wire" aria-hidden="true"></span><div class="ic off"><b>GitHub</b><span class="chip s-planned">Planned</span></div></div>
+      </div>
+    </div>
+    <div class="reqs reveal">
+      <p>Don't see yours?</p>
+      <div class="list" id="reqList"></div>
+    </div>
+    <div class="adapt reveal" id="adapters">
+      <div>
+        <h3>New provider? One YAML file.</h3>
+        <p>Add a provider in an afternoon. Adapters declare scan endpoints, how to extract resource ids from tool calls and exposure rules, and every network call still passes the read-only allowlist.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/tolgayayci/muretto/blob/main/docs/WRITING_AN_ADAPTER.md">Write an adapter</a>
+          <span class="soon">Adapter registry <em>coming soon</em></span>
+        </div>
+      </div>
+      <div class="term">
+        <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">adapters/supabase.yaml · excerpt</span></div>
+        <div class="term-body" id="yaml"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WHY NOW ============ -->
+<section class="sec" id="why-now" aria-labelledby="n-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">Why now</p>
+      <h2 class="h2" id="n-h"><span class="mask"><span>The defaults just changed.</span></span><span class="mask q"><span>The agents didn't.</span></span></h2>
+    </div>
+    <article class="why-main reveal">
+      <div class="why-text">
+        <span class="date">Oct 30, 2026 · Supabase</span>
+        <h3>New tables are no longer exposed automatically. Existing ones keep their grants.</h3>
+        <p>And the obvious fix for error 42501 re-exposes them.</p>
+        <div class="why-foot"><span><span style="color: var(--acc);">$</span> muretto exposed <span style="color: var(--faint);"># check yours</span></span><a href="https://supabase.com/changelog/45329-breaking-change-tables-not-exposed-to-data-and-graphql-api-automatically">Supabase changelog ↗</a></div>
+      </div>
+      <div class="why-term">
+        <div class="term" style="box-shadow: none;">
+          <div class="term-body" style="padding: 16px 18px;">
+            <div class="l w t-d">error 42501: permission denied for table orders</div>
+            <div class="l w"><span class="t-d">agent › </span><span class="t-b">GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;</span></div>
+            <div class="l w t-r">⚠ every public table without RLS is readable again</div>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <div class="ahead">
+      <p class="eyebrow reveal">Where it's going</p>
+      <div class="road">
+        <div class="rc now reveal">
+          <h3>Today <small>built, live-tested</small></h3>
+          <p class="rc-line">Claude Code on Supabase and Vercel.</p>
+          <ul>
+            <li><span class="mk mk-now" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span>The CLI</li>
+            <li><span class="mk mk-now" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span>Supabase and Vercel adapters</li>
+            <li><span class="mk mk-now" aria-hidden="true"><svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3l2.3 2.3 4.7-5"></path></svg></span><span>Team sync <span class="mono" style="font-size: 12px; color: var(--muted);">early access</span></span></li>
+          </ul>
+        </div>
+        <div class="rc reveal" style="--d:.08s">
+          <h3>Next <small>planned</small></h3>
+          <p class="rc-line">Every agent and provider.</p>
+          <ul>
+            <li><span class="mk mk-next" aria-hidden="true"></span>Codex CLI and Cursor</li>
+            <li><span class="mk mk-next" aria-hidden="true"></span>Neon, Cloudflare and GitHub adapters</li>
+            <li><span class="mk mk-next" aria-hidden="true"></span>A GRANT re-exposure detector</li>
+            <li><span class="mk mk-next" aria-hidden="true"></span>PR and session review</li>
+          </ul>
+        </div>
+        <div class="rc later reveal" style="--d:.16s">
+          <h3>Then <small>no date yet</small></h3>
+          <p class="rc-line">Review and policy for everything agents change outside the repo.</p>
+          <ul>
+            <li><span class="mk mk-later" aria-hidden="true"></span>Opt-in policies</li>
+            <li><span class="mk mk-later" aria-hidden="true"></span>Slack alerts</li>
+            <li><span class="mk mk-later" aria-hidden="true"></span>SOC 2 evidence</li>
+            <li><span class="mk mk-later" aria-hidden="true"></span>Adapter registry</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPARE ============ -->
+<section class="sec" id="compare" aria-labelledby="x-h">
+  <div class="wrap">
+    <div class="sh reveal">
+      <p class="eyebrow">How it compares</p>
+      <h2 class="h2" id="x-h"><span class="mask q"><span>Agents report what they did.</span></span><span class="mask"><span>Muretto checks what actually exists.</span></span></h2>
+    </div>
+    <div class="tbl reveal">
+      <table>
+        <thead><tr><th scope="col">Tool</th><th scope="col">Agent sessions</th><th scope="col">What exists now</th><th scope="col">Exposure</th><th scope="col">Which session made it</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tool">Claude Code OpenTelemetry / Compliance API</span><span class="note">Sees sessions, not what exists in your providers.</span></td><td class="y" aria-label="yes">✓</td><td class="no" aria-label="no">—</td><td class="no" aria-label="no">—</td><td class="no" aria-label="no">—</td></tr>
+          <tr><td><span class="tool">Supabase Security Advisor</span><span class="note">Sees exposure, not which agent session created it. Supabase only.</span></td><td class="no" aria-label="no">—</td><td><span class="part">Supabase</span></td><td class="y" aria-label="yes">✓</td><td class="no" aria-label="no">—</td></tr>
+          <tr><td><span class="tool">Stripe Projects</span><span class="note">Service-level ledger of what was provisioned through it. Doesn't see tables, buckets or deployments created inside.</span></td><td class="no" aria-label="no">—</td><td><span class="part">services</span></td><td class="no" aria-label="no">—</td><td class="no" aria-label="no">—</td></tr>
+          <tr><td><span class="tool">Agent session loggers</span><span class="note">Record what the agent said and ran, not provider state.</span></td><td class="y" aria-label="yes">✓</td><td class="no" aria-label="no">—</td><td class="no" aria-label="no">—</td><td class="no" aria-label="no">—</td></tr>
+          <tr class="me"><td><span class="tool" style="color: var(--acc);">Muretto</span><span class="note">Joins session → resource → exposure, with evidence.</span></td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td><td class="y" aria-label="yes">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="after">
+      <a class="more" data-link="compare" href="#compare">Full comparison →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOUNDER (stays hidden until CONFIG.founder is filled in) ============ -->
+<section class="sec" id="founder" aria-labelledby="f-h" hidden>
+  <div class="wrap">
+    <div class="fd reveal">
+      <img class="fd-ph" id="fdPhoto" alt="" width="112" height="112" hidden>
+      <div class="fd-body">
+        <p class="eyebrow">Who's building it</p>
+        <h2 class="fd-name" id="f-h"></h2>
+        <p class="fd-role" id="fdRole"></p>
+        <p class="fd-bio" id="fdBio"></p>
+        <div class="fd-links" id="fdLinks"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="final" id="install" aria-labelledby="z-h">
+  <div class="wrap">
+    <svg class="reveal" width="56" height="56" viewBox="0 0 32 32" aria-hidden="true" style="color: var(--acc);"><g fill="currentColor"><rect x="4" y="13" width="11" height="6" rx="1.2"></rect><rect x="17" y="13" width="11" height="6" rx="1.2"></rect><rect x="4" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="21" width="11" height="6" rx="1.2"></rect><rect x="23.5" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="5" width="11" height="6" rx="1.2" opacity=".4"></rect></g></svg>
+    <h2 class="reveal" id="z-h">Know what your agents <span style="color: var(--acc);">left behind.</span></h2>
+    <p class="sub reveal">Open source. Runs on your machine. Only ever reads.</p>
+    <div class="install reveal">
+      <div class="itabs" role="tablist" aria-label="Install method" id="itabs"><span class="note">available with v0.1.0</span></div>
+      <div class="icmd"><code><span class="pr">$ </span><span id="icmd"></span></code><button class="copy" type="button" id="icopy" aria-label="Copy install command">Copy</button></div>
+    </div>
+    <div class="ctas reveal" style="margin-top: 26px;">
+      <a class="btn btn-ghost" data-link="github" href="https://github.com/tolgayayci/muretto">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.83-5.38 2.83 1.03-6L3.3 9.6l6-.9z"></path></svg>
+        Star on GitHub
+      </a>
+      <a class="btn btn-link" data-link="docs" href="#docs">Read the docs →</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="about">
+      <a class="brand" href="#top" aria-label="Muretto home"><svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true"><g fill="currentColor"><rect x="4" y="13" width="11" height="6" rx="1.2"></rect><rect x="17" y="13" width="11" height="6" rx="1.2"></rect><rect x="4" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="21" width="11" height="6" rx="1.2"></rect><rect x="23.5" y="21" width="4.5" height="6" rx="1.2"></rect><rect x="10.5" y="5" width="11" height="6" rx="1.2" opacity=".4"></rect></g></svg>muretto</a>
+      <p>See every database, bucket and deployment your AI coding agents created, which session made it, and what is open to anyone. Open source and read-only.</p>
+    </div>
+    <nav aria-label="Product"><h3>Product</h3><ul><li><a href="https://app.muretto.ai">Dashboard</a></li><li><a href="#catches">What it catches</a></li><li><a href="#how">How it works</a></li><li><a href="#trust">Security</a></li><li><a href="#compare">Compare</a></li><li><a data-link="changelog" href="https://github.com/tolgayayci/muretto/releases">Changelog</a></li></ul></nav>
+    <nav aria-label="Developers"><h3>Developers</h3><ul><li><a data-link="github" href="https://github.com/tolgayayci/muretto">GitHub</a></li><li><a data-link="docs" href="#docs">Docs</a></li><li><a href="https://github.com/tolgayayci/muretto/blob/main/docs/WRITING_AN_ADAPTER.md">Write an adapter</a></li><li><a href="https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md">Sync payload</a></li></ul></nav>
+    <nav aria-label="Elsewhere"><h3>Elsewhere</h3><ul><li><a data-link="x" href="#x">X</a></li><li><a data-link="linkedin" href="#linkedin">LinkedIn</a></li></ul></nav>
+  </div>
+  <div class="wrap legal"><span>Apache-2.0</span></div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- One place for links and commands (TODO = not live yet) ---------- */
+  var CONFIG = {
+    github: 'https://github.com/tolgayayci/muretto',
+    issues: 'https://github.com/tolgayayci/muretto/issues',
+    newIssue: 'https://github.com/tolgayayci/muretto/issues/new', /* TODO: adapter-request issue template */
+    changelog: 'https://github.com/tolgayayci/muretto/releases',
+    /* Empty = not live yet: every link or line that needs it hides itself. */
+    docs: '',               /* TODO: docs URL */
+    signin: 'https://app.muretto.ai/login',
+    security: '',           /* TODO: /security page */
+    compare: '',            /* TODO: /compare page */
+    x: '',                  /* TODO */
+    linkedin: '',           /* TODO */
+    email: '',              /* TODO: contact email */
+    waitlistEndpoint: '',   /* TODO: Formspree / Tally / Loops form URL; the form shows once this or email is set */
+    /* The founder section stays hidden until name and bio are filled in. */
+    founder: { name: '', role: '', bio: '', photo: '', linkedin: '', github: '', x: '' },
+    install: [
+      { label: 'curl', command: 'curl -fsSL https://raw.githubusercontent.com/tolgayayci/muretto/main/install.sh | sh' },
+      { label: 'Homebrew', command: 'brew install tolgayayci/tap/muretto' },
+      { label: 'npm', command: 'npm i -g muretto' },
+      { label: 'Claude Code plugin', command: '' }  /* TODO: plugin marketplace command; the tab hides while empty */
+    ]
+  };
+
+  var REDUCED = false;
+  try { REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+  function qs(s, r) { return (r || document).querySelector(s); }
+  function qsa(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+
+  qsa('[data-link]').forEach(function (a) {
+    var v = CONFIG[a.getAttribute('data-link')];
+    if (v) { a.setAttribute('href', v); return; }
+    // Not live yet: hide the link (with its list item, or a wrapper that holds only it) instead of pointing nowhere.
+    var p = a.parentElement, box = a.closest('li') || (p.children.length === 1 && p.textContent.trim() === a.textContent.trim() ? p : null);
+    (box || a).hidden = true;
+  });
+  // Soft links keep their in-page fallback until a real URL exists.
+  qsa('[data-soft-link]').forEach(function (a) { var v = CONFIG[a.getAttribute('data-soft-link')]; if (v) a.setAttribute('href', v); });
+  qsa('footer nav').forEach(function (n) { if (!qsa('li:not([hidden])', n).length) n.hidden = true; });
+  qsa('[data-text]').forEach(function (el) { var v = CONFIG[el.getAttribute('data-text')]; if (v) el.textContent = v; });
+
+  /* ---------- Copy ---------- */
+  function copyText(text, btn) {
+    function done() { var old = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = old === 'Copied' ? 'Copy' : old; }, 1600); }
+    try {
+      var p = navigator.clipboard && navigator.clipboard.writeText(text);
+      if (p && p.then) { p.then(done, function () { done(); }); return; }
+    } catch (e) {}
+    done();
+  }
+  qsa('[data-copy]').forEach(function (b) { b.addEventListener('click', function () { copyText(b.getAttribute('data-copy'), b); }); });
+
+  /* ---------- Terminal renderer ---------- */
+  function span(t, c) { var e = document.createElement('span'); if (c) e.className = c; e.textContent = t; return e; }
+  function segs(s) {
+    var out = [], re = /«(\w+)\|([^»]*)»/g, i = 0, m;
+    while ((m = re.exec(s))) { if (m.index > i) out.push([s.slice(i, m.index), '']); out.push([m[2], 't-' + m[1]]); i = re.lastIndex; }
+    if (i < s.length) out.push([s.slice(i), '']);
+    return out;
+  }
+  function isCmd(s) { return s.indexOf('$ ') === 0; }
+  function lineEl(s, wrap) {
+    var d = document.createElement('div');
+    d.className = 'l' + (wrap ? ' w' : '');
+    if (isCmd(s)) { d.appendChild(span('$ ', 't-p')); d.appendChild(span(s.slice(2), 't-b')); }
+    else segs(s).forEach(function (p) { d.appendChild(p[1] ? span(p[0], p[1]) : document.createTextNode(p[0])); });
+    return d;
+  }
+  function Term(body) { this.body = body; this.timers = []; }
+  Term.prototype.stop = function () { this.timers.forEach(clearTimeout); this.timers = []; };
+  Term.prototype.at = function (t, fn) { this.timers.push(setTimeout(fn, t)); };
+  Term.prototype.show = function (lines, wrap) {
+    this.stop(); var b = this.body; b.textContent = '';
+    lines.forEach(function (l) { b.appendChild(lineEl(l, wrap)); });
+  };
+  Term.prototype.play = function (lines, wrap, sp, done) {
+    if (REDUCED) { this.show(lines, wrap); if (done) done(); return; }
+    this.stop();
+    var self = this, b = this.body, t = sp.start || 0;
+    b.textContent = '';
+    lines.forEach(function (L) {
+      if (isCmd(L)) {
+        var row = document.createElement('div'), cmd = span('', 't-b'), cur = span('', 'cur');
+        row.className = 'l';
+        self.at(t, function () { row.appendChild(span('$ ', 't-p')); row.appendChild(cmd); row.appendChild(cur); b.appendChild(row); });
+        for (var c = 1; c <= L.length - 2; c++) { (function (c) { t += sp.ch; self.at(t, function () { cmd.textContent = L.slice(2, 2 + c); }); })(c); }
+        t += sp.after;
+        self.at(t, function () { if (cur.parentNode) cur.parentNode.removeChild(cur); });
+      } else {
+        var warn = L.indexOf('⚠') > -1;
+        t += warn ? sp.warn : sp.line;
+        self.at(t, function () { var el = lineEl(L, wrap); if (warn) el.classList.add('flash'); b.appendChild(el); });
+      }
+    });
+    t += sp.line;
+    self.at(t, function () { var row = document.createElement('div'); row.className = 'l'; row.appendChild(span('$ ', 't-p')); row.appendChild(span('', 'cur')); b.appendChild(row); if (done) done(); });
+  };
+
+  /* ---------- Hero fills the first screen: measure the banner ---------- */
+  var ann = qs('.announce');
+  function setAnn() { if (ann) document.documentElement.style.setProperty('--announce-h', ann.offsetHeight + 'px'); }
+  setAnn(); window.addEventListener('resize', setAnn);
+
+  /* ---------- Hero proof: the agent says done; a week later Muretto checks ---------- */
+  var proof = qs('#proof'), typing = qs('#typing'), expN = qs('#expN');
+  var pSeq = qsa('.seq', proof), pRows = qsa('.rows li', proof), dT = [];
+  function dAt(t, fn) { dT.push(setTimeout(fn, t)); }
+  function proofPlay(start) {
+    if (REDUCED) return;
+    dT.forEach(clearTimeout); dT = [];
+    proof.classList.remove('go', 'scanning'); proof.classList.add('run');
+    pSeq.forEach(function (e) { e.classList.remove('show'); });
+    typing.hidden = true; expN.textContent = '0';
+    var t = start, n = 0;
+    dAt(t, function () { typing.hidden = false; });
+    t += 1000; dAt(t, function () { typing.hidden = true; qs('#msg').classList.add('show'); });
+    t += 400; dAt(t, function () { qs('#okline').classList.add('show'); });
+    t += 600; dAt(t, function () { proof.classList.add('go'); qs('#hopLbl').classList.add('show'); });
+    t += 850; dAt(t, function () { void proof.offsetWidth; proof.classList.add('scanning'); qs('#cnt').classList.add('show'); });
+    pRows.forEach(function (el) { t += 300; dAt(t, function () { el.classList.add('show'); if (el.classList.contains('exp')) expN.textContent = String(++n); }); });
+  }
+  proofPlay(1200);
+  qs('#proofReplay').addEventListener('click', function () { proofPlay(150); });
+
+  /* ---------- Nav: scrolled state, progress, current section ---------- */
+  var nav = qs('#nav'), prog = qs('#progress'), ticking = false;
+  function onScroll() {
+    ticking = false;
+    var y = window.scrollY || document.documentElement.scrollTop;
+    var max = document.documentElement.scrollHeight - window.innerHeight;
+    nav.classList.toggle('scrolled', y > 8);
+    prog.style.setProperty('--p', max > 0 ? Math.min(1, y / max).toFixed(4) : 0);
+  }
+  window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
+  onScroll();
+
+  var links = qsa('.nav-links a');
+  if ('IntersectionObserver' in window) {
+    var secObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        var id = '#' + en.target.id;
+        links.forEach(function (a) { a.setAttribute('aria-current', a.getAttribute('href') === id ? 'true' : 'false'); });
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    ['problem', 'product', 'catches', 'how', 'trust', 'compare'].forEach(function (id) { var el = document.getElementById(id); if (el) secObs.observe(el); });
+  }
+
+  /* ---------- Reveal on arrival (content is visible at rest) ---------- */
+  var onReveal = {};
+  function revealed(el) {
+    el.classList.add('in');
+    var fn = onReveal[el.id]; if (fn) { fn(); delete onReveal[el.id]; }
+  }
+  if ('IntersectionObserver' in window && !REDUCED) {
+    var rObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { revealed(en.target); rObs.unobserve(en.target); } });
+    }, { rootMargin: '0px 0px 40px 0px' });
+    qsa('.reveal').forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight && r.bottom > 0) { el.classList.add('in'); var fn = onReveal[el.id]; if (fn) fn(); return; }
+      rObs.observe(el);
+    });
+  } else {
+    qsa('.reveal').forEach(function (el) { el.classList.add('in'); });
+  }
+
+  /* ---------- Problem: one scene changes state as the steps pass ---------- */
+  var scrolly = qs('#scrolly'), stage = qs('#stage'), scene = qs('.scene', stage);
+  var steps = qsa('.step', scrolly);
+  steps.forEach(function (st, i) {
+    var vis = qs('.step-vis', st);
+    vis.setAttribute('data-s', String(i));
+    vis.appendChild(scene.cloneNode(true));
+  });
+  function setStep(i) {
+    steps.forEach(function (s, k) { s.classList.toggle('active', k === i); });
+    stage.setAttribute('data-s', String(i));
+  }
+  // The step nearest the middle of the screen is always the active one, whichever way you scroll.
+  var curStep = 0, stTick = false;
+  function pickStep() {
+    stTick = false;
+    var mid = window.innerHeight / 2, best = 0, bestD = Infinity;
+    steps.forEach(function (st, k) {
+      var r = st.getBoundingClientRect();
+      var d = r.top > mid ? r.top - mid : (r.bottom < mid ? mid - r.bottom : 0);
+      if (d < bestD) { bestD = d; best = k; }
+    });
+    if (best !== curStep) { curStep = best; setStep(best); }
+  }
+  scrolly.classList.add('js');
+  function onStepScroll() { if (!stTick) { stTick = true; requestAnimationFrame(pickStep); } }
+  window.addEventListener('scroll', onStepScroll, { passive: true });
+  window.addEventListener('resize', onStepScroll);
+  pickStep();
+  // The first time the scene comes into view, the agent's resources appear one by one.
+  if ('IntersectionObserver' in window && !REDUCED) {
+    stage.classList.add('anim');
+    var seenObs = new IntersectionObserver(function (en) {
+      if (en[0].isIntersecting) { stage.classList.add('seen'); seenObs.disconnect(); }
+    }, { threshold: .35 });
+    seenObs.observe(stage);
+  }
+
+  /* ---------- Product: questions and real output ---------- */
+  var QA = [
+    { q: "What's open to the internet?", cmd: 'muretto exposed', wrap: true, lines: [
+      '$ muretto exposed',
+      '«r|3 exposed» · «d|checked 3 min ago»',
+      '',
+      '  critical table      customers        «r|⚠ RLS off: publicly readable»',
+      '    Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it. · session 8f2a (alice)',
+      '',
+      '  high     bucket     customer-files   «r|⚠ public»',
+      '    Anyone with a file URL can download objects from this bucket. · session 8f2a (alice)',
+      '',
+      '  medium   deployment preview-a81f     «r|⚠ public preview»',
+      '    Deployment protection is off for this project, so the preview URL is reachable by anyone. · session 8f2a (alice)',
+      '    Caveat: Protection exceptions are not visible to the API.'
+    ] },
+    { q: 'What did this session create?', cmd: 'muretto session 8f2a', wrap: false, lines: [
+      '$ muretto session 8f2a',
+      '«b|Session 8f2a» · alice · Claude Code · Oct 19 14:02–14:31',
+      'Task: "add customer import with file uploads"',
+      'Repo: acme/web (feat/import)',
+      '',
+      '  «b|SUPABASE»  project acme-dev',
+      '  ✓ table      customers        exact   «r|⚠ RLS off: publicly readable»',
+      '  ✓ bucket     customer-files   exact   «r|⚠ public»',
+      '  ✓ function   process-import   exact',
+      '  ✓ branch     import-test      exact   7 days old · review due',
+      '',
+      '  «b|VERCEL»  project acme-web',
+      '  ✓ deployment preview-a81f     exact   «r|⚠ public preview»',
+      '',
+      '  «r|3 exposed» · 1 needs review · «d|checked 3 min ago»',
+      '  → muretto why customers'
+    ] },
+    { q: 'Who made this, and how do you know?', cmd: 'muretto why <resource>', wrap: true, lines: [
+      '$ muretto why customers',
+      '«b|table customers»: exact',
+      'Created by session 8f2a (alice) (rule name_in_container)',
+      'Reason: session 8f2a1c3e created it: a creating call named this table in its container, and no other session did',
+      '',
+      '«b|Evidence»',
+      '  1. Oct 19 14:06 · session 8f2a (alice) · mcp__supabase__apply_migration',
+      '     matched projaaaaaaaaaaaaaaaa/public.customers «d|(supabase.mcp.apply_migration, toolu_01FAKEaaaaaaaaaaaaaaaaa1)»',
+      '     «d|│ {"project_id":"projaaaaaaaaaaaaaaaa","name":"create_customers","query":"create table public.customers (id big…»',
+      '     «d|│ → {"success": true}»'
+    ] },
+    { q: 'What have my agents been doing?', cmd: 'muretto sessions', wrap: false, lines: [
+      '$ muretto sessions',
+      '«b|3 sessions» · «d|checked 3 min ago»',
+      '',
+      '  e7e0  today 11:00         alice     look around the projects                    0 created',
+      '  b0b5  today 09:15         bob       prototype orders table                      0 created',
+      '  8f2a  Oct 19 14:02        alice     add customer import with file uploads       5 created · «r|3 exposed» · 1 review due'
+    ] }
+  ];
+  var qtabs = qs('#qtabs'), qterm = new Term(qs('#qterm')), qcur = 0;
+  var FAST = { start: 150, ch: 30, after: 260, line: 32, warn: 140 };
+  QA.forEach(function (x, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'qtab'; b.setAttribute('role', 'tab'); b.id = 'qtab-' + i;
+    b.setAttribute('aria-controls', 'qpanel'); b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+    b.tabIndex = i === 0 ? 0 : -1;
+    b.appendChild(span(x.q)); b.appendChild(span(x.cmd, 'c'));
+    b.addEventListener('click', function () { selectQ(i, true); });
+    b.addEventListener('keydown', function (e) {
+      var k = e.key, n = null;
+      if (k === 'ArrowDown' || k === 'ArrowRight') n = (i + 1) % QA.length;
+      if (k === 'ArrowUp' || k === 'ArrowLeft') n = (i - 1 + QA.length) % QA.length;
+      if (n !== null) { e.preventDefault(); selectQ(n, true); qs('#qtab-' + n).focus(); }
+    });
+    qtabs.appendChild(b);
+  });
+  function selectQ(i, animate) {
+    qcur = i;
+    qsa('.qtab', qtabs).forEach(function (b, k) { b.setAttribute('aria-selected', k === i ? 'true' : 'false'); b.tabIndex = k === i ? 0 : -1; });
+    qs('#qpanel').setAttribute('aria-labelledby', 'qtab-' + i);
+    if (animate) qterm.play(QA[i].lines, QA[i].wrap, FAST); else qterm.show(QA[i].lines, QA[i].wrap);
+  }
+  selectQ(0, false);
+  var qa = qs('.qa');
+  qa.id = 'qa';
+  onReveal.qa = function () { selectQ(qcur, true); };
+  if (qa.classList.contains('in')) onReveal.qa();
+
+  /* ---------- YAML excerpt (real lines from adapters/supabase.yaml) ---------- */
+  var YAML = [
+    '«k|buckets»:',
+    '  «k|path»: /v1/projects/{ref}/storage/buckets',
+    '«d|…»',
+    '- «k|id»: public_bucket',
+    '  «k|kind»: bucket',
+    '  «k|severity»: high',
+    '  «k|signal»: api_field',
+    '  «k|exposed»: «d|{» «k|field»: public, «k|equals»: «b|"true"» «d|}»',
+    '  «k|title»: «b|"Public bucket: {bucket_id}"»'
+  ];
+  new Term(qs('#yaml')).show(YAML, false);
+
+  /* ---------- Request an adapter ---------- */
+  var reqList = qs('#reqList');
+  ['Firebase', 'Railway', 'Render', 'PlanetScale', 'Turso', 'Upstash', 'Clerk', 'AWS', 'GCP'].forEach(function (n) {
+    var a = document.createElement('a');
+    a.href = CONFIG.newIssue + '?title=' + encodeURIComponent('Adapter request: ' + n);
+    a.textContent = n + ' +';
+    reqList.appendChild(a);
+  });
+
+  /* ---------- Counters ---------- */
+  qs('#bento').id = 'bento';
+  onReveal.bento = function () {
+    if (REDUCED) return;
+    qsa('[data-count]', qs('#bento')).forEach(function (el) {
+      var to = +el.getAttribute('data-count'), t0 = null;
+      function step(ts) { if (!t0) t0 = ts; var p = Math.min(1, (ts - t0) / 900); el.textContent = Math.round(to * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(step); }
+      requestAnimationFrame(step);
+    });
+  };
+
+  /* ---------- Waitlist: only shown when it can deliver, to CONFIG.waitlistEndpoint or as an email ---------- */
+  var form = qs('#waitForm'), ok = qs('#wl-ok'), err = qs('#wl-err'), email = qs('#wl-email'), errText = err.textContent;
+  if (CONFIG.email) { var ma = qs('#wl-mail-a'); ma.href = 'mailto:' + CONFIG.email; ma.textContent = CONFIG.email; qs('#wl-mail').hidden = false; }
+  if (!CONFIG.waitlistEndpoint && !CONFIG.email) { qs('#waitlist').hidden = true; qs('#wl-none').hidden = false; }
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = email.value.trim();
+    err.textContent = errText;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { err.hidden = false; email.setAttribute('aria-invalid', 'true'); email.focus(); return; }
+    err.hidden = true; email.removeAttribute('aria-invalid');
+    if (!CONFIG.waitlistEndpoint) {
+      location.href = 'mailto:' + CONFIG.email + '?subject=' + encodeURIComponent('Muretto team sync early access') + '&body=' + encodeURIComponent(v);
+      return;
+    }
+    var fd = new FormData(); fd.append('email', v);
+    fetch(CONFIG.waitlistEndpoint, { method: 'POST', body: fd, headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error(String(r.status)); form.hidden = true; ok.hidden = false; })
+      .catch(function () { err.textContent = "That didn't go through. Try again in a minute."; err.hidden = false; });
+  });
+
+  /* ---------- Founder: shown only once CONFIG.founder is filled in ---------- */
+  var F = CONFIG.founder;
+  if (F && F.name && F.bio) {
+    qs('#f-h').textContent = F.name;
+    qs('#fdRole').textContent = F.role || '';
+    qs('#fdBio').textContent = F.bio;
+    if (F.photo) { var ph = qs('#fdPhoto'); ph.src = F.photo; ph.alt = F.name; ph.hidden = false; } else { qs('.fd').classList.add('no-ph'); }
+    [['linkedin', 'LinkedIn'], ['github', 'GitHub'], ['x', 'X']].forEach(function (l) {
+      if (!F[l[0]]) return;
+      var a = document.createElement('a'); a.className = 'btn btn-ghost btn-sm'; a.href = F[l[0]]; a.textContent = l[1];
+      qs('#fdLinks').appendChild(a);
+    });
+    qs('#founder').hidden = false;
+  }
+
+  /* ---------- Install tabs ---------- */
+  var itabs = qs('#itabs'), icmd = qs('#icmd'), icur = 0, noteEl = qs('.note', itabs);
+  CONFIG.install = CONFIG.install.filter(function (x) { return x.command; });
+  CONFIG.install.forEach(function (x, i) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'itab'; b.setAttribute('role', 'tab'); b.textContent = x.label;
+    b.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+    b.addEventListener('click', function () { icur = i; qsa('.itab', itabs).forEach(function (t, k) { t.setAttribute('aria-selected', k === i ? 'true' : 'false'); }); icmd.textContent = x.command; });
+    itabs.insertBefore(b, noteEl);
+  });
+  icmd.textContent = CONFIG.install[0].command;
+  qs('#icopy').addEventListener('click', function () { copyText(CONFIG.install[icur].command, qs('#icopy')); });
+})();
+</script>
+</body>
+</html>

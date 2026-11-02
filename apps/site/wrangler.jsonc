@@ -1,0 +1,20 @@
+// Landing page for muretto.ai: a Worker with static assets.
+// Deploy: npx wrangler deploy (needs a login or token for the account that owns the muretto.ai zone).
+{
+  "name": "muretto-site",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "muretto.ai", "custom_domain": true },
+    { "pattern": "www.muretto.ai", "custom_domain": true }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": false }
+}
