@@ -5,7 +5,7 @@
 Please don't open a public issue.
 
 - **Preferred:** GitHub private vulnerability reporting. Open <https://github.com/tolgayayci/muretto/security/advisories/new> (or **Security → Report a vulnerability** on the repository).
-- **Fallback:** email TODO(contact-email).
+- **Fallback:** email [tolga@yk-labs.com](mailto:tolga@yk-labs.com).
 
 Include what you found, how to reproduce it, and which version or commit you used (`muretto version`). We aim to reply within 3 working days. Please give us a reasonable time to release a fix before you disclose it publicly.
 

@@ -165,4 +165,4 @@ This project follows the [Code of Conduct](CODE_OF_CONDUCT.md). Report security
 issues privately as described in [SECURITY.md](SECURITY.md), never in a public
 issue.
 
-Conduct reports: TODO(contact-email)
+Conduct reports: [tolga@yk-labs.com](mailto:tolga@yk-labs.com)
