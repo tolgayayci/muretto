@@ -9,9 +9,13 @@ COMMIT    ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE      ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS   := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
 
-.PHONY: all setup hooks build test lint vuln secrets generate check-generate ci clean
+.PHONY: all help setup hooks build test adapter-test lint vuln secrets generate check-generate ci clean
 
 all: build
+
+## help: list the documented targets
+help:
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  /'
 
 ## setup: install the repo git hooks (secret scan + gofmt before every commit)
 setup: hooks
@@ -21,11 +25,20 @@ hooks:
 	@git config --show-origin --get-all core.hooksPath || true
 	@echo "If another value wins (e.g. a git wrapper passing -c core.hooksPath), run 'make secrets' before committing. CI scans every push."
 
+## build: build bin/muretto from source
 build:
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags '$(LDFLAGS)' -o $(BIN) ./cmd/muretto
 
+## test: run the whole Go suite (no network, no accounts)
 test:
 	$(GO) test -count=1 ./...
+
+## adapter-test: run the adapter gate CI runs; P=<provider> also runs that adapter's strict check
+adapter-test:
+	$(GO) test -count=1 ./adapters/ -v
+ifdef P
+	$(GO) run ./cmd/muretto adapter test adapters/$(P)/adapter.yaml --strict
+endif
 
 lint:
 	@command -v golangci-lint >/dev/null || { echo "golangci-lint v2.14.0 not installed; CI runs it"; exit 0; }
@@ -48,6 +61,7 @@ generate:
 check-generate: generate
 	git diff --exit-code -- internal/contract apps/dashboard/src/contract
 
+## ci: generated-code check, tests, lint, govulncheck and secret scan
 ci: check-generate test lint vuln secrets
 
 clean:
