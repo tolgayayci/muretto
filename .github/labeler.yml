@@ -1,0 +1,71 @@
+# Labels for pull requests, applied by .github/workflows/labeler.yml
+# (actions/labeler v7 format). Add a provider:<slug> entry with each new
+# adapter folder.
+
+provider:supabase:
+  - changed-files:
+      - any-glob-to-any-file: adapters/supabase/**
+
+provider:vercel:
+  - changed-files:
+      - any-glob-to-any-file: adapters/vercel/**
+
+provider:github:
+  - changed-files:
+      - any-glob-to-any-file: adapters/github/**
+
+provider:cloudflare:
+  - changed-files:
+      - any-glob-to-any-file: adapters/cloudflare/**
+
+provider:neon:
+  - changed-files:
+      - any-glob-to-any-file: adapters/neon/**
+
+provider:stripe:
+  - changed-files:
+      - any-glob-to-any-file: adapters/stripe/**
+
+provider:render:
+  - changed-files:
+      - any-glob-to-any-file: adapters/render/**
+
+provider:planetscale:
+  - changed-files:
+      - any-glob-to-any-file: adapters/planetscale/**
+
+area:adapters:
+  - changed-files:
+      - any-glob-to-any-file:
+          - adapters/**
+          - internal/adapters/**
+          - internal/adaptercheck/**
+          - internal/adaptergen/**
+
+area:dashboard:
+  - changed-files:
+      - any-glob-to-any-file: apps/dashboard/**
+
+area:site:
+  - changed-files:
+      - any-glob-to-any-file: apps/site/**
+
+area:docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - apps/docs/**
+          - docs/**
+          - '*.md'
+          - adapters/*.md
+
+area:cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - cmd/**
+          - internal/**
+          - plugin/**
+          - schema/**
+
+area:server:
+  - changed-files:
+      - any-glob-to-any-file: server/**

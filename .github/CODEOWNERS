@@ -1,0 +1,14 @@
+# Reviewers requested automatically for each path. The last matching line wins.
+# Adapter maintainers: add yourself on your provider's line.
+
+*                       @tolgayayci
+
+/adapters/              @tolgayayci
+/adapters/supabase/     @tolgayayci
+/adapters/vercel/       @tolgayayci
+/adapters/github/       @tolgayayci
+/adapters/cloudflare/   @tolgayayci
+/adapters/neon/         @tolgayayci
+/adapters/stripe/       @tolgayayci
+/adapters/render/       @tolgayayci
+/adapters/planetscale/  @tolgayayci
