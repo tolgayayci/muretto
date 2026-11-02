@@ -16,6 +16,35 @@ paths = [
   '''^internal/observe/leak_test\.go$''',
 ]
 
+# Stripe adapter research and extraction fixtures quote curl commands with
+# placeholder keys (`sk_test_…:`, `$STRIPE_SECRET_KEY:`). Listed at their
+# current paths and at the paths they had in history (the history scan sees those).
+[[allowlists]]
+description = "Stripe adapter curl -u placeholders"
+targetRules = ["curl-auth-user"]
+paths = [
+  '''^adapters/stripe/research\.md$''',
+  '''^adapters/stripe/testdata/extract/cases\.yaml$''',
+  '''^docs/research/stripe\.md$''',
+  '''^adapters/testdata/stripe/extract/cases\.yaml$''',
+]
+
+# Two fixed fake values in Go tests trip the generic-api-key rule: a 32-hex
+# JWT test secret and a redaction test vector. Only these exact values, only
+# in these files.
+[[allowlists]]
+description = "Fixed fake values in Go tests"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^server/internal/config/config_test\.go$''',
+  '''^internal/redact/redact_test\.go$''',
+]
+regexes = [
+  '''^0123456789abcdef0123456789abcdef$''',
+  '''^abcdef123456$''',
+]
+
 # Local build output is git-ignored and never committed (Next.js writes a fresh
 # preview-mode signing key into apps/dashboard/.next on every build). Skip it so a local
 # `make secrets` scans what could actually be committed.
@@ -24,6 +53,9 @@ description = "Git-ignored build output"
 paths = [
   '''^apps/dashboard/\.next/''',
   '''(^|/)node_modules/''',
+  '''(^|/)\.wrangler/''',
+  '''^apps/site/dist/''',
+  '''^packaging/npm/\.dist/''',
   '''^bin/''',
   '''^dist/''',
 ]
