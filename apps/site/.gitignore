@@ -1,0 +1,5 @@
+# Local build and tool output (also covered by the root .gitignore where noted)
+node_modules/
+dist/
+.wrangler/
+.dev.vars*
