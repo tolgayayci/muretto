@@ -61,13 +61,22 @@ Every credential is a Bearer token: `Authorization: Bearer <token>`. There are n
 
 Supabase project setup: enable the GitHub provider and add `<dashboard>/auth/callback` to the redirect URLs. Disable anonymous sign-ins (their tokens are refused anyway).
 
-## Deploy on Railway
+## Deploy on Railway (from the repo)
 
-1. New service from this GitHub repo. In the service settings set the Dockerfile path to `server/Dockerfile` (or the variable `RAILWAY_DOCKERFILE_PATH=server/Dockerfile`). The build context is the repository root.
-2. Variables: `MURETTO_PUBLIC_URL=https://api.<domain>`, `MURETTO_DASHBOARD_URL=https://app.<domain>`, `MURETTO_DATABASE_URL=<Supabase session pooler URL, sslmode=require>`, `MURETTO_SUPABASE_URL=https://<ref>.supabase.co`, `MURETTO_TRUST_PROXY=1`. Do **not** set `MURETTO_ADDR` (Railway's `PORT` is used) and never set `MURETTO_DEV_LOGIN`.
-3. Health check path: `/healthz`.
-4. The dashboard calls the API from its server with Bearer tokens, so the API and dashboard need not share a domain (`*.vercel.app` previews work), but only `MURETTO_DASHBOARD_URL` is a CORS origin.
-5. Run one instance in v1 (rate limits are in-process). A second instance still gets live events through LISTEN/NOTIFY.
+The service deploys straight from this GitHub repo. Build and health check settings live in [`server/railway.json`](railway.json) (config as code): Dockerfile builder with `server/Dockerfile`, health check `GET /healthz`, and watch patterns so only changes to `server/`, `internal/contract/`, `schema/` or `go.mod`/`go.sum` trigger a deploy.
+
+Service settings (once, in the Railway dashboard):
+
+1. **Source:** this GitHub repo, branch `main`.
+2. **Root directory:** empty (the repository root). The image is built with the repo root as context, like `docker build -f server/Dockerfile .`.
+3. **Config file path:** `/server/railway.json`. Railway's config file does not follow the root directory, so the path is absolute from the repo root. The `RAILWAY_DOCKERFILE_PATH` variable is no longer needed (the config file sets `dockerfilePath`); remove it to keep one source of truth.
+4. **Variables:** `MURETTO_PUBLIC_URL=https://api.<domain>`, `MURETTO_DASHBOARD_URL=https://app.<domain>`, `MURETTO_DATABASE_URL=<Supabase session pooler URL, sslmode=require>`, `MURETTO_SUPABASE_URL=https://<ref>.supabase.co`, `MURETTO_TRUST_PROXY=1`. Do **not** set `MURETTO_ADDR` (Railway's `PORT` is used) and never set `MURETTO_DEV_LOGIN`. Every variable, with placeholders, is in [`.env.example`](.env.example).
+
+Notes:
+
+- The dashboard calls the API from its server with Bearer tokens, so the API and dashboard need not share a domain, but only `MURETTO_DASHBOARD_URL` is a CORS origin.
+- Run one instance in v1 (rate limits are in-process). A second instance still gets live events through LISTEN/NOTIFY.
+- CI builds the same image on every pull request that touches the server (`server-image` job in `.github/workflows/ci.yml`), without pushing it.
 
 Railway closes idle HTTP requests after 5 minutes and any request after 15; the SSE stream sends a heartbeat every 20 s and `EventSource` reconnects with `Last-Event-ID`.
 
