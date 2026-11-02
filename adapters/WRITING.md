@@ -1,15 +1,23 @@
 # Writing an adapter
 
-An adapter teaches Muretto one provider: how to list what exists (read-only),
-how to recognise an agent creating something, which exposure rules apply, and
-what a human could run to fix or remove it. An adapter is **one YAML file in
-`adapters/` plus fixtures in `adapters/<provider>/testdata/`**. You do not
-write Go.
+This is the format reference. For the short version (folder layout, the five
+steps, what CI checks), read [README.md](README.md) first.
 
-Start from [`adapters/_template/adapter.yaml`](../adapters/_template/adapter.yaml): every field
+An adapter teaches Muretto one provider: how to list what exists (read-only),
+how to recognise an agent creating something, and which exposure rules apply.
+It is **one folder, `adapters/<provider>/`**, holding `adapter.yaml`, a
+`research.md` with sources, a `coverage.md`, and fixtures in `testdata/`.
+The adapter itself is YAML only. For what an official adapter also changes
+outside its folder, see [section 11](#11-official-adapters-changes-outside-the-folder).
+
+Start from [`_template/adapter.yaml`](_template/adapter.yaml): every field
 is there with a comment. The shipped adapters are full examples:
-[`supabase.yaml`](../adapters/supabase/adapter.yaml) and
-[`vercel.yaml`](../adapters/vercel/adapter.yaml).
+[`supabase/adapter.yaml`](supabase/adapter.yaml) and
+[`vercel/adapter.yaml`](vercel/adapter.yaml).
+
+The commands below are written as `muretto …`. Working from a clone, run
+`go run ./cmd/muretto …` from the repo root instead, or `make build` once and
+use `bin/muretto`.
 
 **Have an OpenAPI file?** Generate a draft instead of starting from scratch
 (section 0.5). **Shipping it with Muretto?** Official adapters also follow
@@ -25,6 +33,15 @@ muretto adapter check example.yaml                # validate; shows every reques
 muretto adapter test example.yaml --openapi openapi.json   # offline dry run against the spec
 muretto adapter install example.yaml              # ~/.muretto/adapters/, used from now on
 muretto init                                      # connect a token
+```
+
+To contribute it, write it straight into its folder with starter fixtures
+(`-o` does not create the folder):
+
+```sh
+mkdir -p adapters/example
+go run ./cmd/muretto adapter new openapi.json --provider example \
+  -o adapters/example/adapter.yaml --fixtures adapters/example/testdata
 ```
 
 It reads Swagger 2.0 and OpenAPI 3.0, 3.1 and 3.2, in JSON or YAML. A spec split
@@ -82,8 +99,8 @@ Review every line marked REVIEW. Options: `--provider`, `--name`, `--base-url`,
 
 Installed adapters (`~/.muretto/adapters/*/adapter.yaml`) load after the built-in
 ones. They cannot reuse a built-in provider's name and may only use GET. A
-broken file is reported and skipped. To ship one with Muretto, add it to
-`adapters/` with fixtures (section 9) instead.
+broken file is reported and skipped. To ship one with Muretto, put it in
+`adapters/<provider>/` with fixtures (section 9) instead.
 
 ## 0. Rules before you start
 
@@ -410,7 +427,8 @@ signatures:
   Use it as a fallback for servers pinned to one project, whose tools take no
   project id: `container: "{input.project_id|or:mcp.project_ref}"`. It is
   only set for hook-recorded calls to servers from the project, local or user
-  scope, and only for allowlisted keys (decision 0905).
+  scope, and only for allowlisted keys (decision 0905 in
+  [DECISIONS.md](../docs/DECISIONS.md)).
 - `preprocess` rewrites the text a regex extract runs on, in order:
   - `shell_args` splits a shell command into its arguments (quotes and
     escapes removed; a command with an unclosed quote yields nothing);
@@ -426,7 +444,8 @@ signatures:
 - `referenced_if: <group>`: a match where that named group is non-empty
   yields role `referenced`. Use it for statements that succeed whether or not
   the thing existed (`CREATE TABLE IF NOT EXISTS`, `INSERT … ON CONFLICT`):
-  they do not prove creation (decision 0406).
+  they do not prove creation
+  ([decision 0406](../docs/decisions/0406-proof-of-creation.md)).
 - `split: { field: names, sep: "," }` turns one captured list into several ids.
 - `capture: [{ from: command, pattern: '--project (?P<project>\S+)' }]` adds
   groups from a second regex, typically a flag naming the container.
@@ -477,7 +496,7 @@ has, honestly (`full`, `partial`, `planned`).
 adapters/<provider>/testdata/scan/<scenario>/routes.yaml
 adapters/<provider>/testdata/scan/<scenario>/expect.yaml
 adapters/<provider>/testdata/scan/<scenario>/*.json
-adapters/<provider>/testdata/extract/*.yaml
+adapters/<provider>/testdata/extract/cases.yaml
 ```
 
 `routes.yaml` lists what the fake API answers:
@@ -525,7 +544,7 @@ Cover every creation path from your research (CLI text and JSON modes, MCP,
 API via curl), failed calls, and read-only calls (`expect: []` or
 `referenced`).
 
-A case for a `created` signature should also say which scan-fixture
+A case for a `created` signature must also say which scan-fixture
 resource it creates, which proves attribution finds it (the match rule, the
 container and the id shape all have to agree):
 
@@ -539,10 +558,12 @@ container and the id shape all have to agree):
   matches: [example.database:prj_EXAMPLE1/main]
 ```
 
-Run your adapter's tests without Go, offline:
+Run your adapter's tests offline:
 
 ```sh
 muretto adapter test adapters/example/adapter.yaml --strict
+# from a clone:
+make adapter-test P=example
 ```
 
 It finds `adapters/example/testdata/`, runs every scan scenario through the
@@ -555,16 +576,21 @@ adapter in `adapters/` (`internal/adaptercheck`, `TestShippedAdapters`):
 - if any endpoint has `strip`, a scenario with `MURETTO_FAKE_SECRET` in its
   bodies and under `forbidden`;
 - every signature exercised by at least one extract case;
+- every `created` signature exercised by a case with `matches:`;
 - at least one extract case that proves nothing (`expect: []`).
 
 A pull request with only a YAML file fails. `--openapi spec.json` adds a dry
 run against fake responses built from the spec. Generated adapters can start
 from `muretto adapter new spec.json --fixtures adapters/example/testdata`,
 which writes a passing starter set (a basic scan, a failure scan and an
-extract case per signature) from fake bodies. Replace the bodies with recorded,
-sanitized ones before relying on them.
+extract case per signature) from fake bodies. Replace the generated values with
+the shapes and examples from the provider's docs (or recorded, sanitized
+responses, if you have a test account), and say in `research.md` which they are.
+Hand-built fixtures are fine for a pull request; [FIXTURES.md](FIXTURES.md) lists
+the fake values to use.
 
-Then run `go test ./internal/adapters ./internal/adaptercheck ./internal/broker`. The suite loads every
+Then run `go test ./adapters/ ./internal/adapters ./internal/adaptercheck ./internal/broker`
+(`go test ./adapters/` is the gate CI runs on every adapter). The suite loads every
 adapter, runs every scan scenario through the real broker against an
 `httptest` server, fails if any request falls outside the allowlist or has no
 fixture, runs every extract case, scans all fixtures for secrets, and applies
@@ -572,7 +598,9 @@ the shipping rules above.
 
 When you have a **test** account, record real shapes through the broker:
 `MURETTO_LIVE=1 MURETTO_<PROVIDER>_TOKEN=… go test ./internal/adapters -run TestRecordLive -v`
-(see `adapters/FIXTURES.md`).
+(see [FIXTURES.md](FIXTURES.md)). Recordings land in the git-ignored
+`adapters/<provider>/testdata/recorded/`; review them before moving anything
+under `scan/`.
 
 ## 10. Checklist
 
@@ -586,3 +614,20 @@ When you have a **test** account, record real shapes through the broker:
 - [ ] Fixtures: happy path, failures, stripping markers, extract cases.
 - [ ] `muretto adapter test adapters/<provider>/adapter.yaml --strict` passes.
 - [ ] `coverage` lists every kind, including planned ones.
+
+## 11. Official adapters: changes outside the folder
+
+The YAML, research and fixtures are enough for an adapter to load, scan and
+pass CI. An adapter that ships as official also needs a few small changes
+outside `adapters/`. They are reviewed as security changes, and a maintainer
+can make them for you when your pull request lands:
+
+| File | What goes there |
+|---|---|
+| [`internal/broker/pinned.go`](../internal/broker/pinned.go) | `deniedPaths`: every endpoint that returns secret values, source code or data, even though the adapter never lists it. A POST body (`pinned_body`) is also declared here. |
+| [`internal/redact/redact.go`](../internal/redact/redact.go) (plus its test) | The provider's token formats, so a token an agent prints never reaches the spool. |
+| `apps/dashboard/src/app/(app)/providers/_components/derive.ts` | The dashboard's Providers page: move the provider from `COMING` to `SUPPORTED`, and add its `ENV`, `LISTS` and `FLAGS` entries. |
+| [`README.md`](../README.md) | The "Supported today" table. |
+
+Note the Go changes in [`docs/SECURITY.md`](../docs/SECURITY.md).
+

@@ -1,6 +1,8 @@
 # Standards for official adapters
 
-An official adapter ships in `adapters/`, runs for every Muretto user, and is maintained by us. The format is in [WRITING.md](WRITING.md); this page says what an official adapter must contain and how it is reviewed. CI enforces the parts marked **(CI)**.
+An official adapter ships in `adapters/<slug>/`, runs for every Muretto user, and is maintained by us. The format is in [WRITING.md](WRITING.md) and the contributor steps in [README.md](README.md); this page says what an official adapter must contain and how it is reviewed. CI enforces the parts marked **(CI)**.
+
+A community pull request does not have to meet all of this on day one. It needs to pass the **(CI)** parts and cite a source for every endpoint, field and output string. Maintainers take care of the rest before the adapter is marked official: the Go changes below, live verification and the dashboard entry.
 
 ## Files
 
@@ -70,7 +72,7 @@ The account is what the token belongs to: the user's own org, team, workspace or
 ## Fixtures
 
 - **Values:** sanitized, with obvious fakes only (`example-org`, `prj_EXAMPLE…`, `@example.com`).
-- **Recorded first:** use responses recorded from a test account where one exists (`TestRecordLive`). Otherwise build them from the provider's documented examples, and say so in the research doc.
+- **Recorded first:** use responses recorded from a test account where one exists (`TestRecordLive`, see [FIXTURES.md](FIXTURES.md)). Otherwise build them by hand from the provider's documented response shapes and examples, and say so in the research doc. Hand-built fixtures are fine for a community pull request; the six adapters added on 2026-11-01 started that way.
 - **Secret markers:** every stripped field holds `MURETTO_FAKE_SECRET`, and the scenario lists it under `forbidden` **(CI)**.
 - **Failure scenario:** at least one, where an endpoint answers 403 or 500, so failed checks show as errors **(CI)**.
 
@@ -78,7 +80,7 @@ The account is what the token belongs to: the user's own org, team, workspace or
 
 Before merging an official adapter:
 
-1. `muretto adapter test adapters/<slug>/adapter.yaml --strict` passes, as does `go test ./internal/adapters ./internal/adaptercheck ./internal/broker ./internal/redact` **(CI)**.
+1. `go test ./adapters/` passes (the gate: `TestShippedAdapters`, `TestFolderNamesMatchProviders`), as do `muretto adapter test adapters/<slug>/adapter.yaml --strict` and `go test ./internal/adapters ./internal/adaptercheck ./internal/broker ./internal/redact` **(CI)**. Locally: `make adapter-test P=<slug>`.
 2. The research doc cites a source for every endpoint, field and output string.
-3. Go changes (deny list, redaction) are reviewed as security changes and noted in `docs/SECURITY.md`.
-4. **Live verification**, read-only against a test account: every kind lists, every rule decides, and the research doc's "Live verification" section is filled in. Until then the adapter is marked `# Not yet verified live` in its header and in `docs/STATUS.md`.
+3. Changes outside the adapter folder are made in the same pull request or right after it (see [WRITING.md section 11](WRITING.md#11-official-adapters-changes-outside-the-folder)): the deny list in `internal/broker/pinned.go` and token formats in `internal/redact/redact.go`, both reviewed as security changes and noted in [`docs/SECURITY.md`](../docs/SECURITY.md); the dashboard's provider list; the README's "Supported today" table.
+4. **Live verification**, read-only against a test account: every kind lists, every rule decides, and the research doc's "Live verification" section is filled in. Until then the adapter is marked `# Not yet verified live` in its `adapter.yaml` header, and the README marks it as not yet verified live.

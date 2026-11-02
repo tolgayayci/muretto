@@ -1,6 +1,11 @@
 # Template adapter: copy to adapters/<provider>/adapter.yaml and edit.
-# Full walkthrough: adapters/WRITING.md. Files whose name starts with
-# "template" are not loaded, but this one must stay valid (a test checks it).
+# Start here: adapters/README.md. Format reference: adapters/WRITING.md.
+# Folders whose name starts with "_" are not loaded, but this file must stay
+# a valid adapter (internal/adapters/load_test.go checks it).
+#
+# Your adapter also needs fixtures next to it, in adapters/<provider>/testdata/
+# (scan/<scenario>/ and extract/cases.yaml). Check it with
+#   make adapter-test P=<provider>
 #
 # Ground rules:
 # - Read-only. Only GET endpoints you list here can ever be called. POST is
