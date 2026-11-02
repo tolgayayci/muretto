@@ -50,6 +50,12 @@ type sessionRow struct {
 // sessions. Copies of one entity synced by several users (resource ids are
 // deterministic) are merged conservatively; see merge.go.
 func Compose(recs []store.Record, names map[string]string, viewer Viewer, now time.Time) (contract.Answer, error) {
+	return ComposeWithDecisions(recs, nil, names, viewer, now)
+}
+
+// ComposeWithDecisions is Compose plus the owners' dashboard review
+// decisions, merged into their synced review items first (decisions.go).
+func ComposeWithDecisions(recs []store.Record, decisions []store.ReviewDecision, names map[string]string, viewer Viewer, now time.Time) (contract.Answer, error) {
 	sessionsIn := map[string][]owned[contract.Session]{}
 	resourcesIn := map[string][]owned[contract.Resource]{}
 	attributionsIn := map[string][]owned[contract.Attribution]{}
@@ -86,6 +92,8 @@ func Compose(recs []store.Record, names map[string]string, viewer Viewer, now ti
 			return contract.Answer{}, fmt.Errorf("record %s %s: %w", r.Kind, r.Key, err)
 		}
 	}
+
+	applyDecisions(reviewsIn, decisions, now)
 
 	sessions := map[string]sessionRow{}
 	for id, x := range mergeAll(sessionsIn, sessionKey) {

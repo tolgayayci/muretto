@@ -2,8 +2,9 @@
 // persists. memstore implements it in memory (tests, local dev); pgstore
 // implements it on Postgres.
 //
-// Secrets are never stored: web sessions, CLI tokens, device codes and invite
-// tokens are kept only as sha256 hashes.
+// Secrets are never stored: CLI tokens, device codes and invite tokens are
+// kept only as sha256 hashes. Dashboard users authenticate with Supabase Auth
+// access tokens, which the API verifies and never stores.
 package store
 
 import (
@@ -19,8 +20,10 @@ var (
 	ErrConflict = errors.New("conflict")
 )
 
-// User is a person, identified by an external identity ("github:<numeric id>",
-// or "dev:<login>" with the dev-only login bypass).
+// User is a person, identified by an external identity ("supabase:<user
+// uuid>", or "dev:<login>" with the dev-only login bypass). Older databases
+// may also hold "github:<numeric id>" users from the retired GitHub OAuth
+// login.
 type User struct {
 	ID          string
 	Identity    string
@@ -39,12 +42,17 @@ func (u User) Name() string {
 
 // Token is a CLI API token. Only its sha256 hash is stored.
 type Token struct {
-	ID        string
-	Hash      string
-	UserID    string
-	Name      string // the CLI host name, for the "devices" list
-	CreatedAt time.Time
+	ID         string
+	Hash       string
+	UserID     string
+	Name       string // the CLI host name, for the "machines" list
+	CreatedAt  time.Time
+	LastUsedAt time.Time // zero: never used
 }
+
+// TokenTouchInterval is how stale last_used_at may get: TokenUser writes it
+// at most once per interval per token.
+const TokenTouchInterval = time.Minute
 
 // ClientInfo describes the CLI asking to log in; shown on the approval page.
 type ClientInfo struct {
@@ -133,6 +141,18 @@ type Invite struct {
 	ExpiresAt time.Time
 }
 
+// ReviewDecision is a "still need this?" decision made in the dashboard, one
+// per (user, resource). State is "keep", "not_needed" or "pending" (an undo).
+// DecidedAt is the server time of the decision; an undo keeps its own time so
+// "latest wins" against CLI decisions still works. Note is empty when unset.
+type ReviewDecision struct {
+	UserID     string
+	ResourceID string
+	State      string
+	Note       string
+	DecidedAt  time.Time
+}
+
 // Kind is the entity kind of a synced record. It doubles as the SSE event type.
 type Kind string
 
@@ -195,14 +215,18 @@ type Store interface {
 	UpsertUser(ctx context.Context, identity, login, displayName string, now time.Time) (User, error)
 	GetUser(ctx context.Context, id string) (User, error)
 
-	CreateWebSession(ctx context.Context, hash, userID string, expiresAt, now time.Time) error
-	WebSessionUser(ctx context.Context, hash string, now time.Time) (User, error)
-	DeleteWebSession(ctx context.Context, hash string) error
-
 	CreateToken(ctx context.Context, t Token) error
-	// TokenUser returns the token and its user; ErrNotFound if unknown or revoked.
+	// TokenUser returns the token and its user; ErrNotFound if unknown or
+	// revoked. It sets last_used_at to now when it is older than
+	// TokenTouchInterval (or unset), and the returned token reflects that.
 	TokenUser(ctx context.Context, hash string, now time.Time) (Token, User, error)
+	// RevokeToken revokes by hash; ErrNotFound if unknown or already revoked.
 	RevokeToken(ctx context.Context, hash string, now time.Time) error
+	// ListTokens returns the user's unrevoked tokens, newest first.
+	ListTokens(ctx context.Context, userID string) ([]Token, error)
+	// RevokeUserToken revokes token id only if it belongs to userID and is not
+	// revoked yet; ErrNotFound otherwise (callers must not tell the cases apart).
+	RevokeUserToken(ctx context.Context, userID, tokenID string, now time.Time) error
 
 	// CreateDeviceAuth returns ErrConflict if the user code is in use.
 	CreateDeviceAuth(ctx context.Context, d DeviceAuth) error
@@ -212,8 +236,9 @@ type Store interface {
 	DecideDeviceAuth(ctx context.Context, userCode, userID string, approve bool, now time.Time) error
 	// PollDeviceAuth applies one poll atomically: slow_down when polled faster
 	// than the interval (which then grows by slowDown), and on approval marks
-	// the authorization consumed and stores mint (with UserID set) in the same
-	// step, so a device code yields at most one token. ErrNotFound if unknown.
+	// the authorization consumed and stores mint (with UserID set, and Name
+	// set to the client's host when empty) in the same step, so a device code
+	// yields at most one token. ErrNotFound if unknown.
 	PollDeviceAuth(ctx context.Context, deviceCodeHash string, now time.Time, slowDown time.Duration, mint Token) (PollResult, error)
 
 	CreateOrg(ctx context.Context, o Org, ownerID string, now time.Time) error
@@ -234,7 +259,14 @@ type Store interface {
 	// means every user.
 	EventsAfter(ctx context.Context, userIDs []string, after int64, limit int) ([]Event, error)
 
-	AddProviderRequest(ctx context.Context, provider, email string, now time.Time) error
+	// SetReviewDecision upserts the user's dashboard decision for a resource.
+	// An existing decision with a later DecidedAt is kept.
+	SetReviewDecision(ctx context.Context, d ReviewDecision) error
+	// ReviewDecisions returns the decisions of the given users, ordered by
+	// user id and resource id.
+	ReviewDecisions(ctx context.Context, userIDs []string) ([]ReviewDecision, error)
+
+	AddProviderRequest(ctx context.Context, req ProviderRequest) error
 
 	Close()
 }
@@ -253,4 +285,13 @@ func EventsFor(accepted []Record, in IngestInput) []Event {
 		evs = append(evs, Event{UserID: in.UserID, Type: string(r.Kind), EntityID: r.Key, Developer: in.Developer, At: in.Now})
 	}
 	return evs
+}
+
+// ProviderRequest is one "read this provider next" request: from the landing
+// page (maybe with an email) or from a signed-in dashboard user.
+type ProviderRequest struct {
+	Provider string
+	Email    string // optional
+	UserID   string // set when a signed-in user asked
+	At       time.Time
 }

@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -13,6 +16,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/tolgayayci/muretto/internal/contract"
 	"github.com/tolgayayci/muretto/server/internal/api"
@@ -121,47 +126,48 @@ func TestAuthFailures(t *testing.T) {
 	tok := s.Token(t, "alice")
 	body := fixture.JSON(fixture.Batch("alice", "projaaaaaaaaaaaaaaaa"))
 
-	for name, token := range map[string]string{"none": "", "malformed": "abc", "unknown": "mrt_" + strings.Repeat("a", 52)} {
+	for name, token := range map[string]string{"none": "", "malformed": "abc", "unknown": "mrt_" + strings.Repeat("a", 52), "jwt": s.SupabaseToken(t, "alice")} {
 		resp, _ := post(t, s.URL+"/v1/ingest", token, "application/json", body)
 		if resp.StatusCode != 401 || resp.Header.Get("WWW-Authenticate") == "" {
 			t.Errorf("ingest with %s token: %d", name, resp.StatusCode)
 		}
 	}
-	// Bearer tokens work for "either" endpoints, not cookie-only ones.
+	// CLI tokens work for "either" endpoints.
 	if resp, _ := get(t, s.URL+"/v1/me", tok); resp.StatusCode != 200 {
 		t.Fatalf("me with bearer: %d", resp.StatusCode)
 	}
-	if resp, _ := post(t, s.URL+"/v1/orgs", tok, "application/json", []byte(`{"name":"x"}`)); resp.StatusCode != 401 {
-		t.Fatalf("cookie endpoint with bearer: %d", resp.StatusCode)
+	// Other authorization schemes and cookies authenticate nothing.
+	for name, set := range map[string]func(*http.Request){
+		"basic": func(r *http.Request) { r.Header.Set("Authorization", "Basic "+tok) },
+		"raw":   func(r *http.Request) { r.Header.Set("Authorization", tok) },
+		"cookie": func(r *http.Request) {
+			r.AddCookie(&http.Cookie{Name: "mrt_session", Value: "mrs_" + strings.Repeat("a", 52)})
+		},
+	} {
+		req, _ := http.NewRequest("GET", s.URL+"/v1/me", nil)
+		set(req)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != 401 {
+			t.Errorf("me with %s: %d", name, resp.StatusCode)
+		}
 	}
-
-	// Cookie POSTs need the CSRF token.
-	alice := s.Login(t, "alice")
-	csrf := alice.CSRF
-	alice.CSRF = ""
-	if resp, _ := alice.Do("POST", "/v1/orgs", map[string]string{"name": "Acme"}); resp.StatusCode != 403 {
-		t.Fatalf("POST without CSRF: %d", resp.StatusCode)
+	// A Supabase token cannot log a CLI out.
+	req, _ := http.NewRequest("DELETE", s.URL+"/v1/tokens/self", nil)
+	req.Header.Set("Authorization", "Bearer "+s.SupabaseToken(t, "alice"))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 401 {
+		t.Fatalf("revoke self with a JWT: %v %v", resp, err)
 	}
-	wrong := "0" // must differ from the real first character (1 in 16 runs it was "0")
-	if csrf[0] == '0' {
-		wrong = "1"
-	}
-	alice.CSRF = wrong + csrf[1:]
-	if resp, _ := alice.Do("POST", "/v1/orgs", map[string]string{"name": "Acme"}); resp.StatusCode != 403 {
-		t.Fatalf("POST with wrong CSRF: %d", resp.StatusCode)
-	}
-	alice.CSRF = csrf
-	alice.JSON("POST", "/v1/orgs", map[string]string{"name": "Acme"}, 201, nil)
-
-	// A cookie never authenticates ingest.
-	if resp, _ := alice.Do("POST", "/v1/ingest", json.RawMessage(body)); resp.StatusCode != 401 {
-		t.Fatalf("ingest with cookie: %d", resp.StatusCode)
-	}
+	_ = resp.Body.Close()
 
 	// Revoked tokens stop working.
-	req, _ := http.NewRequest("DELETE", s.URL+"/v1/tokens/self", nil)
+	req, _ = http.NewRequest("DELETE", s.URL+"/v1/tokens/self", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != 204 {
 		t.Fatalf("revoke: %v %v", resp, err)
 	}
@@ -170,15 +176,271 @@ func TestAuthFailures(t *testing.T) {
 		t.Fatalf("revoked token: %d", resp.StatusCode)
 	}
 
-	// Logout ends the session.
-	alice.JSON("POST", "/auth/logout", nil, 204, nil)
-	if resp, _ := alice.Do("GET", "/v1/me", nil); resp.StatusCode != 401 {
-		t.Fatalf("after logout: %d", resp.StatusCode)
-	}
 	// Strict decoding: unknown fields rejected.
 	bob := s.Login(t, "bob")
 	if resp, _ := bob.Do("POST", "/v1/orgs", map[string]string{"name": "x", "owner": "y"}); resp.StatusCode != 400 {
 		t.Fatalf("unknown field: %d", resp.StatusCode)
+	}
+}
+
+func TestSupabaseAuth(t *testing.T) {
+	s := testserver.Start(t, testserver.Options{Prod: true})
+	type me struct {
+		Login       string `json:"login"`
+		DisplayName string `json:"display_name"`
+		Orgs        []struct{ ID string }
+	}
+	var m me
+	resp, body := get(t, s.URL+"/v1/me", s.SupabaseToken(t, "octo"))
+	if resp.StatusCode != 200 || json.Unmarshal(body, &m) != nil || m.Login != "octo" || m.DisplayName != "Octo" {
+		t.Fatalf("me: %d %s", resp.StatusCode, body)
+	}
+	if strings.Contains(string(body), "csrf") {
+		t.Fatalf("me still returns a CSRF token: %s", body)
+	}
+	octo := s.Login(t, "octo")
+	var org orgResp
+	octo.JSON("POST", "/v1/orgs", map[string]string{"name": "Acme"}, 201, &org)
+
+	// The account is keyed by sub. Changing user_metadata changes only what
+	// is displayed; it never switches accounts.
+	c := s.SupabaseClaims("octo")
+	c["user_metadata"] = map[string]any{"user_name": "renamed\u0000", "full_name": "  New Name  ", "sub": testserver.SupabaseSubject("mallory")}
+	resp, body = get(t, s.URL+"/v1/me", s.SignSupabase(t, c))
+	if resp.StatusCode != 200 || json.Unmarshal(body, &m) != nil || m.Login != "renamed" || m.DisplayName != "New Name" || len(m.Orgs) != 1 || m.Orgs[0].ID != org.ID {
+		t.Fatalf("me after metadata change: %d %s", resp.StatusCode, body)
+	}
+	// Another user claiming octo's user_name gets their own, empty account.
+	c = s.SupabaseClaims("mallory")
+	c["user_metadata"] = map[string]any{"user_name": "octo"}
+	resp, body = get(t, s.URL+"/v1/me", s.SignSupabase(t, c))
+	if resp.StatusCode != 200 || json.Unmarshal(body, &m) != nil || len(m.Orgs) != 0 {
+		t.Fatalf("mallory: %d %s", resp.StatusCode, body)
+	}
+	if resp, _ := get(t, s.URL+"/v1/orgs/"+org.ID, s.SignSupabase(t, c)); resp.StatusCode != 404 {
+		t.Fatalf("mallory reads octo's org: %d", resp.StatusCode)
+	}
+	// No user_metadata: a placeholder login.
+	c = s.SupabaseClaims("nometa")
+	delete(c, "user_metadata")
+	if resp, body = get(t, s.URL+"/v1/me", s.SignSupabase(t, c)); resp.StatusCode != 200 || !strings.Contains(string(body), `"login":"user-`) {
+		t.Fatalf("no metadata: %d %s", resp.StatusCode, body)
+	}
+
+	// Rejections (the verifier's own tests cover every case; these check the
+	// API wiring).
+	other, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	foreign := jwt.NewWithClaims(jwt.SigningMethodES256, s.SupabaseClaims("octo"))
+	foreign.Header["kid"] = "test-key-1"
+	foreignRaw, _ := foreign.SignedString(other)
+	bad := map[string]string{
+		"other key": foreignRaw,
+		"garbage":   "eyJhbGciOiJub25lIn0.e30.",
+	}
+	for k, v := range map[string]any{"role": "anon", "aud": "anon", "iss": "https://evil.example/auth/v1", "exp": s.Clock.Now().Add(-time.Hour).Unix(), "sub": "not-a-uuid"} {
+		c := s.SupabaseClaims("octo")
+		c[k] = v
+		bad[k] = s.SignSupabase(t, c)
+	}
+	for name, tok := range bad {
+		if resp, _ := get(t, s.URL+"/v1/me", tok); resp.StatusCode != 401 || resp.Header.Get("WWW-Authenticate") == "" {
+			t.Errorf("%s: %d", name, resp.StatusCode)
+		}
+	}
+	// Expiry follows the server clock.
+	stale := s.SupabaseToken(t, "octo")
+	s.Clock.Advance(2 * time.Hour)
+	if resp, _ := get(t, s.URL+"/v1/me", stale); resp.StatusCode != 401 {
+		t.Fatalf("expired token: %d", resp.StatusCode)
+	}
+	if n := s.JWKSFetches(); n < 1 || n > 3 {
+		t.Fatalf("JWKS fetched %d times", n)
+	}
+}
+
+// In production a CLI token is not a dashboard sign-in: it cannot approve
+// device logins (which would mint more tokens) or manage tokens or orgs.
+func TestProdCLITokenCannotActAsDashboardUser(t *testing.T) {
+	s := testserver.Start(t, testserver.Options{Prod: true})
+	alice := s.Login(t, "alice")
+	tok := s.DeviceToken(t, alice, "laptop")
+
+	// The device flow worked end to end: the CLI token reads and writes.
+	if resp, body := get(t, s.URL+"/v1/me", tok); resp.StatusCode != 200 || !strings.Contains(string(body), `"login":"alice"`) {
+		t.Fatalf("me with CLI token: %d %s", resp.StatusCode, body)
+	}
+	ingest(t, s, tok, fixture.Batch("alice", "projaaaaaaaaaaaaaaaa"))
+	var a contract.Answer
+	alice.JSON("GET", "/v1/answer", nil, 200, &a)
+	if len(a.Resources) == 0 {
+		t.Fatal("dashboard user does not see the CLI's data")
+	}
+	if resp, _ := get(t, s.URL+"/v1/answer", tok); resp.StatusCode != 200 {
+		t.Fatalf("answer with CLI token: %d", resp.StatusCode)
+	}
+
+	// A second CLI asks to log in; the stolen token tries to approve it.
+	resp, body := post(t, s.URL+"/v1/device/code", "", "application/json", []byte(`{"host":"attacker"}`))
+	var code struct {
+		UserCode string `json:"user_code"`
+	}
+	if resp.StatusCode != 200 || json.Unmarshal(body, &code) != nil {
+		t.Fatalf("device code: %d", resp.StatusCode)
+	}
+	var tokens struct {
+		Tokens []struct{ ID string } `json:"tokens"`
+	}
+	alice.JSON("GET", "/v1/tokens", nil, 200, &tokens)
+	if len(tokens.Tokens) != 1 {
+		t.Fatalf("tokens: %+v", tokens)
+	}
+	do := func(method, path, body string) int {
+		req, _ := http.NewRequest(method, s.URL+path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+tok)
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		return resp.StatusCode
+	}
+	for _, c := range []struct{ method, path, body string }{
+		{"GET", "/v1/device?user_code=" + url.QueryEscape(code.UserCode), ""},
+		{"POST", "/v1/device/approve", `{"user_code":"` + code.UserCode + `"}`},
+		{"GET", "/v1/tokens", ""},
+		{"DELETE", "/v1/tokens/" + tokens.Tokens[0].ID, ""},
+		{"POST", "/v1/orgs", `{"name":"x"}`},
+		{"GET", "/v1/orgs/org_x", ""},
+		{"POST", "/v1/invites/mri_x/accept", ""},
+	} {
+		if st := do(c.method, c.path, c.body); st != 403 {
+			t.Errorf("%s %s with a CLI token: %d, want 403", c.method, c.path, st)
+		}
+	}
+	// The code is still pending (not approved by the CLI token).
+	var info struct{ Client struct{ Host string } }
+	alice.JSON("GET", "/v1/device?user_code="+url.QueryEscape(code.UserCode), nil, 200, &info)
+	if info.Client.Host != "attacker" {
+		t.Fatalf("device info: %+v", info)
+	}
+	// The token was not revoked either.
+	if resp, _ := get(t, s.URL+"/v1/me", tok); resp.StatusCode != 200 {
+		t.Fatalf("token after refused revoke: %d", resp.StatusCode)
+	}
+	// No dev routes in production mode.
+	if r, _ := post(t, s.URL+"/v1/dev/token", "", "application/json", []byte(`{"login":"alice"}`)); r.StatusCode != 404 && r.StatusCode != 405 {
+		t.Fatalf("dev token in prod: %d", r.StatusCode)
+	}
+}
+
+// With dev login (loopback only), a CLI token stands in for a dashboard user
+// so local development and the demo need no Supabase project.
+func TestDevLoginCLITokenActsAsUser(t *testing.T) {
+	s := testserver.Start(t, testserver.Options{})
+	dev := s.DevToken(t, "dana")
+	resp, body := post(t, s.URL+"/v1/orgs", dev, "application/json", []byte(`{"name":"Dev Org"}`))
+	if resp.StatusCode != 201 {
+		t.Fatalf("create org with dev token: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := get(t, s.URL+"/v1/tokens", dev); resp.StatusCode != 200 || !strings.Contains(string(body), `"name":"dev"`) {
+		t.Fatalf("tokens with dev token: %d %s", resp.StatusCode, body)
+	}
+	// Approve a device code with the dev token; the CLI then gets a token.
+	resp, body = post(t, s.URL+"/v1/device/code", "", "application/json", []byte(`{"host":"box"}`))
+	var code struct {
+		DeviceCode string `json:"device_code"`
+		UserCode   string `json:"user_code"`
+	}
+	_ = json.Unmarshal(body, &code)
+	if resp, body := post(t, s.URL+"/v1/device/approve", dev, "application/json", []byte(`{"user_code":"`+code.UserCode+`"}`)); resp.StatusCode != 200 {
+		t.Fatalf("approve with dev token: %d %s", resp.StatusCode, body)
+	}
+	resp, body = post(t, s.URL+"/v1/device/token", "", "application/json", []byte(`{"device_code":"`+code.DeviceCode+`"}`))
+	if resp.StatusCode != 200 || !strings.Contains(string(body), `"login":"dana"`) {
+		t.Fatalf("device token: %d %s", resp.StatusCode, body)
+	}
+}
+
+func TestTokensListAndRevoke(t *testing.T) {
+	s := testserver.Start(t, testserver.Options{Prod: true})
+	alice, bob := s.Login(t, "alice"), s.Login(t, "bob")
+	laptop := s.DeviceToken(t, alice, "laptop")
+	s.Clock.Advance(time.Second)
+	desktop := s.DeviceToken(t, alice, "desktop")
+	bobTok := s.DeviceToken(t, bob, "bobs-box")
+
+	type tokenInfo struct {
+		ID         string     `json:"id"`
+		Name       string     `json:"name"`
+		CreatedAt  time.Time  `json:"created_at"`
+		LastUsedAt *time.Time `json:"last_used_at"`
+	}
+	list := func(b *testserver.Browser) []tokenInfo {
+		t.Helper()
+		resp, raw := b.Do("GET", "/v1/tokens", nil)
+		if resp.StatusCode != 200 {
+			t.Fatalf("list: %d %s", resp.StatusCode, raw)
+		}
+		for _, secret := range []string{laptop, desktop, bobTok, "hash", "token_hash"} {
+			if strings.Contains(string(raw), secret) {
+				t.Fatalf("token list leaks %q: %s", secret, raw)
+			}
+		}
+		var out struct{ Tokens []tokenInfo }
+		_ = json.Unmarshal(raw, &out)
+		return out.Tokens
+	}
+	ts := list(alice)
+	if len(ts) != 2 || ts[0].Name != "desktop" || ts[1].Name != "laptop" || ts[0].LastUsedAt != nil || ts[0].CreatedAt.IsZero() {
+		t.Fatalf("alice's tokens: %+v", ts)
+	}
+	if bs := list(bob); len(bs) != 1 || bs[0].Name != "bobs-box" {
+		t.Fatalf("bob's tokens: %+v", bs)
+	}
+
+	// last_used_at: set on use, written at most once a minute.
+	used := s.Clock.Now().UTC().Truncate(time.Second)
+	get(t, s.URL+"/v1/me", laptop)
+	if lu := list(alice)[1].LastUsedAt; lu == nil || !lu.Equal(used) {
+		t.Fatalf("last_used_at after use: %v want %v", lu, used)
+	}
+	s.Clock.Advance(30 * time.Second)
+	get(t, s.URL+"/v1/me", laptop)
+	if lu := list(alice)[1].LastUsedAt; lu == nil || !lu.Equal(used) {
+		t.Fatalf("last_used_at moved within a minute: %v", lu)
+	}
+	s.Clock.Advance(31 * time.Second)
+	get(t, s.URL+"/v1/me", laptop)
+	if lu := list(alice)[1].LastUsedAt; lu == nil || !lu.After(used) {
+		t.Fatalf("last_used_at after a minute: %v", lu)
+	}
+
+	// alice cannot revoke bob's token: same 404 as an unknown id.
+	bobID := list(bob)[0].ID
+	for _, id := range []string{bobID, "tok_00000000000000000000000000000000", "nope", "tok_" + strings.Repeat("a", 100)} {
+		resp, body := alice.Do("DELETE", "/v1/tokens/"+id, nil)
+		if resp.StatusCode != 404 || !strings.Contains(string(body), `"not_found"`) {
+			t.Fatalf("revoke %s: %d %s", id, resp.StatusCode, body)
+		}
+	}
+	if resp, _ := get(t, s.URL+"/v1/me", bobTok); resp.StatusCode != 200 {
+		t.Fatalf("bob's token after alice's attempt: %d", resp.StatusCode)
+	}
+	// alice revokes her laptop.
+	laptopID := list(alice)[1].ID
+	alice.JSON("DELETE", "/v1/tokens/"+laptopID, nil, 204, nil)
+	if resp, _ := get(t, s.URL+"/v1/me", laptop); resp.StatusCode != 401 {
+		t.Fatalf("revoked laptop token: %d", resp.StatusCode)
+	}
+	if resp, _ := alice.Do("DELETE", "/v1/tokens/"+laptopID, nil); resp.StatusCode != 404 {
+		t.Fatalf("second revoke: %d", resp.StatusCode)
+	}
+	if ts := list(alice); len(ts) != 1 || ts[0].Name != "desktop" {
+		t.Fatalf("after revoke: %+v", ts)
+	}
+	if resp, _ := get(t, s.URL+"/v1/me", desktop); resp.StatusCode != 200 {
+		t.Fatalf("other token after revoke: %d", resp.StatusCode)
 	}
 }
 
@@ -277,7 +539,7 @@ func TestSSEEventAfterIngest(t *testing.T) {
 	defer cancel()
 	open := func(lastID string) *bufio.Scanner {
 		req, _ := http.NewRequestWithContext(ctx, "GET", s.URL+"/v1/orgs/"+org.ID+"/events", nil)
-		req.AddCookie(&http.Cookie{Name: "mrt_session", Value: alice.Cookie})
+		req.Header.Set("Authorization", "Bearer "+alice.AccessToken())
 		if lastID != "" {
 			req.Header.Set("Last-Event-ID", lastID)
 		}
@@ -377,8 +639,36 @@ func TestRateLimits(t *testing.T) {
 	if resp.StatusCode != 429 {
 		t.Fatalf("provider request over limit: %d", resp.StatusCode)
 	}
-	if n := s.Store.ProviderRequests(); n != 3 {
+	if n := len(s.Store.ProviderRequests()); n != 3 {
 		t.Fatalf("stored %d provider requests", n)
+	}
+}
+
+func TestProviderRequestSignedIn(t *testing.T) {
+	s := testserver.Start(t, testserver.Options{})
+	// The dashboard sends every user's request from one address: the per-IP
+	// limit must not apply to signed-in users, and each user has their own.
+	for _, login := range []string{"alice", "bob"} {
+		for i := range 3 {
+			resp, body := post(t, s.URL+"/v1/provider-requests", s.SupabaseToken(t, login), "application/json", []byte(`{"provider":"Railway"}`))
+			if resp.StatusCode != 202 {
+				t.Fatalf("%s request %d: %d %s", login, i, resp.StatusCode, body)
+			}
+		}
+	}
+	resp, _ := post(t, s.URL+"/v1/provider-requests", s.SupabaseToken(t, "alice"), "application/json", []byte(`{"provider":"Railway"}`))
+	if resp.StatusCode != 429 {
+		t.Fatalf("alice over limit: %d", resp.StatusCode)
+	}
+	if resp, _ := post(t, s.URL+"/v1/provider-requests", "", "application/json", []byte(`{"provider":"Neon"}`)); resp.StatusCode != 202 {
+		t.Fatalf("anonymous after signed-in requests: %d", resp.StatusCode)
+	}
+	if resp, _ := post(t, s.URL+"/v1/provider-requests", "mrt_"+strings.Repeat("a", 52), "application/json", []byte(`{"provider":"Neon"}`)); resp.StatusCode != 401 {
+		t.Fatalf("bad token: %d", resp.StatusCode)
+	}
+	reqs := s.Store.ProviderRequests()
+	if len(reqs) != 7 || reqs[0].UserID == "" || reqs[0].UserID == reqs[3].UserID || reqs[6].UserID != "" {
+		t.Fatalf("stored: %+v", reqs)
 	}
 }
 
@@ -448,99 +738,6 @@ func TestDeviceFlowServerSide(t *testing.T) {
 	}
 }
 
-func TestGitHubOAuth(t *testing.T) {
-	var gotVerifier, gotToken string
-	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/login/oauth/access_token":
-			_ = r.ParseForm()
-			gotVerifier = r.PostForm.Get("code_verifier")
-			if r.PostForm.Get("code") != "good-code" || r.PostForm.Get("client_id") != "test-client-id" {
-				w.WriteHeader(400)
-				return
-			}
-			_, _ = w.Write([]byte(`{"access_token":"fake-github-access","token_type":"bearer"}`))
-		case "/user":
-			gotToken = r.Header.Get("Authorization")
-			_, _ = w.Write([]byte(`{"id":4242,"login":"octo","name":"Octo Cat"}`))
-		default:
-			w.WriteHeader(404)
-		}
-	}))
-	defer gh.Close()
-	s := testserver.Start(t, testserver.Options{GitHub: true, GitHubOAuthURL: gh.URL, GitHubAPIURL: gh.URL})
-	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-
-	resp, err := noFollow.Get(s.URL + "/auth/github/login?return_to=/device?code=ABCD")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = resp.Body.Close()
-	loc, _ := url.Parse(resp.Header.Get("Location"))
-	q := loc.Query()
-	if resp.StatusCode != 302 || q.Get("code_challenge_method") != "S256" || q.Get("state") == "" || q.Get("scope") != "" {
-		t.Fatalf("authorize redirect: %d %s", resp.StatusCode, loc)
-	}
-	var oauth *http.Cookie
-	for _, c := range resp.Cookies() {
-		if c.Name == "mrt_oauth" {
-			oauth = c
-		}
-	}
-	if oauth == nil || !oauth.HttpOnly || oauth.SameSite != http.SameSiteLaxMode {
-		t.Fatalf("oauth cookie: %+v", oauth)
-	}
-	callback := func(state, code string) *http.Response {
-		req, _ := http.NewRequest("GET", s.URL+"/auth/github/callback?state="+state+"&code="+code, nil)
-		req.AddCookie(oauth)
-		resp, err := noFollow.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		_ = resp.Body.Close()
-		return resp
-	}
-	if r := callback("wrong", "good-code"); !strings.Contains(r.Header.Get("Location"), "/login?error=state") {
-		t.Fatalf("bad state: %s", r.Header.Get("Location"))
-	}
-	r := callback(q.Get("state"), "good-code")
-	if r.Header.Get("Location") != "http://localhost:3000/device?code=ABCD" {
-		t.Fatalf("callback redirect: %s", r.Header.Get("Location"))
-	}
-	if gotVerifier == "" || gotToken != "Bearer fake-github-access" {
-		t.Fatalf("PKCE verifier %q, /user auth %q", gotVerifier, gotToken)
-	}
-	var session *http.Cookie
-	for _, c := range r.Cookies() {
-		if c.Name == "mrt_session" {
-			session = c
-		}
-	}
-	if session == nil || !session.HttpOnly || session.SameSite != http.SameSiteLaxMode || session.MaxAge <= 0 {
-		t.Fatalf("session cookie: %+v", session)
-	}
-	req, _ := http.NewRequest("GET", s.URL+"/v1/me", nil)
-	req.AddCookie(session)
-	resp, err = http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var me struct{ Login, DisplayName string }
-	_ = json.NewDecoder(resp.Body).Decode(&me)
-	_ = resp.Body.Close()
-	if me.Login != "octo" {
-		t.Fatalf("me after GitHub login: %+v", me)
-	}
-	// Open redirects are neutralized.
-	resp, _ = noFollow.Get(s.URL + "/auth/github/login?return_to=//evil.example")
-	_ = resp.Body.Close()
-	for _, c := range resp.Cookies() {
-		if c.Name == "mrt_oauth" && strings.Contains(c.Value, "ZXZpbC") {
-			t.Fatal("open redirect target stored")
-		}
-	}
-}
-
 func TestCORSAndDevRoutes(t *testing.T) {
 	s := testserver.Start(t, testserver.Options{})
 	pre := func(origin string) *http.Response {
@@ -554,7 +751,8 @@ func TestCORSAndDevRoutes(t *testing.T) {
 		_ = resp.Body.Close()
 		return resp
 	}
-	if r := pre("http://localhost:3000"); r.StatusCode != 204 || r.Header.Get("Access-Control-Allow-Origin") != "http://localhost:3000" || r.Header.Get("Access-Control-Allow-Credentials") != "true" {
+	if r := pre("http://localhost:3000"); r.StatusCode != 204 || r.Header.Get("Access-Control-Allow-Origin") != "http://localhost:3000" ||
+		r.Header.Get("Access-Control-Allow-Credentials") != "" || strings.Contains(r.Header.Get("Access-Control-Allow-Headers"), "CSRF") {
 		t.Fatalf("allowed preflight: %d %v", r.StatusCode, r.Header)
 	}
 	if r := pre("https://evil.example"); r.StatusCode != 403 || r.Header.Get("Access-Control-Allow-Origin") != "" {
@@ -572,13 +770,22 @@ func TestCORSAndDevRoutes(t *testing.T) {
 	}
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
-	if r, _ := get(t, ts.URL+"/auth/dev/login?login=alice", ""); r.StatusCode != 404 {
-		t.Fatalf("dev login without flag: %d", r.StatusCode)
+	// The retired cookie login routes are gone in every mode.
+	for _, base := range []string{ts.URL, s.URL} {
+		for _, path := range []string{"/auth/dev/login?login=alice", "/auth/github/login", "/auth/github/callback"} {
+			if r, _ := get(t, base+path, ""); r.StatusCode != 404 {
+				t.Errorf("%s: %d", path, r.StatusCode)
+			}
+		}
+		if r, _ := post(t, base+"/auth/logout", "", "", nil); r.StatusCode != 404 {
+			t.Errorf("logout: %d", r.StatusCode)
+		}
 	}
 	if r, _ := post(t, ts.URL+"/v1/dev/token", "", "application/json", []byte(`{"login":"alice"}`)); r.StatusCode != 404 && r.StatusCode != 405 {
 		t.Fatalf("dev token without flag: %d", r.StatusCode)
 	}
-	if r, _ := get(t, ts.URL+"/auth/github/login", ""); r.StatusCode != 503 {
-		t.Fatalf("github login unconfigured: %d", r.StatusCode)
+	// Without a Supabase project configured, JWTs are refused.
+	if r, _ := get(t, ts.URL+"/v1/me", s.SupabaseToken(t, "alice")); r.StatusCode != 401 {
+		t.Fatalf("JWT without Supabase configured: %d", r.StatusCode)
 	}
 }

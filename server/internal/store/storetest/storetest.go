@@ -17,11 +17,46 @@ var t0 = time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
 // Run runs the suite. newStore must return an empty store.
 func Run(t *testing.T, newStore func(t *testing.T) store.Store) {
 	t.Run("Users", func(t *testing.T) { testUsers(t, newStore(t)) })
-	t.Run("Sessions", func(t *testing.T) { testSessions(t, newStore(t)) })
 	t.Run("Tokens", func(t *testing.T) { testTokens(t, newStore(t)) })
 	t.Run("Device", func(t *testing.T) { testDevice(t, newStore(t)) })
 	t.Run("Orgs", func(t *testing.T) { testOrgs(t, newStore(t)) })
 	t.Run("Ingest", func(t *testing.T) { testIngest(t, newStore(t)) })
+	t.Run("ReviewDecisions", func(t *testing.T) { testReviewDecisions(t, newStore(t)) })
+}
+
+func testReviewDecisions(t *testing.T, s store.Store) {
+	ctx := context.Background()
+	a, _ := s.UpsertUser(ctx, uniq("supabase:a"), "ana", "", t0)
+	b, _ := s.UpsertUser(ctx, uniq("supabase:b"), "ben", "", t0)
+	res := "supabase.project:" + uniq("ref")
+	set := func(d store.ReviewDecision) {
+		t.Helper()
+		if err := s.SetReviewDecision(ctx, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set(store.ReviewDecision{UserID: a.ID, ResourceID: res, State: "keep", Note: "prod demo", DecidedAt: t0})
+	set(store.ReviewDecision{UserID: b.ID, ResourceID: res, State: "not_needed", DecidedAt: t0})
+	// Upsert: a newer decision replaces; an older one is ignored.
+	set(store.ReviewDecision{UserID: a.ID, ResourceID: res, State: "pending", DecidedAt: t0.Add(time.Minute)})
+	set(store.ReviewDecision{UserID: a.ID, ResourceID: res, State: "not_needed", Note: "stale", DecidedAt: t0.Add(-time.Hour)})
+	got, err := s.ReviewDecisions(ctx, []string{a.ID})
+	if err != nil || len(got) != 1 {
+		t.Fatalf("decisions for a: %+v %v", got, err)
+	}
+	if d := got[0]; d.UserID != a.ID || d.ResourceID != res || d.State != "pending" || d.Note != "" || !d.DecidedAt.Equal(t0.Add(time.Minute)) {
+		t.Fatalf("decision: %+v", d)
+	}
+	both, _ := s.ReviewDecisions(ctx, []string{a.ID, b.ID})
+	if len(both) != 2 {
+		t.Fatalf("decisions for both: %+v", both)
+	}
+	if none, err := s.ReviewDecisions(ctx, []string{"usr_missing"}); err != nil || none == nil || len(none) != 0 {
+		t.Fatalf("decisions for nobody: %#v %v", none, err)
+	}
+	if err := s.SetReviewDecision(ctx, store.ReviewDecision{UserID: "usr_missing", ResourceID: res, State: "keep", DecidedAt: t0}); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("decision for unknown user: %v", err)
+	}
 }
 
 func uniq(s string) string { return fmt.Sprintf("%s-%d", s, time.Now().UnixNano()) }
@@ -49,25 +84,6 @@ func testUsers(t *testing.T, s store.Store) {
 	}
 }
 
-func testSessions(t *testing.T, s store.Store) {
-	ctx := context.Background()
-	u, _ := s.UpsertUser(ctx, uniq("github:2"), "bob", "", t0)
-	h := uniq("hash")
-	if err := s.CreateWebSession(ctx, h, u.ID, t0.Add(time.Hour), t0); err != nil {
-		t.Fatal(err)
-	}
-	if got, err := s.WebSessionUser(ctx, h, t0); err != nil || got.ID != u.ID {
-		t.Fatalf("session lookup: %v", err)
-	}
-	if _, err := s.WebSessionUser(ctx, h, t0.Add(2*time.Hour)); !errors.Is(err, store.ErrNotFound) {
-		t.Fatalf("expired session: %v", err)
-	}
-	_ = s.DeleteWebSession(ctx, h)
-	if _, err := s.WebSessionUser(ctx, h, t0); !errors.Is(err, store.ErrNotFound) {
-		t.Fatalf("deleted session: %v", err)
-	}
-}
-
 func testTokens(t *testing.T, s store.Store) {
 	ctx := context.Background()
 	u, _ := s.UpsertUser(ctx, uniq("github:3"), "carol", "", t0)
@@ -79,11 +95,70 @@ func testTokens(t *testing.T, s store.Store) {
 	if err != nil || gt.ID != tok.ID || gu.ID != u.ID {
 		t.Fatalf("TokenUser: %v", err)
 	}
+	if !gt.LastUsedAt.Equal(t0) {
+		t.Fatalf("first use sets last_used_at: %v", gt.LastUsedAt)
+	}
+	// Within TokenTouchInterval last_used_at does not move; after it, it does.
+	if gt, _, _ := s.TokenUser(ctx, tok.Hash, t0.Add(30*time.Second)); !gt.LastUsedAt.Equal(t0) {
+		t.Fatalf("last_used_at moved within the interval: %v", gt.LastUsedAt)
+	}
+	later := t0.Add(store.TokenTouchInterval + time.Second)
+	if gt, _, _ := s.TokenUser(ctx, tok.Hash, later); !gt.LastUsedAt.Equal(later) {
+		t.Fatalf("last_used_at after the interval: %v", gt.LastUsedAt)
+	}
+
+	// Listing: only the user's own, unrevoked tokens, newest first, with
+	// last_used_at.
+	tok2 := store.Token{ID: store.NewID("tok_"), Hash: uniq("th2"), UserID: u.ID, Name: "desktop", CreatedAt: t0.Add(time.Hour)}
+	other, _ := s.UpsertUser(ctx, uniq("github:3b"), "mallory", "", t0)
+	otherTok := store.Token{ID: store.NewID("tok_"), Hash: uniq("th3"), UserID: other.ID, Name: "evil", CreatedAt: t0}
+	for _, x := range []store.Token{tok2, otherTok} {
+		if err := s.CreateToken(ctx, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list, err := s.ListTokens(ctx, u.ID)
+	if err != nil || len(list) != 2 || list[0].ID != tok2.ID || list[1].ID != tok.ID {
+		t.Fatalf("ListTokens: %+v %v", list, err)
+	}
+	if list[1].Name != "laptop" || !list[1].LastUsedAt.Equal(later) || !list[0].LastUsedAt.IsZero() || !list[1].CreatedAt.Equal(t0) {
+		t.Fatalf("listed token fields: %+v", list)
+	}
+	if none, err := s.ListTokens(ctx, "usr_missing"); err != nil || len(none) != 0 || none == nil {
+		t.Fatalf("ListTokens for nobody: %#v %v", none, err)
+	}
+
+	// RevokeUserToken: never another user's token.
+	if err := s.RevokeUserToken(ctx, u.ID, otherTok.ID, t0); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("revoked another user's token: %v", err)
+	}
+	if _, _, err := s.TokenUser(ctx, otherTok.Hash, t0); err != nil {
+		t.Fatalf("other user's token must survive: %v", err)
+	}
+	if err := s.RevokeUserToken(ctx, u.ID, "tok_missing", t0); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("unknown token: %v", err)
+	}
+	if err := s.RevokeUserToken(ctx, u.ID, tok2.ID, t0); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RevokeUserToken(ctx, u.ID, tok2.ID, t0); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("second revoke: %v", err)
+	}
+	if _, _, err := s.TokenUser(ctx, tok2.Hash, t0); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("token revoked by id still valid: %v", err)
+	}
+
 	if err := s.RevokeToken(ctx, tok.Hash, t0); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.TokenUser(ctx, tok.Hash, t0); !errors.Is(err, store.ErrNotFound) {
 		t.Fatalf("revoked token still valid: %v", err)
+	}
+	if err := s.RevokeToken(ctx, tok.Hash, t0); !errors.Is(err, store.ErrNotFound) {
+		t.Fatalf("second RevokeToken: %v", err)
+	}
+	if list, _ := s.ListTokens(ctx, u.ID); len(list) != 0 {
+		t.Fatalf("revoked tokens listed: %+v", list)
 	}
 }
 
@@ -138,6 +213,23 @@ func testDevice(t *testing.T, s store.Store) {
 	}
 	if _, gu, err := s.TokenUser(ctx, mint.Hash, t0); err != nil || gu.ID != u.ID {
 		t.Fatalf("minted token: %v", err)
+	}
+	// A device-flow token without a name is named after the CLI's host.
+	mint2 := mint
+	mint2.ID, mint2.Hash, mint2.Name = store.NewID("tok_"), uniq("mint2"), ""
+	d3 := d
+	d3.DeviceCodeHash, d3.UserCode, d3.Client.Host = uniq("dc4"), code[:7]+"Y", "build-box"
+	if err := s.CreateDeviceAuth(ctx, d3); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DecideDeviceAuth(ctx, d3.UserCode, u.ID, true, t0); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := s.PollDeviceAuth(ctx, d3.DeviceCodeHash, t0, time.Second, mint2); err != nil || r.Status != store.PollApproved {
+		t.Fatalf("approved poll: %+v %v", r, err)
+	}
+	if gt, _, err := s.TokenUser(ctx, mint2.Hash, t0); err != nil || gt.Name != "build-box" {
+		t.Fatalf("minted token name: %+v %v", gt, err)
 	}
 	if st := poll(t0.Add(80 * time.Second)); st != store.PollExpired {
 		t.Fatalf("consumed code polled again: %s", st)
@@ -274,7 +366,10 @@ func testIngest(t *testing.T, s store.Store) {
 	if len(res.Events) != 1 || res.Events[0].Type != store.EventBulk || res.Events[0].EntityID != "b3" {
 		t.Fatalf("bulk event: %+v", res.Events)
 	}
-	if err := s.AddProviderRequest(ctx, "neon", "", t0); err != nil {
+	if err := s.AddProviderRequest(ctx, store.ProviderRequest{Provider: "neon", At: t0}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddProviderRequest(ctx, store.ProviderRequest{Provider: "Railway", UserID: u.ID, At: t0}); err != nil {
 		t.Fatal(err)
 	}
 }

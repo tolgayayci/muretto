@@ -117,7 +117,7 @@ func (s *Server) answerMe(w http.ResponseWriter, r *http.Request, p *principal) 
 		s.internal(w, r, err)
 		return
 	}
-	s.writeAnswer(w, r, recs, map[string]string{p.user.ID: p.user.Name()}, p.user)
+	s.writeAnswer(w, r, recs, []string{p.user.ID}, map[string]string{p.user.ID: p.user.Name()}, p.user)
 }
 
 // GET /v1/orgs/{id}/answer: the union of the members' data.
@@ -142,11 +142,18 @@ func (s *Server) answerTeam(w http.ResponseWriter, r *http.Request, p *principal
 		s.internal(w, r, err)
 		return
 	}
-	s.writeAnswer(w, r, recs, names, p.user)
+	s.writeAnswer(w, r, recs, ids, names, p.user)
 }
 
-func (s *Server) writeAnswer(w http.ResponseWriter, r *http.Request, recs []store.Record, names map[string]string, u store.User) {
-	a, err := view.Compose(recs, names, view.Viewer{UserID: u.ID, Login: u.Login, DisplayName: u.DisplayName}, s.now())
+// writeAnswer composes the Answer from the owners' records and their
+// dashboard review decisions.
+func (s *Server) writeAnswer(w http.ResponseWriter, r *http.Request, recs []store.Record, owners []string, names map[string]string, u store.User) {
+	decisions, err := s.st.ReviewDecisions(r.Context(), owners)
+	if err != nil {
+		s.internal(w, r, err)
+		return
+	}
+	a, err := view.ComposeWithDecisions(recs, decisions, names, view.Viewer{UserID: u.ID, Login: u.Login, DisplayName: u.DisplayName}, s.now())
 	if err != nil {
 		s.internal(w, r, err)
 		return
@@ -156,9 +163,22 @@ func (s *Server) writeAnswer(w http.ResponseWriter, r *http.Request, recs []stor
 
 var providerName = regexp.MustCompile(`^[\p{L}\p{N}][\p{L}\p{N} ._+&/-]{0,63}$`)
 
-// POST /v1/provider-requests {provider, email?}: landing page validation data.
+// POST /v1/provider-requests {provider, email?}: "read this provider next".
+// Anonymous from the landing page, limited per IP. With a dashboard sign-in
+// it records who asked and is limited per user: every dashboard request comes
+// from the dashboard server's one address.
 func (s *Server) providerRequest(w http.ResponseWriter, r *http.Request) {
-	if limited(w, r, s.requestLimit, s.clientIP(r)) {
+	if _, ok := bearer(r); ok {
+		s.authed(authUser, func(w http.ResponseWriter, r *http.Request, p *principal) {
+			s.saveProviderRequest(w, r, "user:"+p.user.ID, p.user.ID)
+		})(w, r)
+		return
+	}
+	s.saveProviderRequest(w, r, s.clientIP(r), "")
+}
+
+func (s *Server) saveProviderRequest(w http.ResponseWriter, r *http.Request, limitKey, userID string) {
+	if limited(w, r, s.requestLimit, limitKey) {
 		return
 	}
 	var body struct {
@@ -182,7 +202,8 @@ func (s *Server) providerRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := s.st.AddProviderRequest(r.Context(), provider, email, s.now().UTC().Truncate(time.Second)); err != nil {
+	req := store.ProviderRequest{Provider: provider, Email: email, UserID: userID, At: s.now().UTC().Truncate(time.Second)}
+	if err := s.st.AddProviderRequest(r.Context(), req); err != nil {
 		s.internal(w, r, err)
 		return
 	}

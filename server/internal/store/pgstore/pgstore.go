@@ -117,29 +117,6 @@ func (s *Store) GetUser(ctx context.Context, id string) (store.User, error) {
 	return scanUser(s.pool.QueryRow(ctx, `select `+userCols+` from users u where u.id = $1`, id))
 }
 
-func (s *Store) CreateWebSession(ctx context.Context, hash, userID string, expiresAt, now time.Time) error {
-	_, err := s.pool.Exec(ctx, `insert into web_sessions (token_hash, user_id, created_at, expires_at) values ($1, $2, $3, $4)`,
-		hash, userID, now, expiresAt)
-	if isUniqueViolation(err) {
-		return store.ErrConflict
-	}
-	if err == nil {
-		// Opportunistic cleanup of long-expired sessions.
-		_, _ = s.pool.Exec(ctx, `delete from web_sessions where expires_at < $1`, now.Add(-24*time.Hour))
-	}
-	return err
-}
-
-func (s *Store) WebSessionUser(ctx context.Context, hash string, now time.Time) (store.User, error) {
-	return scanUser(s.pool.QueryRow(ctx, `select `+userCols+` from web_sessions w join users u on u.id = w.user_id
-		where w.token_hash = $1 and w.expires_at > $2`, hash, now))
-}
-
-func (s *Store) DeleteWebSession(ctx context.Context, hash string) error {
-	_, err := s.pool.Exec(ctx, `delete from web_sessions where token_hash = $1`, hash)
-	return err
-}
-
 func (s *Store) CreateToken(ctx context.Context, t store.Token) error {
 	return createToken(ctx, s.pool, t)
 }
@@ -160,19 +137,67 @@ func createToken(ctx context.Context, db execer, t store.Token) error {
 func (s *Store) TokenUser(ctx context.Context, hash string, now time.Time) (store.Token, store.User, error) {
 	var t store.Token
 	var u store.User
+	var lastUsed *time.Time
 	err := s.pool.QueryRow(ctx, `
-		update api_tokens t set last_used_at = $2 from users u
-		where t.token_hash = $1 and t.revoked_at is null and u.id = t.user_id
-		returning t.id, t.token_hash, t.user_id, t.name, t.created_at, `+userCols, hash, now).
-		Scan(&t.ID, &t.Hash, &t.UserID, &t.Name, &t.CreatedAt, &u.ID, &u.Identity, &u.Login, &u.DisplayName, &u.CreatedAt)
+		select t.id, t.token_hash, t.user_id, t.name, t.created_at, t.last_used_at, `+userCols+`
+		from api_tokens t join users u on u.id = t.user_id
+		where t.token_hash = $1 and t.revoked_at is null`, hash).
+		Scan(&t.ID, &t.Hash, &t.UserID, &t.Name, &t.CreatedAt, &lastUsed, &u.ID, &u.Identity, &u.Login, &u.DisplayName, &u.CreatedAt)
 	if err != nil {
 		return store.Token{}, store.User{}, notFound(err)
+	}
+	if lastUsed != nil {
+		t.LastUsedAt = *lastUsed
+	}
+	// Write last_used_at at most once per TokenTouchInterval, so every CLI
+	// request is not also a row update.
+	if lastUsed == nil || now.Sub(*lastUsed) >= store.TokenTouchInterval {
+		if _, err := s.pool.Exec(ctx, `update api_tokens set last_used_at = $2
+			where id = $1 and revoked_at is null and (last_used_at is null or last_used_at <= $3)`,
+			t.ID, now, now.Add(-store.TokenTouchInterval)); err != nil {
+			return store.Token{}, store.User{}, err
+		}
+		t.LastUsedAt = now
 	}
 	return t, u, nil
 }
 
 func (s *Store) RevokeToken(ctx context.Context, hash string, now time.Time) error {
 	tag, err := s.pool.Exec(ctx, `update api_tokens set revoked_at = $2 where token_hash = $1 and revoked_at is null`, hash, now)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return store.ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) ListTokens(ctx context.Context, userID string) ([]store.Token, error) {
+	rows, err := s.pool.Query(ctx, `select id, user_id, name, created_at, last_used_at from api_tokens
+		where user_id = $1 and revoked_at is null order by created_at desc, id desc`, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := []store.Token{}
+	for rows.Next() {
+		var t store.Token
+		var lastUsed *time.Time
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.CreatedAt, &lastUsed); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if lastUsed != nil {
+			t.LastUsedAt = *lastUsed
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) RevokeUserToken(ctx context.Context, userID, tokenID string, now time.Time) error {
+	tag, err := s.pool.Exec(ctx, `update api_tokens set revoked_at = $3 where id = $1 and user_id = $2 and revoked_at is null`,
+		tokenID, userID, now)
 	if err != nil {
 		return err
 	}
@@ -267,6 +292,9 @@ func (s *Store) PollDeviceAuth(ctx context.Context, deviceCodeHash string, now t
 		res.Status, next = store.PollDenied, store.DeviceConsumed
 	case d.Status == store.DeviceApproved:
 		mint.UserID = d.UserID
+		if mint.Name == "" {
+			mint.Name = d.Client.Host
+		}
 		if err := createToken(ctx, tx, mint); err != nil {
 			return store.PollResult{}, err
 		}
@@ -494,13 +522,53 @@ func (s *Store) EventsAfter(ctx context.Context, userIDs []string, after int64, 
 	})
 }
 
-func (s *Store) AddProviderRequest(ctx context.Context, provider, email string, now time.Time) error {
-	var e *string
-	if email != "" {
-		e = &email
+func (s *Store) SetReviewDecision(ctx context.Context, d store.ReviewDecision) error {
+	var note *string
+	if d.Note != "" {
+		note = &d.Note
 	}
-	_, err := s.pool.Exec(ctx, `insert into provider_requests (provider, email, created_at) values ($1, $2, $3)`, provider, e, now)
+	_, err := s.pool.Exec(ctx, `insert into review_decisions as r (user_id, resource_id, state, note, decided_at)
+		values ($1, $2, $3, $4, $5)
+		on conflict (user_id, resource_id) do update
+		set state = excluded.state, note = excluded.note, decided_at = excluded.decided_at
+		where r.decided_at <= excluded.decided_at`,
+		d.UserID, d.ResourceID, d.State, note, d.DecidedAt)
+	var pe *pgconn.PgError
+	if errors.As(err, &pe) && pe.Code == "23503" { // foreign key: unknown user
+		return store.ErrNotFound
+	}
 	return err
+}
+
+func (s *Store) ReviewDecisions(ctx context.Context, userIDs []string) ([]store.ReviewDecision, error) {
+	rows, err := s.pool.Query(ctx, `select user_id, resource_id, state, coalesce(note, ''), decided_at from review_decisions
+		where user_id = any($1) order by user_id, resource_id`, userIDs)
+	if err != nil {
+		return nil, err
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (store.ReviewDecision, error) {
+		var d store.ReviewDecision
+		err := r.Scan(&d.UserID, &d.ResourceID, &d.State, &d.Note, &d.DecidedAt)
+		return d, err
+	})
+	if out == nil && err == nil {
+		out = []store.ReviewDecision{}
+	}
+	return out, err
+}
+
+func (s *Store) AddProviderRequest(ctx context.Context, req store.ProviderRequest) error {
+	_, err := s.pool.Exec(ctx, `insert into provider_requests (provider, email, user_id, created_at) values ($1, $2, $3, $4)`,
+		req.Provider, nullable(req.Email), nullable(req.UserID), req.At)
+	return err
+}
+
+// nullable stores "" as NULL.
+func nullable(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 // MaxSeq returns the newest event sequence number.

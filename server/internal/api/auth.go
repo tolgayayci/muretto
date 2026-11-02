@@ -1,117 +1,107 @@
 package api
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/tolgayayci/muretto/server/internal/store"
+	"github.com/tolgayayci/muretto/server/internal/supaauth"
 )
 
 const (
-	sessionCookie = "mrt_session"
-	oauthCookie   = "mrt_oauth"
-	csrfHeader    = "X-CSRF-Token"
-
-	tokenPrefix   = "mrt_" // CLI API token
-	sessionPrefix = "mrs_" // dashboard session
-	invitePrefix  = "mri_" // org invite
+	tokenPrefix  = "mrt_" // CLI API token
+	invitePrefix = "mri_" // org invite
 )
 
+// authMode says which credentials a route accepts. Every credential arrives
+// as "Authorization: Bearer <credential>"; there are no cookies, so there is
+// no CSRF surface.
 type authMode int
 
 const (
+	// authBearer: a CLI token (mrt_...) only.
 	authBearer authMode = iota
-	authCookie
+	// authUser: a dashboard user, i.e. a Supabase access token. With
+	// MURETTO_DEV_LOGIN=1 (loopback only) a CLI token is accepted too, so
+	// local development and the demo run without a Supabase project. In
+	// production a CLI token is refused here: a stolen CLI token must not be
+	// able to approve device logins (minting more tokens) or manage tokens.
+	authUser
+	// authEither: a CLI token or a Supabase access token.
 	authEither
 )
 
 // principal is the authenticated caller.
 type principal struct {
-	user         store.User
-	viaCookie    bool
-	sessionToken string // raw cookie value, only to derive the CSRF token
-	tokenHash    string
+	user      store.User
+	tokenID   string // set when authenticated by a CLI token
+	tokenHash string // set when authenticated by a CLI token
 }
 
 type authedHandler func(w http.ResponseWriter, r *http.Request, p *principal)
 
-// authed authenticates the request. Cookie-authenticated state-changing
-// requests must carry the CSRF token in X-CSRF-Token.
+// bearer returns the credential from "Authorization: Bearer <credential>".
+func bearer(r *http.Request) (string, bool) {
+	scheme, cred, ok := strings.Cut(r.Header.Get("Authorization"), " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") {
+		return "", false
+	}
+	cred = strings.TrimSpace(cred)
+	return cred, cred != ""
+}
+
+// authed authenticates the request according to mode.
 func (s *Server) authed(mode authMode, h authedHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		authz := r.Header.Get("Authorization")
-		if authz != "" && mode != authCookie {
-			raw, ok := strings.CutPrefix(authz, "Bearer ")
-			if !ok || !strings.HasPrefix(raw, tokenPrefix) {
-				s.unauthorized(w, r, true)
+		raw, ok := bearer(r)
+		if !ok {
+			s.unauthorized(w, r)
+			return
+		}
+		if strings.HasPrefix(raw, tokenPrefix) {
+			if mode == authUser && !s.cfg.DevLogin {
+				fail(w, r, http.StatusForbidden, "dashboard_auth_required", "this endpoint needs a dashboard sign-in, not a CLI token")
 				return
 			}
 			hash := hashSecret(raw)
-			_, u, err := s.st.TokenUser(r.Context(), hash, s.now())
+			t, u, err := s.st.TokenUser(r.Context(), hash, s.now())
 			if err != nil {
 				if !errors.Is(err, store.ErrNotFound) {
 					s.internal(w, r, err)
 					return
 				}
-				s.unauthorized(w, r, true)
+				s.unauthorized(w, r)
 				return
 			}
-			h(w, r, &principal{user: u, tokenHash: hash})
+			h(w, r, &principal{user: u, tokenID: t.ID, tokenHash: hash})
 			return
 		}
-		if mode == authBearer {
-			s.unauthorized(w, r, true)
+		if mode == authBearer || s.supa == nil {
+			s.unauthorized(w, r)
 			return
 		}
-		c, err := r.Cookie(sessionCookie)
-		if err != nil || !strings.HasPrefix(c.Value, sessionPrefix) {
-			s.unauthorized(w, r, false)
-			return
-		}
-		u, err := s.st.WebSessionUser(r.Context(), hashSecret(c.Value), s.now())
+		id, err := s.supa.Verify(r.Context(), raw)
 		if err != nil {
-			if !errors.Is(err, store.ErrNotFound) {
-				s.internal(w, r, err)
-				return
-			}
-			s.unauthorized(w, r, false)
+			// The error names the failed check, never token contents.
+			s.log.Debug("supabase token rejected", "request_id", requestID(r.Context()), "reason", err)
+			s.unauthorized(w, r)
 			return
 		}
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			got := r.Header.Get(csrfHeader)
-			if subtle.ConstantTimeCompare([]byte(got), []byte(csrfToken(c.Value))) != 1 {
-				fail(w, r, http.StatusForbidden, "csrf_failed", "missing or invalid "+csrfHeader+" header")
-				return
-			}
+		u, err := s.supabaseUser(r, id)
+		if err != nil {
+			s.internal(w, r, err)
+			return
 		}
-		h(w, r, &principal{user: u, viaCookie: true, sessionToken: c.Value})
+		h(w, r, &principal{user: u})
 	}
 }
 
-// csrfToken derives the CSRF token from the session secret. It is returned by
-// GET /v1/me and cannot be turned back into the session.
-func csrfToken(session string) string {
-	m := hmac.New(sha256.New, []byte(session))
-	m.Write([]byte("muretto-csrf-v1"))
-	return hex.EncodeToString(m.Sum(nil))
-}
-
-func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request, bearer bool) {
-	if bearer {
-		w.Header().Set("WWW-Authenticate", `Bearer realm="muretto"`)
-	}
+func (s *Server) unauthorized(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("WWW-Authenticate", `Bearer realm="muretto"`)
 	fail(w, r, http.StatusUnauthorized, "unauthorized", "authentication required")
 }
 
@@ -120,31 +110,59 @@ func (s *Server) internal(w http.ResponseWriter, r *http.Request, err error) {
 	fail(w, r, http.StatusInternalServerError, "internal", "internal error")
 }
 
-// startSession creates a dashboard session and sets the cookie.
-func (s *Server) startSession(w http.ResponseWriter, r *http.Request, u store.User) bool {
-	tok := randomToken(sessionPrefix)
+// supabaseUser maps a verified Supabase identity to a store user. The
+// identity is "supabase:<sub>" only; login and display name come from
+// user_metadata, which the user can edit, and are display-only.
+func (s *Server) supabaseUser(r *http.Request, id supaauth.Identity) (store.User, error) {
+	login := id.Login
+	if login == "" {
+		login = "user-" + id.Subject[:8]
+	}
+	return s.users.upsert(r, s, "supabase:"+id.Subject, login, id.DisplayName)
+}
+
+// userCache skips the UpsertUser write when a user's login and display name
+// have not changed since the last request. A cached entry is exactly what the
+// upsert would return: a user's id never changes and only UpsertUser writes
+// login and display name.
+type userCache struct {
+	mu sync.Mutex
+	m  map[string]cachedUser
+}
+
+type cachedUser struct {
+	login, name string
+	user        store.User
+	at          time.Time
+}
+
+const (
+	userCacheTTL = 5 * time.Minute
+	userCacheMax = 10000
+)
+
+func (c *userCache) upsert(r *http.Request, s *Server, identity, login, name string) (store.User, error) {
 	now := s.now()
-	if err := s.st.CreateWebSession(r.Context(), hashSecret(tok), u.ID, now.Add(s.opt.SessionTTL), now); err != nil {
-		s.internal(w, r, err)
-		return false
+	c.mu.Lock()
+	e, ok := c.m[identity]
+	c.mu.Unlock()
+	if ok && e.login == login && e.name == name && now.Sub(e.at) < userCacheTTL && !now.Before(e.at) {
+		return e.user, nil
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: tok, Path: "/", MaxAge: int(s.opt.SessionTTL.Seconds()),
-		HttpOnly: true, Secure: s.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode,
-	})
-	return true
+	u, err := s.st.UpsertUser(r.Context(), identity, login, name, now)
+	if err != nil {
+		return store.User{}, err
+	}
+	c.mu.Lock()
+	if c.m == nil || len(c.m) >= userCacheMax {
+		c.m = map[string]cachedUser{}
+	}
+	c.m[identity] = cachedUser{login: login, name: name, user: u, at: now}
+	c.mu.Unlock()
+	return u, nil
 }
 
-func (s *Server) logout(w http.ResponseWriter, r *http.Request, p *principal) {
-	if err := s.st.DeleteWebSession(r.Context(), hashSecret(p.sessionToken)); err != nil {
-		s.internal(w, r, err)
-		return
-	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
-		HttpOnly: true, Secure: s.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
-	w.WriteHeader(http.StatusNoContent)
-}
-
+// DELETE /v1/tokens/self: the CLI logs out.
 func (s *Server) revokeSelf(w http.ResponseWriter, r *http.Request, p *principal) {
 	if err := s.st.RevokeToken(r.Context(), p.tokenHash, s.now()); err != nil && !errors.Is(err, store.ErrNotFound) {
 		s.internal(w, r, err)
@@ -153,143 +171,56 @@ func (s *Server) revokeSelf(w http.ResponseWriter, r *http.Request, p *principal
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// safeReturnTo accepts only a same-site relative path, defeating open redirects.
-func safeReturnTo(v string) string {
-	if v == "" || len(v) > 512 || v[0] != '/' || strings.HasPrefix(v, "//") || strings.ContainsAny(v, "\\\r\n\t") {
-		return "/"
-	}
-	return v
+type tokenInfo struct {
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	CreatedAt  time.Time  `json:"created_at"`
+	LastUsedAt *time.Time `json:"last_used_at"`
 }
 
-// --- GitHub OAuth web flow (PKCE + state). The GitHub token is used once to
-// read /user and then dropped; it is never stored or logged.
-
-func (s *Server) githubLogin(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.GitHubConfigured() {
-		fail(w, r, http.StatusServiceUnavailable, "github_not_configured", "GitHub login is not configured on this server")
-		return
-	}
-	state := randomToken("")
-	verifier := randomToken("")
-	sum := sha256.Sum256([]byte(verifier))
-	challenge := base64.RawURLEncoding.EncodeToString(sum[:])
-	returnTo := safeReturnTo(r.URL.Query().Get("return_to"))
-	http.SetCookie(w, &http.Cookie{
-		Name: oauthCookie, Value: state + "." + verifier + "." + base64.RawURLEncoding.EncodeToString([]byte(returnTo)),
-		Path: "/", MaxAge: 600, HttpOnly: true, Secure: s.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode,
-	})
-	q := url.Values{
-		"client_id":             {s.cfg.GitHubClientID},
-		"redirect_uri":          {s.cfg.PublicURL + "/auth/github/callback"},
-		"state":                 {state},
-		"code_challenge":        {challenge},
-		"code_challenge_method": {"S256"},
-		"allow_signup":          {"true"},
-	}
-	http.Redirect(w, r, s.opt.GitHubOAuthURL+"/login/oauth/authorize?"+q.Encode(), http.StatusFound)
-}
-
-func (s *Server) loginFailed(w http.ResponseWriter, r *http.Request, reason string) {
-	http.Redirect(w, r, s.cfg.DashboardURL+"/login?error="+url.QueryEscape(reason), http.StatusFound)
-}
-
-func (s *Server) githubCallback(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.GitHubConfigured() {
-		fail(w, r, http.StatusServiceUnavailable, "github_not_configured", "GitHub login is not configured on this server")
-		return
-	}
-	c, err := r.Cookie(oauthCookie)
-	http.SetCookie(w, &http.Cookie{Name: oauthCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: s.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
-	if err != nil {
-		s.loginFailed(w, r, "expired")
-		return
-	}
-	parts := strings.Split(c.Value, ".")
-	q := r.URL.Query()
-	if len(parts) != 3 || q.Get("state") == "" || subtle.ConstantTimeCompare([]byte(parts[0]), []byte(q.Get("state"))) != 1 {
-		s.loginFailed(w, r, "state")
-		return
-	}
-	if q.Get("error") != "" || q.Get("code") == "" {
-		s.loginFailed(w, r, "denied")
-		return
-	}
-	rt, _ := base64.RawURLEncoding.DecodeString(parts[2])
-	returnTo := safeReturnTo(string(rt))
-
-	gh, err := s.githubUser(r, q.Get("code"), parts[1])
-	if err != nil {
-		s.log.Warn("github login failed", "request_id", requestID(r.Context()), "err", err)
-		s.loginFailed(w, r, "github")
-		return
-	}
-	name := gh.Name
-	if name == "" {
-		name = gh.Login
-	}
-	u, err := s.st.UpsertUser(r.Context(), "github:"+strconv.FormatInt(gh.ID, 10), gh.Login, truncate(name, 100), s.now())
+// GET /v1/tokens: the caller's active CLI tokens ("machines"). Hashes are
+// never returned.
+func (s *Server) listTokens(w http.ResponseWriter, r *http.Request, p *principal) {
+	ts, err := s.st.ListTokens(r.Context(), p.user.ID)
 	if err != nil {
 		s.internal(w, r, err)
 		return
 	}
-	if s.startSession(w, r, u) {
-		http.Redirect(w, r, s.cfg.DashboardURL+returnTo, http.StatusFound)
+	out := make([]tokenInfo, 0, len(ts))
+	for _, t := range ts {
+		ti := tokenInfo{ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt.UTC().Truncate(time.Second)}
+		if !t.LastUsedAt.IsZero() {
+			lu := t.LastUsedAt.UTC().Truncate(time.Second)
+			ti.LastUsedAt = &lu
+		}
+		out = append(out, ti)
 	}
+	writeJSON(w, http.StatusOK, map[string]any{"tokens": out})
 }
 
-type githubProfile struct {
-	ID    int64  `json:"id"`
-	Login string `json:"login"`
-	Name  string `json:"name"`
-}
+var tokenIDPattern = regexp.MustCompile(`^tok_[A-Za-z0-9]{1,64}$`)
 
-// githubUser exchanges the code and reads /user. The access token stays in
-// this function and is discarded on return.
-func (s *Server) githubUser(r *http.Request, code, verifier string) (githubProfile, error) {
-	form := url.Values{
-		"client_id":     {s.cfg.GitHubClientID},
-		"client_secret": {s.cfg.GitHubClientSecret},
-		"code":          {code},
-		"redirect_uri":  {s.cfg.PublicURL + "/auth/github/callback"},
-		"code_verifier": {verifier},
+// DELETE /v1/tokens/{id}: revoke one of the caller's CLI tokens. Unknown,
+// revoked and other users' tokens all get the same 404.
+func (s *Server) revokeToken(w http.ResponseWriter, r *http.Request, p *principal) {
+	if limited(w, r, s.sessionLimit, "tokens:"+p.user.ID) {
+		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, s.opt.GitHubOAuthURL+"/login/oauth/access_token", strings.NewReader(form.Encode()))
+	id := r.PathValue("id")
+	if !tokenIDPattern.MatchString(id) {
+		fail(w, r, http.StatusNotFound, "not_found", "token not found")
+		return
+	}
+	err := s.st.RevokeUserToken(r.Context(), p.user.ID, id, s.now())
+	if errors.Is(err, store.ErrNotFound) {
+		fail(w, r, http.StatusNotFound, "not_found", "token not found")
+		return
+	}
 	if err != nil {
-		return githubProfile{}, err
+		s.internal(w, r, err)
+		return
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	resp, err := s.opt.HTTPClient.Do(req)
-	if err != nil {
-		return githubProfile{}, fmt.Errorf("token exchange: %w", err)
-	}
-	var tok struct {
-		AccessToken string `json:"access_token"`
-		Error       string `json:"error"`
-	}
-	err = json.NewDecoder(io.LimitReader(resp.Body, 64<<10)).Decode(&tok)
-	_ = resp.Body.Close()
-	if err != nil || resp.StatusCode != http.StatusOK || tok.AccessToken == "" {
-		return githubProfile{}, fmt.Errorf("token exchange: status %d error %q", resp.StatusCode, tok.Error)
-	}
-
-	req, err = http.NewRequestWithContext(r.Context(), http.MethodGet, s.opt.GitHubAPIURL+"/user", nil)
-	if err != nil {
-		return githubProfile{}, err
-	}
-	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	resp, err = s.opt.HTTPClient.Do(req)
-	if err != nil {
-		return githubProfile{}, fmt.Errorf("read user: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	var p githubProfile
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 256<<10)).Decode(&p); err != nil || resp.StatusCode != http.StatusOK || p.ID == 0 || p.Login == "" {
-		return githubProfile{}, fmt.Errorf("read user: status %d", resp.StatusCode)
-	}
-	return p, nil
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // --- DEV ONLY: MURETTO_DEV_LOGIN=1, refused by config unless the listen
@@ -304,26 +235,9 @@ func (s *Server) devUser(r *http.Request, login, name string) (store.User, error
 	return s.st.UpsertUser(r.Context(), "dev:"+login, login, truncate(name, 100), s.now())
 }
 
-// devLogin: GET /auth/dev/login?login=alice&name=Alice&return_to=/
-func (s *Server) devLogin(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	login := strings.ToLower(q.Get("login"))
-	if !devLoginName.MatchString(login) {
-		fail(w, r, http.StatusBadRequest, "invalid_login", "login must match "+devLoginName.String())
-		return
-	}
-	u, err := s.devUser(r, login, q.Get("name"))
-	if err != nil {
-		s.internal(w, r, err)
-		return
-	}
-	if s.startSession(w, r, u) {
-		http.Redirect(w, r, s.cfg.DashboardURL+safeReturnTo(q.Get("return_to")), http.StatusFound)
-	}
-}
-
 // devToken: POST /v1/dev/token {"login": "alice", "name": "Alice"} -> a CLI token
-// without the device flow, for the demo harness.
+// without the device flow, for the demo harness. With dev login on, this
+// token is also accepted where a dashboard user is required.
 func (s *Server) devToken(w http.ResponseWriter, r *http.Request) {
 	if limited(w, r, s.devTokenLimit, s.clientIP(r)) {
 		return

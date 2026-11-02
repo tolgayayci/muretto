@@ -66,8 +66,15 @@ func run(log *slog.Logger) error {
 	if cfg.DevLogin {
 		log.Warn("MURETTO_DEV_LOGIN=1: DEV-ONLY login bypass is ON. Anyone who can reach " + cfg.Addr + " can sign in as any user. Never enable this in production.")
 	}
-	if !cfg.GitHubConfigured() {
-		log.Warn("GitHub OAuth is not configured (MURETTO_GITHUB_CLIENT_ID / MURETTO_GITHUB_CLIENT_SECRET): dashboard sign-in is disabled")
+	if cfg.SupabaseURL == "" {
+		log.Warn("MURETTO_SUPABASE_URL is not set: dashboard sign-in with Supabase is disabled; only CLI tokens authenticate (dev login)")
+	} else {
+		log.Info("supabase auth", "issuer", cfg.SupabaseURL+"/auth/v1", "legacy_hs256", cfg.SupabaseJWTSecret != "")
+	}
+	for _, k := range []string{"MURETTO_GITHUB_CLIENT_ID", "MURETTO_GITHUB_CLIENT_SECRET"} {
+		if os.Getenv(k) != "" {
+			log.Warn(k + " is set but no longer used: dashboard sign-in is Supabase Auth (MURETTO_SUPABASE_URL)")
+		}
 	}
 
 	srv, err := api.New(api.Options{Config: cfg, Store: st, Hub: hub, PublishLocal: publishLocal, Logger: log})

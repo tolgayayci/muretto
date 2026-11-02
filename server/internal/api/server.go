@@ -1,6 +1,7 @@
-// Package api is the Muretto sync API: login (GitHub web OAuth for the
-// dashboard, a device flow for the CLI), orgs and invites, ingest, answer
-// views and the SSE live channel. See docs/ARCHITECTURE.md "Sync API".
+// Package api is the Muretto sync API: authentication (Supabase Auth access
+// tokens for the dashboard, a device flow minting CLI tokens), orgs and
+// invites, ingest, answer views and the SSE live channel. See
+// docs/ARCHITECTURE.md "Sync API".
 package api
 
 import (
@@ -19,6 +20,7 @@ import (
 	"github.com/tolgayayci/muretto/server/internal/events"
 	"github.com/tolgayayci/muretto/server/internal/ratelimit"
 	"github.com/tolgayayci/muretto/server/internal/store"
+	"github.com/tolgayayci/muretto/server/internal/supaauth"
 	"github.com/tolgayayci/muretto/server/internal/validate"
 )
 
@@ -33,13 +35,15 @@ type Options struct {
 	Logger       *slog.Logger
 	Now          func() time.Time
 
-	HTTPClient     *http.Client // for GitHub calls
-	GitHubOAuthURL string       // default https://github.com
-	GitHubAPIURL   string       // default https://api.github.com
+	// Supabase verifies dashboard access tokens. When nil it is built from
+	// Config.SupabaseURL and Config.SupabaseJWTSecret (with HTTPClient for
+	// the JWKS); when that is empty too, only CLI tokens authenticate (dev
+	// login). Tests inject a verifier for a fake project.
+	Supabase   *supaauth.Verifier
+	HTTPClient *http.Client // JWKS fetches; default: 10 s timeout
 
 	DevicePollInterval time.Duration // default 5 s
 	DeviceTTL          time.Duration // default 15 min
-	SessionTTL         time.Duration // default 30 days
 	InviteTTL          time.Duration // default 7 days
 	Heartbeat          time.Duration // SSE heartbeat, default 20 s
 }
@@ -53,12 +57,15 @@ type Server struct {
 	log       *slog.Logger
 	now       func() time.Time
 	validator *validate.Validator
+	supa      *supaauth.Verifier // nil: Supabase tokens are rejected
+	users     userCache
 
 	ingestLimit   *ratelimit.Limiter // per token
-	requestLimit  *ratelimit.Limiter // provider requests, per IP
+	requestLimit  *ratelimit.Limiter // provider requests, per IP or signed-in user
 	deviceLimit   *ratelimit.Limiter // device code + token, per IP
-	sessionLimit  *ratelimit.Limiter // approve / invite accept / device lookup, per session
+	sessionLimit  *ratelimit.Limiter // approve / invite accept / device lookup / token revoke, per user
 	devTokenLimit *ratelimit.Limiter
+	reviewLimit   *ratelimit.Limiter // dashboard review decisions, per user
 }
 
 // New builds a Server.
@@ -76,20 +83,21 @@ func New(o Options) (*Server, error) {
 	if o.HTTPClient == nil {
 		o.HTTPClient = &http.Client{Timeout: 10 * time.Second}
 	}
-	if o.GitHubOAuthURL == "" {
-		o.GitHubOAuthURL = "https://github.com"
-	}
-	if o.GitHubAPIURL == "" {
-		o.GitHubAPIURL = "https://api.github.com"
+	if o.Supabase == nil && o.Config.SupabaseURL != "" {
+		sv, err := supaauth.New(supaauth.Config{
+			ProjectURL: o.Config.SupabaseURL, JWTSecret: o.Config.SupabaseJWTSecret,
+			HTTPClient: o.HTTPClient, Now: o.Now, Logger: o.Logger,
+		})
+		if err != nil {
+			return nil, err
+		}
+		o.Supabase = sv
 	}
 	if o.DevicePollInterval == 0 {
 		o.DevicePollInterval = 5 * time.Second
 	}
 	if o.DeviceTTL == 0 {
 		o.DeviceTTL = 15 * time.Minute
-	}
-	if o.SessionTTL == 0 {
-		o.SessionTTL = 30 * 24 * time.Hour
 	}
 	if o.InviteTTL == 0 {
 		o.InviteTTL = 7 * 24 * time.Hour
@@ -102,12 +110,13 @@ func New(o Options) (*Server, error) {
 	}
 	perMin := max(o.Config.IngestPerMinute, 1)
 	return &Server{
-		opt: o, cfg: o.Config, st: o.Store, hub: o.Hub, log: o.Logger, now: o.Now, validator: v,
+		opt: o, cfg: o.Config, st: o.Store, hub: o.Hub, log: o.Logger, now: o.Now, validator: v, supa: o.Supabase,
 		ingestLimit:   ratelimit.New(perMin, time.Minute, min(perMin, 10)).WithClock(o.Now),
 		requestLimit:  ratelimit.New(5, time.Hour, 3).WithClock(o.Now),
 		deviceLimit:   ratelimit.New(60, time.Minute, 20).WithClock(o.Now),
 		sessionLimit:  ratelimit.New(20, time.Minute, 10).WithClock(o.Now),
 		devTokenLimit: ratelimit.New(60, time.Minute, 20).WithClock(o.Now),
+		reviewLimit:   ratelimit.New(120, time.Minute, 30).WithClock(o.Now),
 	}, nil
 }
 
@@ -116,33 +125,38 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
 
-	// CLI login: device flow.
+	// Auth matrix (see authMode): authBearer = CLI token only; authUser =
+	// Supabase access token (plus CLI tokens with dev login only); authEither
+	// = either.
+
+	// CLI login: device flow. The dashboard looks up and approves the code.
 	mux.HandleFunc("POST /v1/device/code", s.deviceCode)
 	mux.HandleFunc("POST /v1/device/token", s.deviceToken)
-	mux.HandleFunc("GET /v1/device", s.authed(authCookie, s.deviceLookup))
-	mux.HandleFunc("POST /v1/device/approve", s.authed(authCookie, s.deviceApprove))
-	mux.HandleFunc("DELETE /v1/tokens/self", s.authed(authBearer, s.revokeSelf))
+	mux.HandleFunc("GET /v1/device", s.authed(authUser, s.deviceLookup))
+	mux.HandleFunc("POST /v1/device/approve", s.authed(authUser, s.deviceApprove))
 
-	// Dashboard login.
-	mux.HandleFunc("GET /auth/github/login", s.githubLogin)
-	mux.HandleFunc("GET /auth/github/callback", s.githubCallback)
-	mux.HandleFunc("POST /auth/logout", s.authed(authCookie, s.logout))
+	// CLI tokens ("machines").
+	mux.HandleFunc("DELETE /v1/tokens/self", s.authed(authBearer, s.revokeSelf))
+	mux.HandleFunc("GET /v1/tokens", s.authed(authUser, s.listTokens))
+	mux.HandleFunc("DELETE /v1/tokens/{id}", s.authed(authUser, s.revokeToken))
+
 	if s.cfg.DevLogin {
-		mux.HandleFunc("GET /auth/dev/login", s.devLogin)
 		mux.HandleFunc("POST /v1/dev/token", s.devToken)
 	}
 
 	mux.HandleFunc("GET /v1/me", s.authed(authEither, s.me))
 	mux.HandleFunc("POST /v1/ingest", s.authed(authBearer, s.ingest))
 
-	mux.HandleFunc("POST /v1/orgs", s.authed(authCookie, s.createOrg))
-	mux.HandleFunc("GET /v1/orgs/{id}", s.authed(authCookie, s.getOrg))
-	mux.HandleFunc("POST /v1/orgs/{id}/invites", s.authed(authCookie, s.createInvite))
-	mux.HandleFunc("POST /v1/invites/{token}/accept", s.authed(authCookie, s.acceptInvite))
+	mux.HandleFunc("POST /v1/orgs", s.authed(authUser, s.createOrg))
+	mux.HandleFunc("GET /v1/orgs/{id}", s.authed(authUser, s.getOrg))
+	mux.HandleFunc("POST /v1/orgs/{id}/invites", s.authed(authUser, s.createInvite))
+	mux.HandleFunc("POST /v1/invites/{token}/accept", s.authed(authUser, s.acceptInvite))
 
 	mux.HandleFunc("GET /v1/answer", s.authed(authEither, s.answerMe))
-	mux.HandleFunc("GET /v1/orgs/{id}/answer", s.authed(authCookie, s.answerTeam))
-	mux.HandleFunc("GET /v1/orgs/{id}/events", s.authed(authCookie, s.events))
+	mux.HandleFunc("POST /v1/reviews", s.authed(authUser, s.setReview))
+	mux.HandleFunc("GET /v1/reviews", s.authed(authEither, s.listReviews))
+	mux.HandleFunc("GET /v1/orgs/{id}/answer", s.authed(authUser, s.answerTeam))
+	mux.HandleFunc("GET /v1/orgs/{id}/events", s.authed(authUser, s.events))
 
 	mux.HandleFunc("POST /v1/provider-requests", s.providerRequest)
 
@@ -202,7 +216,8 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // withLogging logs one line per request. It logs the route pattern, never the
-// raw path or query: those can carry invite tokens and OAuth codes.
+// raw path, query or headers: those can carry invite tokens, user codes and
+// access tokens.
 func (s *Server) withLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := s.now()
@@ -217,6 +232,9 @@ func (s *Server) withLogging(next http.Handler) http.Handler {
 	})
 }
 
+// withCORS allows only the dashboard origin. The dashboard calls the API from
+// its server, not the browser, and nothing here authenticates by cookie, so
+// credentials are never allowed.
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -224,11 +242,10 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 		if origin != "" && origin == s.cfg.DashboardURL {
 			h := w.Header()
 			h.Set("Access-Control-Allow-Origin", origin)
-			h.Set("Access-Control-Allow-Credentials", "true")
 			h.Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 				h.Set("Access-Control-Allow-Methods", "GET, POST, DELETE")
-				h.Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token, Last-Event-ID")
+				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Last-Event-ID")
 				h.Set("Access-Control-Max-Age", "600")
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -248,7 +265,7 @@ func (s *Server) withSecurityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Cache-Control", "no-store")
-		if s.cfg.SecureCookies() {
+		if s.cfg.HTTPS() {
 			h.Set("Strict-Transport-Security", "max-age=31536000")
 		}
 		next.ServeHTTP(w, r)

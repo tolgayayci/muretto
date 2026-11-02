@@ -20,7 +20,6 @@ type meResponse struct {
 	Login       string   `json:"login"`
 	DisplayName string   `json:"display_name"`
 	Orgs        []orgRef `json:"orgs"`
-	CSRFToken   string   `json:"csrf_token,omitempty"`
 }
 
 // GET /v1/me
@@ -33,9 +32,6 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request, p *principal) {
 	resp := meResponse{Login: p.user.Login, DisplayName: p.user.Name(), Orgs: []orgRef{}}
 	for _, m := range ms {
 		resp.Orgs = append(resp.Orgs, orgRef{ID: m.Org.ID, Name: m.Org.Name, Role: m.Role})
-	}
-	if p.viaCookie {
-		resp.CSRFToken = csrfToken(p.sessionToken)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

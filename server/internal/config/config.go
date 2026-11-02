@@ -14,15 +14,21 @@ import (
 // Config is the server configuration. See server/README.md for each variable.
 type Config struct {
 	Addr         string // MURETTO_ADDR, or ":$PORT"
-	PublicURL    string // MURETTO_PUBLIC_URL: the API's own base URL (OAuth callback)
-	DashboardURL string // MURETTO_DASHBOARD_URL: the only CORS origin; redirect target
+	PublicURL    string // MURETTO_PUBLIC_URL: the API's own base URL (https enables HSTS)
+	DashboardURL string // MURETTO_DASHBOARD_URL: the only CORS origin; device and invite links
 
 	DatabaseURL       string // MURETTO_DATABASE_URL; empty = in-memory store
 	DatabaseListenURL string // MURETTO_DATABASE_LISTEN_URL; defaults to DatabaseURL
 	DBMaxConns        int32  // MURETTO_DB_MAX_CONNS
 
-	GitHubClientID     string // MURETTO_GITHUB_CLIENT_ID
-	GitHubClientSecret string // MURETTO_GITHUB_CLIENT_SECRET
+	// SupabaseURL is the Supabase project URL (MURETTO_SUPABASE_URL). Dashboard
+	// users sign in with Supabase Auth; the API verifies their access tokens
+	// against <SupabaseURL>/auth/v1 (issuer) and its JWKS. Required unless
+	// DevLogin is on.
+	SupabaseURL string
+	// SupabaseJWTSecret (MURETTO_SUPABASE_JWT_SECRET) enables legacy HS256
+	// tokens. Empty: only asymmetric (ES256/RS256) tokens are accepted.
+	SupabaseJWTSecret string
 
 	DevLogin   bool  // MURETTO_DEV_LOGIN=1 — DEV ONLY, loopback only
 	TrustProxy bool  // MURETTO_TRUST_PROXY=1: client IP from X-Forwarded-For
@@ -34,16 +40,16 @@ type Config struct {
 // Load reads the environment through getenv.
 func Load(getenv func(string) string) (Config, error) {
 	c := Config{
-		Addr:               getenv("MURETTO_ADDR"),
-		PublicURL:          strings.TrimRight(getenv("MURETTO_PUBLIC_URL"), "/"),
-		DashboardURL:       strings.TrimRight(getenv("MURETTO_DASHBOARD_URL"), "/"),
-		DatabaseURL:        getenv("MURETTO_DATABASE_URL"),
-		DatabaseListenURL:  getenv("MURETTO_DATABASE_LISTEN_URL"),
-		GitHubClientID:     getenv("MURETTO_GITHUB_CLIENT_ID"),
-		GitHubClientSecret: getenv("MURETTO_GITHUB_CLIENT_SECRET"),
-		DBMaxConns:         5,
-		MaxBody:            8 << 20,
-		IngestPerMinute:    30,
+		Addr:              getenv("MURETTO_ADDR"),
+		PublicURL:         strings.TrimRight(getenv("MURETTO_PUBLIC_URL"), "/"),
+		DashboardURL:      strings.TrimRight(getenv("MURETTO_DASHBOARD_URL"), "/"),
+		DatabaseURL:       getenv("MURETTO_DATABASE_URL"),
+		DatabaseListenURL: getenv("MURETTO_DATABASE_LISTEN_URL"),
+		SupabaseURL:       strings.TrimRight(getenv("MURETTO_SUPABASE_URL"), "/"),
+		SupabaseJWTSecret: getenv("MURETTO_SUPABASE_JWT_SECRET"),
+		DBMaxConns:        5,
+		MaxBody:           8 << 20,
+		IngestPerMinute:   30,
 	}
 	if c.Addr == "" {
 		if p := getenv("PORT"); p != "" { // Railway and most PaaS hosts set PORT
@@ -118,17 +124,33 @@ func (c Config) validate() error {
 	if c.DevLogin && !IsLoopbackAddr(c.Addr) {
 		return fmt.Errorf("MURETTO_DEV_LOGIN=1 is refused: listen address %q is not loopback (use 127.0.0.1:PORT). Dev login is for local development only", c.Addr)
 	}
-	if (c.GitHubClientID == "") != (c.GitHubClientSecret == "") {
-		return errors.New("set both MURETTO_GITHUB_CLIENT_ID and MURETTO_GITHUB_CLIENT_SECRET, or neither")
+	if c.SupabaseURL == "" {
+		if !c.DevLogin {
+			return errors.New("MURETTO_SUPABASE_URL is required (the Supabase project URL, e.g. https://<ref>.supabase.co); only MURETTO_DEV_LOGIN=1 on loopback may run without it")
+		}
+	} else {
+		p, err := url.Parse(c.SupabaseURL)
+		if err != nil || (p.Scheme != "http" && p.Scheme != "https") || p.Host == "" || p.User != nil ||
+			p.Path != "" || p.RawQuery != "" || p.Fragment != "" || strings.HasSuffix(c.SupabaseURL, "?") {
+			return errors.New("MURETTO_SUPABASE_URL must be the project origin like https://<ref>.supabase.co (no path)")
+		}
+		if p.Scheme == "http" && !IsLoopbackHost(p.Hostname()) {
+			return errors.New("MURETTO_SUPABASE_URL must use https unless it is a loopback address")
+		}
+	}
+	if c.SupabaseJWTSecret != "" {
+		if c.SupabaseURL == "" {
+			return errors.New("MURETTO_SUPABASE_JWT_SECRET needs MURETTO_SUPABASE_URL (the issuer)")
+		}
+		if len(c.SupabaseJWTSecret) < 32 {
+			return errors.New("MURETTO_SUPABASE_JWT_SECRET must be at least 32 characters")
+		}
 	}
 	return nil
 }
 
-// SecureCookies reports whether cookies get the Secure flag (https public URL).
-func (c Config) SecureCookies() bool { return strings.HasPrefix(c.PublicURL, "https://") }
-
-// GitHubConfigured reports whether GitHub OAuth is set up.
-func (c Config) GitHubConfigured() bool { return c.GitHubClientID != "" && c.GitHubClientSecret != "" }
+// HTTPS reports whether the public URL is https (enables HSTS).
+func (c Config) HTTPS() bool { return strings.HasPrefix(c.PublicURL, "https://") }
 
 // IsLoopbackAddr reports whether a listen address binds only to loopback.
 // ":8080" binds every interface and is not loopback.

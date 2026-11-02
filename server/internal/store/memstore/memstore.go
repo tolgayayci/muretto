@@ -12,11 +12,6 @@ import (
 	"github.com/tolgayayci/muretto/server/internal/store"
 )
 
-type webSession struct {
-	userID    string
-	expiresAt time.Time
-}
-
 type token struct {
 	store.Token
 	revoked bool
@@ -43,7 +38,6 @@ type Store struct {
 	mu          sync.Mutex
 	users       map[string]store.User // by id
 	identities  map[string]string     // identity -> user id
-	sessions    map[string]webSession // by hash
 	tokens      map[string]*token     // by hash
 	devices     map[string]*store.DeviceAuth
 	orgs        map[string]store.Org
@@ -52,7 +46,8 @@ type Store struct {
 	records     map[recKey]store.Record
 	events      []store.Event
 	seq         int64
-	requests    int
+	requests    []store.ProviderRequest
+	decisions   map[[2]string]store.ReviewDecision // (user id, resource id)
 }
 
 var _ store.Store = (*Store)(nil)
@@ -65,24 +60,24 @@ func New() *Store {
 	return &Store{
 		users:       map[string]store.User{},
 		identities:  map[string]string{},
-		sessions:    map[string]webSession{},
 		tokens:      map[string]*token{},
 		devices:     map[string]*store.DeviceAuth{},
 		orgs:        map[string]store.Org{},
 		memberships: map[string]map[string]membership{},
 		invites:     map[string]*invite{},
 		records:     map[recKey]store.Record{},
+		decisions:   map[[2]string]store.ReviewDecision{},
 	}
 }
 
 // Close is a no-op.
 func (s *Store) Close() {}
 
-// ProviderRequests returns how many provider requests were stored (tests).
-func (s *Store) ProviderRequests() int {
+// ProviderRequests returns the stored provider requests (tests).
+func (s *Store) ProviderRequests() []store.ProviderRequest {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.requests
+	return append([]store.ProviderRequest(nil), s.requests...)
 }
 
 func (s *Store) UpsertUser(_ context.Context, identity, login, displayName string, now time.Time) (store.User, error) {
@@ -110,37 +105,6 @@ func (s *Store) GetUser(_ context.Context, id string) (store.User, error) {
 	return u, nil
 }
 
-func (s *Store) CreateWebSession(_ context.Context, hash, userID string, expiresAt, _ time.Time) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.sessions[hash]; ok {
-		return store.ErrConflict
-	}
-	s.sessions[hash] = webSession{userID: userID, expiresAt: expiresAt}
-	return nil
-}
-
-func (s *Store) WebSessionUser(_ context.Context, hash string, now time.Time) (store.User, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	ws, ok := s.sessions[hash]
-	if !ok || !now.Before(ws.expiresAt) {
-		return store.User{}, store.ErrNotFound
-	}
-	u, ok := s.users[ws.userID]
-	if !ok {
-		return store.User{}, store.ErrNotFound
-	}
-	return u, nil
-}
-
-func (s *Store) DeleteWebSession(_ context.Context, hash string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.sessions, hash)
-	return nil
-}
-
 func (s *Store) CreateToken(_ context.Context, t store.Token) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -155,7 +119,7 @@ func (s *Store) createTokenLocked(t store.Token) error {
 	return nil
 }
 
-func (s *Store) TokenUser(_ context.Context, hash string, _ time.Time) (store.Token, store.User, error) {
+func (s *Store) TokenUser(_ context.Context, hash string, now time.Time) (store.Token, store.User, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t, ok := s.tokens[hash]
@@ -166,7 +130,40 @@ func (s *Store) TokenUser(_ context.Context, hash string, _ time.Time) (store.To
 	if !ok {
 		return store.Token{}, store.User{}, store.ErrNotFound
 	}
+	if t.LastUsedAt.IsZero() || now.Sub(t.LastUsedAt) >= store.TokenTouchInterval {
+		t.LastUsedAt = now
+	}
 	return t.Token, u, nil
+}
+
+func (s *Store) ListTokens(_ context.Context, userID string) ([]store.Token, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []store.Token{}
+	for _, t := range s.tokens {
+		if t.UserID == userID && !t.revoked {
+			out = append(out, t.Token)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if !out[i].CreatedAt.Equal(out[j].CreatedAt) {
+			return out[i].CreatedAt.After(out[j].CreatedAt)
+		}
+		return out[i].ID > out[j].ID
+	})
+	return out, nil
+}
+
+func (s *Store) RevokeUserToken(_ context.Context, userID, tokenID string, _ time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, t := range s.tokens {
+		if t.ID == tokenID && t.UserID == userID && !t.revoked {
+			t.revoked = true
+			return nil
+		}
+	}
+	return store.ErrNotFound
 }
 
 func (s *Store) RevokeToken(_ context.Context, hash string, _ time.Time) error {
@@ -259,6 +256,9 @@ func (s *Store) PollDeviceAuth(_ context.Context, deviceCodeHash string, now tim
 		return store.PollResult{Status: store.PollDenied, Interval: d.Interval}, nil
 	case store.DeviceApproved:
 		mint.UserID = d.UserID
+		if mint.Name == "" {
+			mint.Name = d.Client.Host
+		}
 		if err := s.createTokenLocked(mint); err != nil {
 			return store.PollResult{}, err
 		}
@@ -414,9 +414,41 @@ func (s *Store) EventsAfter(_ context.Context, userIDs []string, after int64, li
 	return out, nil
 }
 
-func (s *Store) AddProviderRequest(_ context.Context, _, _ string, _ time.Time) error {
+func (s *Store) SetReviewDecision(_ context.Context, d store.ReviewDecision) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.requests++
+	if _, ok := s.users[d.UserID]; !ok {
+		return store.ErrNotFound
+	}
+	k := [2]string{d.UserID, d.ResourceID}
+	if old, ok := s.decisions[k]; ok && old.DecidedAt.After(d.DecidedAt) {
+		return nil
+	}
+	s.decisions[k] = d
+	return nil
+}
+
+func (s *Store) ReviewDecisions(_ context.Context, userIDs []string) ([]store.ReviewDecision, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []store.ReviewDecision{}
+	for _, d := range s.decisions {
+		if slices.Contains(userIDs, d.UserID) {
+			out = append(out, d)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].UserID != out[j].UserID {
+			return out[i].UserID < out[j].UserID
+		}
+		return out[i].ResourceID < out[j].ResourceID
+	})
+	return out, nil
+}
+
+func (s *Store) AddProviderRequest(_ context.Context, req store.ProviderRequest) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.requests = append(s.requests, req)
 	return nil
 }
