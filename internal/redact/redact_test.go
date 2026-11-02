@@ -391,7 +391,7 @@ func TestStringPercentEncodedTokens(t *testing.T) {
 }
 
 // Token shapes of the providers added on 2026-11-01 (formats from each
-// provider's docs; see docs/research/<provider>.md).
+// provider's docs; see adapters/<provider>/research.md).
 func TestNewProviderTokens(t *testing.T) {
 	ghs := "ghs_123456_" + strings.Repeat("eyJhbGciOiJSUzI1NiJ9.abcDEF-_", 18)
 	for _, tok := range []string{

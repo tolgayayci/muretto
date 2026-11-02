@@ -22,7 +22,8 @@ import (
 	"github.com/tolgayayci/muretto/internal/contract"
 )
 
-const testdataDir = "../../adapters/testdata"
+// adaptersDir holds one folder per provider, each with its fixtures in testdata/.
+const adaptersDir = "../../adapters"
 
 type route struct {
 	Method string            `yaml:"method"`
@@ -142,14 +143,14 @@ type scenario struct {
 
 func scenarios(t *testing.T) []scenario {
 	t.Helper()
-	dirs, err := filepath.Glob(filepath.Join(testdataDir, "*", "scan", "*"))
+	dirs, err := filepath.Glob(filepath.Join(adaptersDir, "*", "testdata", "scan", "*"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var out []scenario
 	for _, d := range dirs {
 		parts := strings.Split(filepath.ToSlash(d), "/")
-		out = append(out, scenario{provider: parts[len(parts)-3], name: parts[len(parts)-1], dir: d})
+		out = append(out, scenario{provider: parts[len(parts)-4], name: parts[len(parts)-1], dir: d})
 	}
 	if len(out) == 0 {
 		t.Fatal("no scan scenarios found")

@@ -1,5 +1,5 @@
 // Package adaptergen turns an OpenAPI description into a draft Muretto
-// adapter (docs/WRITING_AN_ADAPTER.md): read-only list endpoints, accounts,
+// adapter (adapters/WRITING.md): read-only list endpoints, accounts,
 // kinds with parent/child fan-out, field mappings, secret stripping,
 // pagination, printed remove commands, curl creation signatures and
 // candidate exposure rules.

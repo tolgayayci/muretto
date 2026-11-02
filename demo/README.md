@@ -25,12 +25,12 @@ One command runs the real demo behind the 60-second video (`SCRIPT.md`): five he
 **Test accounts (never your real ones):**
 
 - A dedicated **Supabase** org with 1 or 2 **pre-created** projects. Don't create projects live: it is slow and plan-limited. Each project's name must contain `demo` or `test`; the scripts check it (`GET /v1/projects`) and refuse otherwise.
-  - Free plan: 2 active free projects per user, counted across every org where you are Owner or Admin; paused projects don't count. Free projects pause after a week of inactivity. Branching needs Pro (the demo doesn't use branches). Source: `docs/research/supabase.md` Q8.
+  - Free plan: 2 active free projects per user, counted across every org where you are Owner or Admin; paused projects don't count. Free projects pause after a week of inactivity. Branching needs Pro (the demo doesn't use branches). Source: `adapters/supabase/research.md` Q8.
   - A personal access token (`sbp_…`) of a member of that org. The agents' Supabase MCP server and `setup.sh` / `reset.sh` use it; it can write.
   - Optional but better: a second, read-scoped token for Muretto (`MURETTO_SUPABASE_TOKEN`). Muretto's broker keeps reads read-only either way.
   - The primary project's **publishable** key (`sb_publishable_…`) for `prove.sh`. Each project's **secret** key only if you want `reset.sh` to delete the `demo-uploads` bucket (the Management API has no bucket delete).
-- A dedicated **Vercel** team whose slug contains `demo` or `test`, and a team-scoped token (`vcp_…`). Vercel has no read-only token (`docs/research/vercel.md` Q2).
-  - Hobby: 1 concurrent build (alice's and eve's deploys queue, which is fine but slower on video), non-commercial use only. A Pro trial avoids both (`docs/research/vercel.md` Q8).
+- A dedicated **Vercel** team whose slug contains `demo` or `test`, and a team-scoped token (`vcp_…`). Vercel has no read-only token (`adapters/vercel/research.md` Q2).
+  - Hobby: 1 concurrent build (alice's and eve's deploys queue, which is fine but slower on video), non-commercial use only. A Pro trial avoids both (`adapters/vercel/research.md` Q8).
 
 **Tools** (the scripts check and print install hints; they never install anything): Claude Code (`claude`, logged in), `tmux`, `jq`, `curl`, Go 1.27.3+, Node/npm (dashboard), `uuidgen`, the Vercel CLI (`vercel`, used by the agents), and `muretto` built from this repo (`make build` → `bin/muretto`; the hooks point at it). The scripts are bash 3.2 compatible (macOS default).
 
@@ -96,6 +96,6 @@ The Vercel side needs one more step, done by `run.sh` on every run rather than b
 
 - `--allowedTools` permission rules with arguments (`Bash(vercel *)`) in `dontAsk` mode; the research verified exact tool names only.
 - `enabledMcpjsonServers` from a `--settings` file approving a workdir's `.mcp.json` server in `-p` mode (observed once in a live test, with `source: "project"` in the hook input).
-- The raw Storage API paths `POST /storage/v1/bucket/{id}/empty` and `DELETE /storage/v1/bucket/{id}` (from supabase storage-js; `docs/research/supabase.md` Q9 marks them unverified).
+- The raw Storage API paths `POST /storage/v1/bucket/{id}/empty` and `DELETE /storage/v1/bucket/{id}` (from supabase storage-js; `adapters/supabase/research.md` Q9 marks them unverified).
 - Whether the Vercel team settings page offers a team-wide default for deployment protection on your plan.
 - `GET /v10/projects?search=` matching by name prefix; `reset.sh` filters by the `demo-` prefix again anyway.

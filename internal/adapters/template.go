@@ -14,7 +14,7 @@ import (
 // placeholders. An expr is a dotted path into the current context, followed by
 // optional filters: {path|filter|filter:arg}.
 //
-// Filters (documented in docs/WRITING_AN_ADAPTER.md):
+// Filters (documented in adapters/WRITING.md):
 //
 //	or:<path>     use <path> when the value is missing, null or empty
 //	default:<lit> use the literal when the value is missing, null or empty

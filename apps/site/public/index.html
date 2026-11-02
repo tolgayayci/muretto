@@ -951,12 +951,12 @@ footer { border-top: 1px solid var(--line); }
         <h3>New provider? One YAML file.</h3>
         <p>Add a provider in an afternoon. Adapters declare scan endpoints, how to extract resource ids from tool calls and exposure rules, and every network call still passes the read-only allowlist.</p>
         <div class="actions">
-          <a class="btn btn-primary" href="https://github.com/tolgayayci/muretto/blob/main/docs/WRITING_AN_ADAPTER.md">Write an adapter</a>
+          <a class="btn btn-primary" href="https://github.com/tolgayayci/muretto/blob/main/adapters/WRITING.md">Write an adapter</a>
           <span class="soon">Adapter registry <em>coming soon</em></span>
         </div>
       </div>
       <div class="term">
-        <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">adapters/supabase.yaml · excerpt</span></div>
+        <div class="term-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="term-title">adapters/supabase/adapter.yaml · excerpt</span></div>
         <div class="term-body" id="yaml"></div>
       </div>
     </div>
@@ -1095,7 +1095,7 @@ footer { border-top: 1px solid var(--line); }
       <p>See every database, bucket and deployment your AI coding agents created, which session made it, and what is open to anyone. Open source and read-only.</p>
     </div>
     <nav aria-label="Product"><h3>Product</h3><ul><li><a href="https://app.muretto.ai">Dashboard</a></li><li><a href="#catches">What it catches</a></li><li><a href="#how">How it works</a></li><li><a href="#trust">Security</a></li><li><a href="#compare">Compare</a></li><li><a data-link="changelog" href="https://github.com/tolgayayci/muretto/releases">Changelog</a></li></ul></nav>
-    <nav aria-label="Developers"><h3>Developers</h3><ul><li><a data-link="github" href="https://github.com/tolgayayci/muretto">GitHub</a></li><li><a data-link="docs" href="#docs">Docs</a></li><li><a href="https://github.com/tolgayayci/muretto/blob/main/docs/WRITING_AN_ADAPTER.md">Write an adapter</a></li><li><a href="https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md">Sync payload</a></li></ul></nav>
+    <nav aria-label="Developers"><h3>Developers</h3><ul><li><a data-link="github" href="https://github.com/tolgayayci/muretto">GitHub</a></li><li><a data-link="docs" href="#docs">Docs</a></li><li><a href="https://github.com/tolgayayci/muretto/blob/main/adapters/WRITING.md">Write an adapter</a></li><li><a href="https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md">Sync payload</a></li></ul></nav>
     <nav aria-label="Elsewhere"><h3>Elsewhere</h3><ul><li><a data-link="x" href="#x">X</a></li><li><a data-link="linkedin" href="#linkedin">LinkedIn</a></li></ul></nav>
   </div>
   <div class="wrap legal"><span>Apache-2.0</span></div>
@@ -1395,7 +1395,7 @@ footer { border-top: 1px solid var(--line); }
   onReveal.qa = function () { selectQ(qcur, true); };
   if (qa.classList.contains('in')) onReveal.qa();
 
-  /* ---------- YAML excerpt (real lines from adapters/supabase.yaml) ---------- */
+  /* ---------- YAML excerpt (real lines from adapters/supabase/adapter.yaml) ---------- */
   var YAML = [
     '«k|buckets»:',
     '  «k|path»: /v1/projects/{ref}/storage/buckets',

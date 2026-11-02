@@ -410,7 +410,7 @@ func (w *e2eWorld) scenario(v e2eVariant) {
 	}, "", "  ")
 	if v.humanDeploy {
 		// --non-interactive=false: labels on stderr, the bare URL on stdout
-		// (docs/research/vercel.md §5.2). No dpl_ id is printed.
+		// (adapters/vercel/research.md §5.2). No dpl_ id is printed.
 		w.bash(sessAlice, "toolu_01E2Ealice0000000000002", -160*time.Minute, "vercel deploy --non-interactive=false --token "+vercelToken,
 			"https://acme-web-a81f2c3d4-example-team.vercel.app\n",
 			"  Inspect         https://vercel.com/example-team/acme-web/EXAMPLEalicedeployment0001\n  Preview         https://acme-web-a81f2c3d4-example-team.vercel.app\n")

@@ -17,7 +17,7 @@ import (
 const FormatVersion = 1
 
 // adapterSpec is one adapter file. The format is documented field by field in
-// docs/WRITING_AN_ADAPTER.md and adapters/template.yaml.
+// adapters/WRITING.md and adapters/_template/adapter.yaml.
 type adapterSpec struct {
 	Format      int                      `yaml:"format"`
 	Provider    string                   `yaml:"provider"`

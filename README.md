@@ -101,7 +101,7 @@ Agents: Claude Code.
 
 ## Write an adapter
 
-Every provider is a declarative, read-only YAML file in [`adapters/`](adapters/). Adding one needs no Go: one YAML file, sanitized fixtures and test cases. Start with [`docs/WRITING_AN_ADAPTER.md`](docs/WRITING_AN_ADAPTER.md) and [`adapters/template.yaml`](adapters/template.yaml).
+Every provider is a declarative, read-only YAML file in [`adapters/`](adapters/). Adding one needs no Go: one YAML file, sanitized fixtures and test cases. Start with [`adapters/WRITING.md`](adapters/WRITING.md) and [`adapters/_template/adapter.yaml`](adapters/_template/adapter.yaml).
 
 Have an OpenAPI file? `muretto adapter new openapi.json` drafts the adapter for you (Swagger 2.0 and OpenAPI 3.0–3.2), and `muretto adapter install` uses it on your machine.
 

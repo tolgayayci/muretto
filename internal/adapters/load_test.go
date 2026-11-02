@@ -47,12 +47,12 @@ func TestLoadEmbedded(t *testing.T) {
 
 // The template must stay a valid adapter, so contributors can copy it.
 func TestTemplateIsValid(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "adapters", "template.yaml"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "adapters", "_template", "adapter.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := parseAdapter(data, "template.yaml"); err != nil {
-		t.Fatalf("template.yaml: %v", err)
+	if _, err := parseAdapter(data, "_template/adapter.yaml"); err != nil {
+		t.Fatalf("_template/adapter.yaml: %v", err)
 	}
 }
 

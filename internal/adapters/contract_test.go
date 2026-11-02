@@ -103,9 +103,8 @@ var contractActions = []struct {
 func TestIdentifiersFitAttributionContract(t *testing.T) {
 	r := loadEmbedded(t)
 	var all []contract.Resource
-	for _, name := range []string{"supabase/scan/basic", "vercel/scan/basic"} {
-		parts := strings.Split(name, "/")
-		res, _, _ := runScenario(t, r, scenario{provider: parts[0], name: parts[2], dir: filepath.Join(testdataDir, name)})
+	for _, provider := range []string{"supabase", "vercel"} {
+		res, _, _ := runScenario(t, r, scenario{provider: provider, name: "basic", dir: filepath.Join(adaptersDir, provider, "testdata", "scan", "basic")})
 		all = append(all, res.Resources...)
 	}
 	byID := map[string]contract.Resource{}

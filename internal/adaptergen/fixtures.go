@@ -19,7 +19,7 @@ import (
 )
 
 // Fixtures writes starter test fixtures for a generated adapter, in the
-// layout of adapters/testdata/<provider>/ (docs/WRITING_AN_ADAPTER.md §9):
+// layout of adapters/<provider>/testdata/ (adapters/WRITING.md §9):
 //
 //	scan/basic/          one scan answered with fake bodies built from the spec
 //	scan/failures/       the same scan with one endpoint answering 403
@@ -43,7 +43,7 @@ func Fixtures(res *Result) (map[string][]byte, error) {
 	header := fmt.Sprintf("# Starter fixtures from `muretto adapter new --fixtures` (%s).\n"+
 		"# Bodies are fake values built from the spec's schemas, and the expectations\n"+
 		"# are what the adapter does with them. Replace them with recorded, sanitized\n"+
-		"# responses (adapters/testdata/README.md) before relying on them.\n", g.rep.Spec)
+		"# responses (adapters/FIXTURES.md) before relying on them.\n", g.rep.Spec)
 
 	acct := adaptercheck.Account{ID: "example-account", Name: "Example account"}
 	fa := NewFakeAPI(g.doc, g.base)

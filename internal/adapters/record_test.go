@@ -177,7 +177,7 @@ func TestSanitizeRecordings(t *testing.T) {
 }
 
 // TestRecordLive records real responses from a test account, through the
-// broker, and writes sanitized fixtures to adapters/testdata/<provider>/recorded/
+// broker, and writes sanitized fixtures to adapters/<provider>/testdata/recorded/
 // (git-ignored; review before copying anything into a scenario). Opt-in:
 //
 //	MURETTO_LIVE=1 MURETTO_SUPABASE_TOKEN=... [MURETTO_SUPABASE_ACCOUNT=org-slug] \
@@ -244,7 +244,7 @@ func recordProvider(t *testing.T, r *Registry, provider, token, account string) 
 	if err := sanitizeRecordings(recs, r.byName[provider].Recorder); err != nil {
 		t.Fatalf("refusing to write: %v", err)
 	}
-	dir := filepath.Join(testdataDir, provider, "recorded", time.Now().UTC().Format("20060102T150405Z"))
+	dir := filepath.Join(adaptersDir, provider, "testdata", "recorded", time.Now().UTC().Format("20060102T150405Z"))
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}

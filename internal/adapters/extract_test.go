@@ -47,7 +47,7 @@ func idKey(kind, value, container, role string) string {
 
 func TestExtractFixtures(t *testing.T) {
 	r := loadEmbedded(t)
-	files, _ := filepath.Glob(filepath.Join(testdataDir, "*", "extract", "*.yaml"))
+	files, _ := filepath.Glob(filepath.Join(adaptersDir, "*", "testdata", "extract", "*.yaml"))
 	if len(files) == 0 {
 		t.Fatal("no extract cases")
 	}

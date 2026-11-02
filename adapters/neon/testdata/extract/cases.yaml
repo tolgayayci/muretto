@@ -1,0 +1,349 @@
+# Extract cases built from the CLI, API and MCP output documented in
+# adapters/neon/research.md (Creation paths). All ids are fakes. `expect` is the
+# exact set of identifiers (kind, value, container, role); [] means none.
+
+# ---- neon / neonctl CLI ----
+- name: CLI projects create (table output)
+  tool: Bash
+  input: { command: "neon projects create --name waitlist-demo --region-id aws-us-east-2" }
+  output: |
+    Project
+    ┌────────────────────────┬───────────────┬───────────────┬──────────────────────┐
+    │ Id                     │ Name          │ Region Id     │ Created At           │
+    ├────────────────────────┼───────────────┼───────────────┼──────────────────────┤
+    │ example-project-123456 │ waitlist-demo │ aws-us-east-2 │ 2026-09-01T10:00:00Z │
+    └────────────────────────┴───────────────┴───────────────┴──────────────────────┘
+    Connection URIs
+    ┌────────────────┐
+    │ Connection Uri │
+    ├────────────────┤
+    │ [REDACTED]     │
+    └────────────────┘
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+  matches: [neon.project:example-project-123456]
+
+- name: CLI projects create (output as printed in the Neon docs)
+  tool: Bash
+  input: { command: "npx neonctl projects create --name waitlist-demo" }
+  output: |
+    Project
+    ID          example-project-123456
+    Name        waitlist-demo
+    Region ID   aws-us-east-2
+    Created At  2026-09-01T10:00:00Z
+
+    Connection URIs
+    Connection URI
+    [REDACTED]
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+
+- name: CLI projects create --output json
+  tool: Bash
+  input: { command: "neon projects create --name waitlist-demo --output json" }
+  output: '{"project":{"id":"example-project-123456","platform_id":"aws","region_id":"aws-us-east-2","name":"waitlist-demo","creation_source":"neon","created_at":"2026-09-01T10:00:00Z"},"connection_uris":[{"connection_uri":"[REDACTED]"}]}'
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+  matches: [neon.project:example-project-123456]
+
+- name: CLI projects create --output yaml
+  tool: Bash
+  input: { command: "neon project create -o yaml" }
+  output: |
+    project:
+      id: example-project-123456
+      name: waitlist-demo
+      created_at: 2026-09-01T10:00:00Z
+    connection_uris:
+      - connection_uri: "[REDACTED]"
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+
+- name: CLI projects create that failed
+  tool: Bash
+  status: error
+  input: { command: "neon projects create --name waitlist-demo" }
+  output: "ERROR: You have reached the limit of 100 projects."
+  expect: []
+
+- name: CLI projects list is read-only
+  tool: Bash
+  input: { command: "neon projects list" }
+  output: |
+    Projects
+    ┌────────────────────────┬───────────────┬───────────────┬──────────────────────┐
+    │ Id                     │ Name          │ Region Id     │ Created At           │
+    ├────────────────────────┼───────────────┼───────────────┼──────────────────────┤
+    │ example-project-123456 │ waitlist-demo │ aws-us-east-2 │ 2026-09-01T10:00:00Z │
+    └────────────────────────┴───────────────┴───────────────┴──────────────────────┘
+  expect: []
+
+- name: CLI branches create (table output, with compute)
+  tool: Bash
+  input: { command: "neon branches create --name agent-preview --project-id example-project-123456" }
+  output: |
+    branch
+    ┌───────────────┬───────────────────┬───────────────┬──────────────────────┬────────────┐
+    │ Name          │ Id                │ Current State │ Created At           │ Expires At │
+    ├───────────────┼───────────────────┼───────────────┼──────────────────────┼────────────┤
+    │ agent-preview │ br-example-000002 │ init          │ 2026-10-01T10:00:00Z │ never      │
+    └───────────────┴───────────────────┴───────────────┴──────────────────────┴────────────┘
+    endpoints
+    ┌───────────────────┬──────────────────────┐
+    │ Id                │ Created At           │
+    ├───────────────────┼──────────────────────┤
+    │ ep-example-000002 │ 2026-10-01T10:00:00Z │
+    └───────────────────┴──────────────────────┘
+    connection_uris
+    ┌────────────────┐
+    │ Connection Uri │
+    ├────────────────┤
+    │ [REDACTED]     │
+    └────────────────┘
+  expect:
+    - { kind: neon.branch, value: br-example-000002, role: created }
+    - { kind: neon.endpoint, value: ep-example-000002, role: created }
+  matches: [neon.branch:example-project-123456/br-example-000002, neon.endpoint:example-project-123456/ep-example-000002]
+
+- name: CLI branches create --output json
+  tool: Bash
+  input: { command: "neonctl branch create --name agent-preview --output json" }
+  output: '{"branch":{"id":"br-example-000002","project_id":"example-project-123456","parent_id":"br-example-000001","name":"agent-preview","current_state":"init","creation_source":"neon","default":false},"endpoints":[{"id":"ep-example-000002","branch_id":"br-example-000002","type":"read_write","current_state":"init"}],"connection_uris":[{"connection_uri":"[REDACTED]"}]}'
+  expect:
+    - { kind: neon.branch, value: br-example-000002, container: example-project-123456, role: created }
+    - { kind: neon.endpoint, value: ep-example-000002, role: created }
+  matches: [neon.branch:example-project-123456/br-example-000002, neon.endpoint:example-project-123456/ep-example-000002]
+
+- name: CLI branches create --output yaml --no-compute
+  tool: Bash
+  input: { command: "neon branches create --name feature-search --no-compute -o yaml" }
+  output: |
+    branch:
+      id: br-example-000003
+      name: feature-search
+      created_at: 2026-10-02T10:00:00Z
+  expect:
+    - { kind: neon.branch, value: br-example-000003, role: created }
+
+- name: CLI branches list is read-only
+  tool: Bash
+  input: { command: "neon branches list --project-id example-project-123456" }
+  output: |
+    ┌───────────────┬───────────────────┬───────────────┬──────────────────────┐
+    │ Name          │ Id                │ Current State │ Created At           │
+    ├───────────────┼───────────────────┼───────────────┼──────────────────────┤
+    │ agent-preview │ br-example-000002 │ ready         │ 2026-10-01T10:00:00Z │
+    └───────────────┴───────────────────┴───────────────┴──────────────────────┘
+  expect: []
+
+- name: CLI branches add-compute
+  tool: Bash
+  input: { command: "neon branches add-compute br-example-000003 --type read_write" }
+  output: |
+    ┌───────────────────┬──────────────────────────────────────────────┐
+    │ Id                │ Host                                         │
+    ├───────────────────┼──────────────────────────────────────────────┤
+    │ ep-example-000003 │ ep-example-000003.us-east-2.aws.neon.tech    │
+    └───────────────────┴──────────────────────────────────────────────┘
+  expect:
+    - { kind: neon.endpoint, value: ep-example-000003, role: created }
+  matches: [neon.endpoint:example-project-123456/ep-example-000003]
+
+- name: CLI databases create with --branch id (table output)
+  tool: Bash
+  input: { command: "neon databases create --name neondb --project-id example-project-123456 --branch br-example-000001" }
+  output: |
+    ┌────────┬──────────────┬──────────────────────┐
+    │ Name   │ Owner Name   │ Created At           │
+    ├────────┼──────────────┼──────────────────────┤
+    │ neondb │ neondb_owner │ 2026-09-01T10:00:00Z │
+    └────────┴──────────────┴──────────────────────┘
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: created }
+  matches: [neon.database:example-project-123456/br-example-000001/neondb]
+
+- name: CLI databases create --output json (branch from output)
+  tool: Bash
+  input: { command: "neon db create --name=neondb --output json" }
+  output: '{"id":1000001,"branch_id":"br-example-000001","name":"neondb","owner_name":"neondb_owner","created_at":"2026-09-01T10:00:00Z"}'
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: created }
+
+- name: CLI databases create on the context branch (no branch id anywhere)
+  tool: Bash
+  input: { command: "neon databases create --name analytics" }
+  output: |
+    ┌───────────┬──────────────┬──────────────────────┐
+    │ Name      │ Owner Name   │ Created At           │
+    ├───────────┼──────────────┼──────────────────────┤
+    │ analytics │ neondb_owner │ 2026-10-05T10:00:00Z │
+    └───────────┴──────────────┴──────────────────────┘
+  expect:
+    - { kind: neon.database, value: analytics, role: created }
+
+- name: CLI roles create
+  tool: Bash
+  input: { command: "neon roles create --name neondb_owner --branch br-example-000001" }
+  output: |
+    ┌──────────────┬──────────────────────┐
+    │ Name         │ Created At           │
+    ├──────────────┼──────────────────────┤
+    │ neondb_owner │ 2026-09-01T10:00:00Z │
+    └──────────────┴──────────────────────┘
+  expect:
+    - { kind: neon.role, value: neondb_owner, container: br-example-000001, role: created }
+  matches: [neon.role:example-project-123456/br-example-000001/neondb_owner]
+
+- name: CLI data-api create references the database
+  tool: Bash
+  input: { command: "neon data-api create --project-id example-project-123456 --branch br-example-000001 --database neondb --add-default-grants" }
+  output: |
+    ┌──────────────────────────────────────────────────────────────────────────┐
+    │ Url                                                                      │
+    ├──────────────────────────────────────────────────────────────────────────┤
+    │ https://ep-example-000001.apirest.us-east-2.aws.neon.tech/neondb/rest/v1 │
+    └──────────────────────────────────────────────────────────────────────────┘
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: referenced }
+
+# ---- Neon API through curl ----
+- name: curl POST /projects
+  tool: Bash
+  input: { command: "curl -s -X POST https://console.neon.tech/api/v2/projects -H 'Authorization: Bearer [REDACTED]' -H 'Content-Type: application/json' -d '{\"project\":{\"name\":\"waitlist-demo\"}}'" }
+  output: '{"project":{"id":"example-project-123456","name":"waitlist-demo","creation_source":"console","created_at":"2026-09-01T10:00:00Z"},"connection_uris":[{"connection_uri":"[REDACTED]"}],"roles":[{"branch_id":"br-example-000001","name":"neondb_owner","protected":false}],"databases":[{"id":1000001,"branch_id":"br-example-000001","name":"neondb","owner_name":"neondb_owner"}],"operations":[],"branch":{"id":"br-example-000001","project_id":"example-project-123456","name":"main","default":true},"endpoints":[{"id":"ep-example-000001","branch_id":"br-example-000001","type":"read_write"}]}'
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+    - { kind: neon.branch, value: br-example-000001, container: example-project-123456, role: created }
+    - { kind: neon.endpoint, value: ep-example-000001, role: created }
+  matches: [neon.project:example-project-123456, neon.branch:example-project-123456/br-example-000001, neon.endpoint:example-project-123456/ep-example-000001]
+
+- name: curl POST /projects that failed (GeneralError)
+  tool: Bash
+  input: { command: "curl -s -X POST https://console.neon.tech/api/v2/projects -H 'Authorization: Bearer [REDACTED]' -d '{}'" }
+  output: '{"request_id":"00000000-0000-4000-8000-000000000001","code":"","message":"projects limit exceeded"}'
+  expect: []
+
+- name: curl GET /projects is read-only
+  tool: Bash
+  input: { command: "curl -s https://console.neon.tech/api/v2/projects?org_id=org-example-12345678 -H 'Authorization: Bearer [REDACTED]'" }
+  output: '{"projects":[{"id":"example-project-123456","name":"waitlist-demo"}]}'
+  expect: []
+
+- name: curl POST /projects/{id}/branches
+  tool: Bash
+  input: { command: "curl -s --request POST 'https://console.neon.tech/api/v2/projects/example-project-123456/branches' -H 'Authorization: Bearer [REDACTED]' --json '{\"endpoints\":[{\"type\":\"read_write\"}]}'" }
+  output: '{"branch":{"id":"br-example-000002","project_id":"example-project-123456","parent_id":"br-example-000001","name":"br-example-000002","current_state":"init","default":false},"endpoints":[{"id":"ep-example-000002","branch_id":"br-example-000002","type":"read_write"}],"operations":[]}'
+  expect:
+    - { kind: neon.branch, value: br-example-000002, container: example-project-123456, role: created }
+    - { kind: neon.endpoint, value: ep-example-000002, role: created }
+  matches: [neon.branch:example-project-123456/br-example-000002, neon.endpoint:example-project-123456/ep-example-000002]
+
+- name: curl POST /projects/{id}/endpoints
+  tool: Bash
+  input: { command: "curl -s -X POST https://console.neon.tech/api/v2/projects/example-project-123456/endpoints -H 'Authorization: Bearer [REDACTED]' -d '{\"endpoint\":{\"branch_id\":\"br-example-000003\",\"type\":\"read_write\"}}'" }
+  output: '{"endpoint":{"host":"ep-example-000003.us-east-2.aws.neon.tech","id":"ep-example-000003","project_id":"example-project-123456","branch_id":"br-example-000003","type":"read_write","current_state":"init"},"operations":[]}'
+  expect:
+    - { kind: neon.endpoint, value: ep-example-000003, role: created }
+  matches: [neon.endpoint:example-project-123456/ep-example-000003]
+
+- name: curl POST .../databases
+  tool: Bash
+  input: { command: "curl -s -X POST https://console.neon.tech/api/v2/projects/example-project-123456/branches/br-example-000001/databases -H 'Authorization: Bearer [REDACTED]' -d '{\"database\":{\"name\":\"neondb\",\"owner_name\":\"neondb_owner\"}}'" }
+  output: '{"database":{"id":1000001,"branch_id":"br-example-000001","name":"neondb","owner_name":"neondb_owner","created_at":"2026-09-01T10:00:00Z"},"operations":[]}'
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: created }
+  matches: [neon.database:example-project-123456/br-example-000001/neondb]
+
+- name: curl POST .../roles
+  tool: Bash
+  input: { command: "curl -s -X POST https://console.neon.tech/api/v2/projects/example-project-123456/branches/br-example-000001/roles -H 'Authorization: Bearer [REDACTED]' -d '{\"role\":{\"name\":\"neondb_owner\"}}'" }
+  output: '{"role":{"branch_id":"br-example-000001","name":"neondb_owner","password":"[REDACTED]","protected":false},"operations":[]}'
+  expect:
+    - { kind: neon.role, value: neondb_owner, container: br-example-000001, role: created }
+  matches: [neon.role:example-project-123456/br-example-000001/neondb_owner]
+
+- name: curl POST .../data-api/{db} references the database
+  tool: Bash
+  input: { command: "curl -s -X POST https://console.neon.tech/api/v2/projects/example-project-123456/branches/br-example-000001/data-api/neondb -H 'Authorization: Bearer [REDACTED]' -d '{\"auth_provider\":\"neon_auth\",\"add_default_grants\":true}'" }
+  output: '{"url":"https://ep-example-000001.apirest.us-east-2.aws.neon.tech/neondb/rest/v1"}'
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: referenced }
+
+# ---- Stripe Projects ----
+# The add output shape is undocumented; this only checks the id patterns.
+- name: Stripe Projects add neon/postgres
+  tool: Bash
+  input: { command: "stripe projects add neon/postgres --json --no-interactive" }
+  output: '{"provider":"neon","service":"postgres","project_id":"example-project-123456","dashboard_url":"https://console.neon.tech/app/projects/example-project-123456"}'
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+  matches: [neon.project:example-project-123456]
+
+# ---- Neon MCP server ----
+- name: MCP create_project
+  tool: mcp__neon__create_project
+  input: { params: { name: waitlist-demo } }
+  output: '{"id":"example-project-123456","name":"waitlist-demo","region_id":"aws-us-east-2","creation_source":"console","created_at":"2026-09-01T10:00:00Z","org_id":"org-example-12345678"}'
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: created }
+  matches: [neon.project:example-project-123456]
+
+- name: MCP create_project error text proves nothing
+  tool: mcp__neon__create_project
+  input: { params: { name: waitlist-demo } }
+  output: "Error: projects limit exceeded"
+  expect: []
+
+- name: MCP create_branch (claude.ai connector)
+  tool: mcp__claude_ai_Neon__create_branch
+  input: { params: { project_id: example-project-123456, name: agent-preview } }
+  output: '{"id":"br-example-000002","project_id":"example-project-123456","parent_id":"br-example-000001","name":"agent-preview","current_state":"ready","default":false}'
+  expect:
+    - { kind: neon.branch, value: br-example-000002, container: example-project-123456, role: created }
+  matches: [neon.branch:example-project-123456/br-example-000002]
+
+- name: MCP create_postgres_endpoint
+  tool: mcp__neon__create_postgres_endpoint
+  input: { params: { project_id: example-project-123456, endpoint: { branch_id: br-example-000003, type: read_write } } }
+  output: '{"id":"ep-example-000003","project_id":"example-project-123456","branch_id":"br-example-000003","type":"read_write","current_state":"init"}'
+  expect:
+    - { kind: neon.endpoint, value: ep-example-000003, role: created }
+  matches: [neon.endpoint:example-project-123456/ep-example-000003]
+
+- name: MCP create_postgres_database
+  tool: mcp__neon__create_postgres_database
+  input: { params: { project_id: example-project-123456, branch_id: br-example-000001, name: neondb, owner_name: neondb_owner } }
+  output: '{"id":1000001,"branch_id":"br-example-000001","name":"neondb","owner_name":"neondb_owner","created_at":"2026-09-01T10:00:00Z"}'
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: created }
+  matches: [neon.database:example-project-123456/br-example-000001/neondb]
+
+- name: MCP create_postgres_role
+  tool: mcp__neon__create_postgres_role
+  input: { params: { project_id: example-project-123456, branch_id: br-example-000001, role: { name: neondb_owner } } }
+  output: '{"branch_id":"br-example-000001","name":"neondb_owner","password":"[REDACTED]","protected":false}'
+  expect:
+    - { kind: neon.role, value: neondb_owner, container: br-example-000001, role: created }
+  matches: [neon.role:example-project-123456/br-example-000001/neondb_owner]
+
+- name: MCP provision_neon_data_api references the database
+  tool: mcp__neon__provision_neon_data_api
+  input: { params: { project_id: example-project-123456, branch_id: br-example-000001, database_name: neondb, add_default_grants: true } }
+  output: '{"url":"https://ep-example-000001.apirest.us-east-2.aws.neon.tech/neondb/rest/v1"}'
+  expect:
+    - { kind: neon.database, value: neondb, container: br-example-000001, role: referenced }
+
+- name: MCP list_projects is read-only
+  tool: mcp__neon__list_projects
+  input: { params: {} }
+  output: '{"projects":[{"id":"example-project-123456","name":"waitlist-demo"}]}'
+  expect:
+    - { kind: neon.project, value: example-project-123456, role: referenced }
+
+- name: MCP list_branches is read-only
+  tool: mcp__neon__list_branches
+  input: { params: { project_id: example-project-123456 } }
+  output: '{"branches":[{"id":"br-example-000002","name":"agent-preview"}]}'
+  expect:
+    - { kind: neon.branch, value: br-example-000002, role: referenced }

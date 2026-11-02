@@ -51,7 +51,7 @@ confirm_ref "setup.sh changes default privileges on the test project(s)."
 #     RLS-off table in public is readable by anyone holding the public key.
 #
 # So the demo restores the pre-change default ON THE TEST PROJECT ONLY, once,
-# with the statement Supabase's own docs show (docs/research/supabase.md Q7,
+# with the statement Supabase's own docs show (adapters/supabase/research.md Q7,
 # option (a) in docs/OPEN_QUESTIONS.md §5). demo/SCRIPT.md discloses this in
 # the video's on-screen text. Never run this on a real project: it makes every
 # future table in public reachable through the Data API.

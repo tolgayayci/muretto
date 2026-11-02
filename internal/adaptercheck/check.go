@@ -1,5 +1,5 @@
 // Package adaptercheck runs an adapter's test fixtures offline (scan
-// scenarios and extract cases, docs/WRITING_AN_ADAPTER.md §9) and checks the
+// scenarios and extract cases, adapters/WRITING.md §9) and checks the
 // rules every adapter shipped in adapters/ must meet. CI, `muretto adapter
 // test` and contributors run the same code, through an offline broker, so a
 // check can never reach a provider.
@@ -136,7 +136,7 @@ func (r *Report) Problems() []string {
 	return out
 }
 
-// Run checks provider's fixtures in dir (adapters/testdata/<provider>):
+// Run checks provider's fixtures in dir (adapters/<provider>/testdata):
 // every scan scenario through an offline broker and every extract case.
 // strict adds the rules an adapter shipped with Muretto must meet.
 func Run(reg *adapters.Registry, provider, dir string, strict bool) (*Report, error) {

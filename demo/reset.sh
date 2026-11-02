@@ -19,7 +19,7 @@
 #   - Locally: the tmux session, the sync server (its in-memory data goes with
 #     it), the dashboard dev server, and demo/.run (the five MURETTO_HOMEs,
 #     dev tokens, logs).
-# Endpoints: docs/research/supabase.md Q9 and docs/research/vercel.md Q9.
+# Endpoints: adapters/supabase/research.md Q9 and adapters/vercel/research.md Q9.
 set -euo pipefail
 # shellcheck source=demo/lib.sh
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"

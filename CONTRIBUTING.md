@@ -21,9 +21,9 @@ make test    # the whole suite: no network, no accounts needed
 
 ## Adding a provider
 
-A provider is one YAML file in `adapters/`, plus fixtures and scenarios. No Go changes. See [`docs/WRITING_AN_ADAPTER.md`](docs/WRITING_AN_ADAPTER.md). Have an OpenAPI file? `muretto adapter new openapi.json --fixtures adapters/testdata/<provider>` drafts both.
+A provider is one YAML file in `adapters/`, plus fixtures and scenarios. No Go changes. See [`adapters/WRITING.md`](adapters/WRITING.md). Have an OpenAPI file? `muretto adapter new openapi.json --fixtures adapters/testdata/<provider>` drafts both.
 
-CI rejects an adapter that does not pass its own fixtures and the shipping rules (a failure scenario, secret markers for stripped fields, an extract case per signature). Check locally with `muretto adapter test adapters/<provider>.yaml --strict`.
+CI rejects an adapter that does not pass its own fixtures and the shipping rules (a failure scenario, secret markers for stripped fields, an extract case per signature). Check locally with `muretto adapter test adapters/<provider>/adapter.yaml --strict`.
 
 ## Live tests
 

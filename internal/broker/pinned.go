@@ -8,7 +8,7 @@ import (
 )
 
 // SupabaseRLSCatalogQuery is the only SQL Muretto ever sends, and only when the
-// user opts in (docs/research/supabase.md Q3). It is one constant SELECT on
+// user opts in (adapters/supabase/research.md Q3). It is one constant SELECT on
 // pg_catalog: no parameters, no user input, no ';', no SET, and no functions
 // other than has_*_privilege. It runs through
 // POST /v1/projects/{ref}/database/query/read-only, as supabase_read_only_user.
@@ -64,7 +64,7 @@ func mustJSON(v any) []byte {
 // secrets, source code or decrypted values, or they write. "*" matches one
 // segment; a trailing "**" matches the rest of the path (including nothing).
 var deniedPaths = []struct{ host, pattern string }{
-	// Supabase (docs/research/supabase.md "Never call" and Recommendations).
+	// Supabase (adapters/supabase/research.md "Never call" and Recommendations).
 	{"api.supabase.com", "/v1/branches/**"},                    // returns db_pass and jwt_secret
 	{"api.supabase.com", "/v1/projects/*/functions/*/body"},    // function source code
 	{"api.supabase.com", "/v1/projects/*/config/auth/**"},      // smtp_pass, provider secrets
@@ -73,10 +73,10 @@ var deniedPaths = []struct{ host, pattern string }{
 	{"api.supabase.com", "/v2/projects/*/config/**"},           // effective auth config
 	{"api.supabase.com", "/v1/projects/*/database/query"},      // write-scoped SQL endpoint
 	{"api.supabase.com", "/v1/projects/*/database/migrations"}, // POST applies migrations
-	// Vercel (docs/research/vercel.md §3.4).
+	// Vercel (adapters/vercel/research.md §3.4).
 	{"api.vercel.com", "/*/projects/*/env/*"}, // one env var: decrypted value
 	{"api.vercel.com", "/v1/env/**"},          // shared env vars carry values
-	// GitHub (docs/research/github.md "Never call").
+	// GitHub (adapters/github/research.md "Never call").
 	{"api.github.com", "/repos/*/*/actions/variables/*"},        // one variable: plaintext value
 	{"api.github.com", "/orgs/*/actions/variables/*"},           // one org variable: plaintext value
 	{"api.github.com", "/repos/*/*/environments/*/variables/*"}, // one environment variable
@@ -88,7 +88,7 @@ var deniedPaths = []struct{ host, pattern string }{
 	{"api.github.com", "/repos/*/*/actions/runs/*/logs"},        // logs may hold secrets
 	{"api.github.com", "/repos/*/*/actions/jobs/*/logs"},        // logs may hold secrets
 	{"api.github.com", "/repos/*/*/actions/artifacts/**"},       // build artifacts
-	// Cloudflare (docs/research/cloudflare.md "Never call"); a Read token
+	// Cloudflare (adapters/cloudflare/research.md "Never call"); a Read token
 	// can read these.
 	{"api.cloudflare.com", "/client/v4/accounts/*/r2/buckets/*/objects/**"},                         // object contents
 	{"api.cloudflare.com", "/client/v4/accounts/*/storage/kv/namespaces/*/values/**"},               // KV values
@@ -105,7 +105,7 @@ var deniedPaths = []struct{ host, pattern string }{
 	{"api.cloudflare.com", "/client/v4/accounts/*/d1/database/*/raw"},                               // data
 	{"api.cloudflare.com", "/client/v4/accounts/*/d1/database/*/export"},                            // data
 	{"api.cloudflare.com", "/client/v4/accounts/*/hyperdrive/configs/**"},                           // origin passwords
-	// Neon (docs/research/neon.md "Never call").
+	// Neon (adapters/neon/research.md "Never call").
 	{"console.neon.tech", "/api/v2/projects/*/connection_uri"},                     // connection string with password
 	{"console.neon.tech", "/api/v2/projects/*/branches/*/roles/*/reveal_password"}, // role password
 	{"console.neon.tech", "/api/v2/projects/*/branches/*/roles/*/reset_password"},  // writes, returns a password
@@ -114,13 +114,13 @@ var deniedPaths = []struct{ host, pattern string }{
 	{"console.neon.tech", "/api/v2/projects/*/branches/*/auth/**"},                 // auth secrets
 	{"console.neon.tech", "/api/v2/api_keys/**"},                                   // API keys
 	{"console.neon.tech", "/api/v2/organizations/*/api_keys/**"},                   // org API keys
-	// Stripe (docs/research/stripe.md "Never call").
+	// Stripe (adapters/stripe/research.md "Never call").
 	{"api.stripe.com", "/v1/apps/secrets/**"},   // plaintext app secrets
 	{"api.stripe.com", "/v1/ephemeral_keys/**"}, // ephemeral keys
 	{"api.stripe.com", "/v1/accounts/**"},       // Connect accounts: PII, not used
 	{"api.stripe.com", "/v1/issuing/cards/**"},  // card details
 	{"api.stripe.com", "/v2/core/vault/**"},     // vaulted data
-	// Render (docs/research/render.md "Never call").
+	// Render (adapters/render/research.md "Never call").
 	{"api.render.com", "/v1/postgres/*/connection-info"},
 	{"api.render.com", "/v1/postgres/*/credentials/**"},
 	{"api.render.com", "/v1/postgres/*/export/**"},
@@ -133,7 +133,7 @@ var deniedPaths = []struct{ host, pattern string }{
 	{"api.render.com", "/v1/env-groups/*/secret-files/**"},
 	{"api.render.com", "/v1/build-sources/*/env-vars/**"},
 	{"api.render.com", "/v1/build-sources/*/secret-files/**"},
-	// PlanetScale (docs/research/planetscale.md "Never call").
+	// PlanetScale (adapters/planetscale/research.md "Never call").
 	{"api.planetscale.com", "/v1/organizations/*/databases/*/webhooks/**"},        // webhook secrets
 	{"api.planetscale.com", "/v1/organizations/*/oauth-applications/*/tokens/**"}, // OAuth tokens
 	{"api.planetscale.com", "/v1/organizations/*/databases/*/branches/*/roles/*"}, // one role: connection details

@@ -11,4 +11,4 @@ labels: provider
 
 **How do agents create them?** (CLI, MCP server, API)
 
-**Would you like to write the adapter?** See docs/WRITING_AN_ADAPTER.md.
+**Would you like to write the adapter?** See adapters/WRITING.md.

@@ -42,13 +42,14 @@ Flags for new:
   --no-rules             do not suggest exposure rules
   --include-deprecated   also use deprecated operations
   -o, --out file         where to write the adapter (default <provider>.yaml; - for stdout)
-  --fixtures dir         also write starter test fixtures there (adapters/testdata/<provider>)
+  --fixtures dir         also write starter test fixtures there (adapters/<provider>/testdata)
   --install              install it right away
   --force                overwrite existing files
   --json                 print the generation report as JSON
 
 Flags for test:
-  --fixtures dir         fixtures to run (default: testdata/<provider> next to the adapter)
+  --fixtures dir         fixtures to run (default: testdata/ next to adapter.yaml,
+                         or testdata/<provider> next to any other file)
   --openapi file         also dry-run a scan against fake responses built from this spec
   --strict               apply the rules every adapter shipped with Muretto must meet (CI does)
 
@@ -252,7 +253,7 @@ func (a *app) printReport(r *adaptergen.Report, out string) {
 		a.out("\n%d spec warnings, e.g.: %s", len(r.Warnings), r.Warnings[0])
 	}
 	a.out("\nNot in an OpenAPI file, so not generated: CLI output signatures and MCP tool names")
-	a.out("(see docs/WRITING_AN_ADAPTER.md section 7 to add them).")
+	a.out("(see adapters/WRITING.md section 7 to add them).")
 }
 
 func (a *app) printCandidates(r *adaptergen.Report) {
@@ -501,7 +502,7 @@ func (a *app) writeFixtures(res *adaptergen.Result, dir string, force bool) erro
 	}
 	a.out("\nWrote %d fixture files to %s: scan/basic, scan/failures (one endpoint answers 403), extract/cases.yaml.", len(files), dir)
 	a.out("Their bodies are fake values built from the spec. Replace them with recorded, sanitized")
-	a.out("responses (adapters/testdata/README.md) before you rely on them.")
+	a.out("responses (adapters/FIXTURES.md) before you rely on them.")
 	if total > 2<<20 {
 		a.out("They are large (%d MB): trim the bodies before committing them.", total>>20)
 	}
@@ -531,16 +532,18 @@ func (a *app) adapterTest(args []string) error {
 		return err
 	}
 	p := reg.Providers()[0]
-	if fixtures == "" {
-		// Where fixtures live: testdata/<provider> next to the adapter, as in
-		// adapters/testdata/<provider>.
-		if d := filepath.Join(filepath.Dir(pos[0]), "testdata", p.Name); dirExists(d) || strict {
-			fixtures = d
-		}
+	// Where fixtures live: testdata/ next to adapter.yaml, as in
+	// adapters/<provider>/, or testdata/<provider> next to a single file.
+	defaultFixtures := filepath.Join(filepath.Dir(pos[0]), "testdata")
+	if filepath.Base(pos[0]) != "adapter.yaml" {
+		defaultFixtures = filepath.Join(defaultFixtures, p.Name)
+	}
+	if fixtures == "" && (dirExists(defaultFixtures) || strict) {
+		fixtures = defaultFixtures
 	}
 	if fixtures == "" && spec == "" && !strict {
 		return usageErr("nothing to test: no %s; pass --fixtures, or --openapi for a dry run (adapter new --fixtures writes starter fixtures)",
-			filepath.Join(filepath.Dir(pos[0]), "testdata", p.Name))
+			defaultFixtures)
 	}
 	failed := false
 	a.out("%s (%s)", p.DisplayName, p.Name)

@@ -1,0 +1,744 @@
+# Cloudflare adapter. Every endpoint, field and output string here comes from
+# adapters/cloudflare/research.md (checked 2026-11-01). Format: adapters/WRITING.md.
+# Not yet verified live.
+format: 1
+provider: cloudflare
+display_name: Cloudflare
+
+api:
+  base_url: https://api.cloudflare.com
+  auth: { header: Authorization, scheme: Bearer }
+
+mcp_servers: [cloudflare, cloudflare-api]
+
+token_help: |
+  Create an Account API token (or a User API token scoped to one account):
+  dash.cloudflare.com > Manage Account > Account API Tokens > Create Token >
+  Custom token, named e.g. muretto-readonly, with a short TTL. Permissions:
+    Account > Account Settings > Read
+    Account > Workers R2 Storage > Read
+    Account > Workers Scripts > Read
+    Account > Workers KV Storage > Read
+    Account > D1 > Read
+    Account > Cloudflare Pages > Read
+    Account > Cloudflare Tunnel > Read
+    Zone > Zone > Read
+    Zone > DNS > Read
+  Account Resources: include only the account to scan; Zone Resources: all
+  zones from that account. These are read-only, but Cloudflare's Read groups
+  can still read data: R2 object contents, KV values, Worker script source
+  and Pages plaintext environment variables. Muretto only sends the GET
+  requests listed in this file (internal/broker) and never calls those
+  endpoints.
+
+# The broker allowlist is built from exactly these endpoints. Object, value
+# and source endpoints are never listed (see "Never call" in the research doc).
+endpoints:
+  accounts:
+    path: /client/v4/accounts
+    query: { per_page: "50" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+  r2_buckets:
+    path: /client/v4/accounts/{account_id}/r2/buckets
+    params: { account_id: "{account}" }
+    query: { per_page: "1000" }
+    pagination: { next: result_info.cursor, param: cursor }
+  r2_managed_domain:
+    path: /client/v4/accounts/{account_id}/r2/buckets/{bucket_name}/domains/managed
+    params: { account_id: "{account}", bucket_name: "{name}" }
+  r2_custom_domains:
+    path: /client/v4/accounts/{account_id}/r2/buckets/{bucket_name}/domains/custom
+    params: { account_id: "{account}", bucket_name: "{parent.name}" }
+  workers:
+    path: /client/v4/accounts/{account_id}/workers/workers
+    params: { account_id: "{account}" }
+    query: { per_page: "100" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+    # Preview binding templates; only types are documented, but plain-text
+    # bindings carry values in the script APIs, so drop the whole map.
+    strip: ["result[].previews_base_config.env"]
+  pages_projects:
+    path: /client/v4/accounts/{account_id}/pages/projects
+    params: { account_id: "{account}" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+    strip:
+      - "result[].deployment_configs.preview.env_vars"
+      - "result[].deployment_configs.production.env_vars"
+      - "result[].canonical_deployment.env_vars"
+      - "result[].latest_deployment.env_vars"
+      - "result[].build_config.web_analytics_token"
+      - "result[].canonical_deployment.build_config.web_analytics_token"
+      - "result[].latest_deployment.build_config.web_analytics_token"
+  pages_deployments:
+    path: /client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments
+    params: { account_id: "{account}", project_name: "{parent.name}" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+    strip: ["result[].env_vars", "result[].build_config.web_analytics_token"]
+  d1_databases:
+    path: /client/v4/accounts/{account_id}/d1/database
+    params: { account_id: "{account}" }
+    query: { per_page: "1000" } # the documented default; max 10000
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+  kv_namespaces:
+    path: /client/v4/accounts/{account_id}/storage/kv/namespaces
+    params: { account_id: "{account}" }
+    query: { per_page: "1000" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+  zones:
+    path: /client/v4/zones
+    query: { account.id: "{account}", per_page: "50" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+  dns_records:
+    path: /client/v4/zones/{zone_id}/dns_records
+    params: { zone_id: "{parent.id}" }
+    query: { per_page: "1000" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+  tunnels:
+    path: /client/v4/accounts/{account_id}/cfd_tunnel
+    params: { account_id: "{account}" }
+    query: { is_deleted: "false", per_page: "1000" }
+    pagination: { style: page, param: page, total: result_info.total_pages, items: result }
+  tunnel_configuration:
+    path: /client/v4/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations
+    params: { account_id: "{account}", tunnel_id: "{id}" }
+  tunnel_routes:
+    path: /client/v4/accounts/{account_id}/cfd_tunnel/{tunnel_id}/configurations
+    params: { account_id: "{account}", tunnel_id: "{parent.id}" }
+
+accounts:
+  endpoint: accounts
+  items: result
+  id: "{id}"
+  name: "{name}"
+# Cloudflare has no account slug; resources carry the account id instead.
+account_slug: "{account}"
+
+kinds:
+  # ---- R2 ----
+  - kind: r2_bucket
+    sources:
+      - endpoint: r2_buckets
+        items: result.buckets
+        checks_rules: [public_r2_bucket]
+        id: "{account}/{name}"
+        name: "{name}"
+        created_at: { value: "{creation_date}", format: rfc3339 }
+        attributes:
+          - location
+          - jurisdiction
+          - storage_class
+    enrich:
+      - endpoint: r2_managed_domain
+        attributes:
+          # Whether the bucket is publicly accessible at its r2.dev domain.
+          - { name: managed_domain_enabled, field: result.enabled }
+          - { name: managed_domain, field: result.domain }
+    match: { value: "{name}" }
+    remove:
+      kind: command
+      text: "wrangler r2 bucket delete {name}"
+      note: The bucket must be empty first. Deleting it removes its r2.dev and custom-domain access.
+
+  - kind: r2_custom_domain
+    for_each: r2_bucket
+    sources:
+      - endpoint: r2_custom_domains
+        items: result.domains
+        checks_rules: [bypassable_r2_custom_domain]
+        id: "{parent.name}/{domain}"
+        name: "{domain}"
+        url: "https://{domain}"
+        attributes:
+          - domain
+          - enabled
+          - { name: ownership_status, field: status.ownership }
+          - { name: ssl_status, field: status.ssl }
+          - { name: zone_id, field: zoneId }
+          - { name: zone_name, field: zoneName }
+          - { name: min_tls, field: minTLS }
+          - { name: bucket_name, template: "{parent.name}" }
+    match: { value: "{bucket_name}/{domain}" }
+    remove:
+      kind: command
+      text: "wrangler r2 bucket domain remove {bucket_name} --domain {domain}"
+
+  # ---- Workers ----
+  - kind: worker
+    sources:
+      - endpoint: workers
+        items: result
+        checks_rules: [public_worker, public_worker_preview]
+        id: "{id}"
+        name: "{name}"
+        url: "{subdomain.url}"
+        created_at: { value: "{created_on}", format: rfc3339 }
+        attributes:
+          - { name: subdomain_enabled, field: subdomain.enabled }
+          - { name: subdomain_previews_enabled, field: subdomain.previews_enabled }
+          - { name: subdomain_url, field: subdomain.url }
+          - { name: worker_name, field: name }
+          - deployed_on
+          - logpush
+          - tags
+    match: { value: "{name}" }
+    remove:
+      kind: command
+      text: "wrangler delete {name}"
+      note: Deletes the Worker and all its versions, routes and workers.dev URL.
+
+  # ---- Pages ----
+  - kind: pages_project
+    sources:
+      - endpoint: pages_projects
+        items: result
+        id: "{id}"
+        name: "{name}"
+        url: "https://{subdomain}"
+        created_at: { value: "{created_on}", format: rfc3339 }
+        attributes:
+          - subdomain
+          - domains
+          - framework
+          - production_branch
+          - uses_functions
+          - { name: source_type, field: source.type }
+          - { name: preview_deployment_setting, field: source.config.preview_deployment_setting }
+    match: { value: "{name}" }
+    remove:
+      kind: command
+      text: "wrangler pages project delete {name}"
+      note: Deletes the project, its deployments and its pages.dev URLs.
+
+  - kind: pages_deployment
+    for_each: pages_project
+    sources:
+      - endpoint: pages_deployments
+        items: result
+        id: "{id}"
+        name: "{url|or:short_id}"
+        status: "{latest_stage.status|or:latest_stage.name|lower}"
+        url: "{url}"
+        created_at: { value: "{created_on}", format: rfc3339 }
+        attributes:
+          - environment
+          - short_id
+          - aliases
+          - is_skipped
+          - { name: trigger_type, field: deployment_trigger.type }
+          - { name: project_name, template: "{project_name|or:parent.name}" }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: 'curl -X DELETE "https://api.cloudflare.com/client/v4/accounts/{account_id}/pages/projects/{project_name}/deployments/{provider_id}?force=true" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"'
+
+  # ---- D1 and KV ----
+  - kind: d1_database
+    sources:
+      - endpoint: d1_databases
+        items: result
+        id: "{uuid}"
+        name: "{name}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes:
+          - jurisdiction
+          - version
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "wrangler d1 delete {name}"
+
+  - kind: kv_namespace
+    sources:
+      - endpoint: kv_namespaces
+        items: result
+        id: "{id}"
+        name: "{title}"
+        attributes:
+          - title
+          - jurisdiction
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "wrangler kv namespace delete --namespace-id {provider_id}"
+
+  # ---- Zones and DNS ----
+  - kind: zone
+    sources:
+      - endpoint: zones
+        items: result
+        id: "{id}"
+        name: "{name}"
+        status: "{status}"
+        created_at: { value: "{created_on}", format: rfc3339 }
+        attributes:
+          - paused
+          - type
+          - { name: plan, field: plan.name }
+    remove:
+      kind: steps
+      text: "Cloudflare dashboard > {name} > Overview > Advanced Actions > Remove from Cloudflare"
+
+  - kind: dns_record
+    for_each: zone
+    sources:
+      - endpoint: dns_records
+        items: result
+        id: "{id}"
+        name: "{name}"
+        created_at: { value: "{created_on}", format: rfc3339 }
+        attributes:
+          - type
+          - content
+          - proxied
+          - ttl
+          - { name: zone_id, template: "{parent.id}" }
+          - { name: zone_name, template: "{parent.name}" }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: 'curl -X DELETE "https://api.cloudflare.com/client/v4/zones/{zone_id}/dns_records/{provider_id}" -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"'
+
+  # ---- Tunnels ----
+  - kind: tunnel
+    sources:
+      - endpoint: tunnels
+        items: result # is_deleted=false leaves deleted tunnels out
+        id: "{id}"
+        name: "{name}"
+        status: "{status}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes:
+          - config_src
+          - remote_config
+          - tun_type
+          - conns_active_at
+    enrich:
+      - endpoint: tunnel_configuration
+        attributes:
+          - { name: config_source, field: result.source }
+          - { name: config_version, field: result.version }
+          # Tunnel-wide default; an ingress rule's own originRequest overrides it.
+          - { name: config_access_required, field: result.config.originRequest.access.required }
+    match: { value: "{provider_id}" }
+    remove:
+      kind: command
+      text: "cloudflared tunnel delete {name}"
+      note: Stop every cloudflared connector for this tunnel first, or add --force.
+
+  # One resource per public hostname in a remotely managed tunnel's ingress.
+  - kind: tunnel_route
+    for_each: tunnel
+    # config_src "cloudflare" marks a remotely managed tunnel; a local one
+    # keeps its ingress in config.yml on the host, so it gets no call.
+    for_each_where: { field: config_src, equals: cloudflare }
+    sources:
+      - endpoint: tunnel_routes
+        items: result.config.ingress
+        where: { field: hostname, present: true }
+        checks_rules: [localhost_tunnel_route, admin_port_tunnel_route]
+        id: "{parent.id}/{hostname}{path|default:/*}"
+        name: "{hostname}"
+        url: "https://{hostname}"
+        attributes:
+          - hostname
+          - path
+          - service
+          - { name: access_required, field: originRequest.access.required }
+          - { name: no_tls_verify, field: originRequest.noTLSVerify }
+          - { name: tunnel_id, template: "{parent.id}" }
+          - { name: tunnel_name, template: "{parent.name}" }
+    remove:
+      kind: steps
+      text: |
+        Cloudflare dashboard > Zero Trust > Networks > Tunnels > {tunnel_name} >
+        Public Hostname: delete {hostname}. Also delete its DNS CNAME to
+        {tunnel_id}.cfargotunnel.com.
+
+rules:
+  - id: public_r2_bucket
+    kind: r2_bucket
+    severity: critical
+    signal: api_field
+    exposed: { field: managed_domain_enabled, equals: "true" }
+    not_exposed: { field: managed_domain_enabled, equals: "false" }
+    title: "R2 bucket public on r2.dev: {name}"
+    explanation: >-
+      The API reports that bucket {name} is publicly accessible at its r2.dev
+      domain ({managed_domain}). Anyone with an object's URL can read it.
+    caveat: >-
+      Cloudflare documents r2.dev as rate-limited and for non-production use.
+      Buckets in a non-default jurisdiction (eu, fedramp) are not listed.
+      Muretto does not read object keys or contents.
+    fix:
+      kind: command
+      text: "wrangler r2 bucket dev-url disable {name}"
+      note: Serve public files through a custom domain instead, where WAF, caching and Access apply.
+      docs_url: https://developers.cloudflare.com/r2/buckets/public-buckets/
+
+  - id: bypassable_r2_custom_domain
+    kind: r2_custom_domain
+    severity: medium
+    signal: api_field
+    applies: { field: enabled, equals: "true" }
+    exposed: { field: parent.managed_domain_enabled, equals: "true" }
+    not_exposed: { field: parent.managed_domain_enabled, equals: "false" }
+    title: "r2.dev still on beside custom domain: {domain}"
+    explanation: >-
+      Bucket {bucket_name} is served at {domain} and the API also reports its
+      r2.dev domain enabled. WAF custom rules, caching, access controls and Bot
+      Management apply only on the custom domain, not on r2.dev.
+    caveat: Muretto does not see the WAF or Access rules on the custom domain.
+    fix:
+      kind: command
+      text: "wrangler r2 bucket dev-url disable {bucket_name}"
+      docs_url: https://developers.cloudflare.com/r2/buckets/public-buckets/
+
+  - id: public_worker
+    kind: worker
+    severity: high
+    signal: api_field
+    exposed: { field: subdomain_enabled, equals: "true" }
+    not_exposed: { field: subdomain_enabled, equals: "false" }
+    title: "Worker public on workers.dev: {name}"
+    explanation: >-
+      The API reports that Worker {name} is enabled on its workers.dev
+      subdomain ({subdomain_url}), which is publicly available.
+    caveat: >-
+      A Cloudflare Access application on the workers.dev URL, or
+      authentication in the Worker's own code, is not visible here.
+    fix:
+      kind: steps
+      text: |
+        Set workers_dev = false in the Worker's Wrangler configuration and run
+        wrangler deploy (a dashboard-only change is undone by the next deploy),
+        or protect the URL with Cloudflare Access:
+          Workers & Pages > {name} > Settings > Domains & Routes.
+      docs_url: https://developers.cloudflare.com/workers/configuration/routing/workers-dev/
+
+  - id: public_worker_preview
+    kind: worker
+    severity: high
+    signal: api_field
+    exposed: { field: subdomain_previews_enabled, equals: "true" }
+    not_exposed: { field: subdomain_previews_enabled, equals: "false" }
+    title: "Worker preview URLs on workers.dev: {name}"
+    explanation: >-
+      The API reports that preview URLs for Worker {name} are available on
+      workers.dev, so uploaded versions that are not deployed to production can
+      be reached there. Disabling workers.dev does not disable them.
+    caveat: A Cloudflare Access application on the preview URLs is not visible here.
+    fix:
+      kind: steps
+      text: |
+        Set preview_urls = false in the Worker's Wrangler configuration and run
+        wrangler deploy, or protect preview URLs with Cloudflare Access:
+          Workers & Pages > {name} > Settings > Domains & Routes.
+      docs_url: https://developers.cloudflare.com/workers/configuration/previews/
+
+  - id: localhost_tunnel_route
+    kind: tunnel_route
+    severity: high
+    signal: api_field
+    exposed:
+      all:
+        - { field: service, matches: '^(?i)[a-z+]+://(localhost|127\.[0-9.]+|0\.0\.0\.0|\[::1\]|::1)(:[0-9]+)?(/|$)' }
+        - any: [{ field: access_required, present: false }, { not: { field: access_required, equals: "true" } }]
+        - any: [{ field: parent.config_access_required, present: false }, { not: { field: parent.config_access_required, equals: "true" } }]
+    not_exposed:
+      any:
+        - { not: { field: service, matches: '^(?i)[a-z+]+://(localhost|127\.[0-9.]+|0\.0\.0\.0|\[::1\]|::1)(:[0-9]+)?(/|$)' } }
+        - { field: access_required, equals: "true" }
+    title: "Tunnel publishes a localhost service: {hostname}"
+    explanation: >-
+      Tunnel {tunnel_name} routes the public hostname {hostname} to {service}
+      on the machine running cloudflared, and the tunnel configuration does not
+      require Cloudflare Access for it.
+    caveat: >-
+      A Cloudflare Access application on {hostname} is not checked. Locally
+      managed tunnels (config.yml on the host) are not visible to the API.
+    fix:
+      kind: steps
+      text: |
+        Remove the public hostname if it was for testing:
+          Zero Trust > Networks > Tunnels > {tunnel_name} > Public Hostname > {hostname} > Delete
+        or put a Cloudflare Access application in front of {hostname}.
+      docs_url: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/
+
+  - id: admin_port_tunnel_route
+    kind: tunnel_route
+    severity: high
+    signal: api_field
+    exposed:
+      all:
+        - any:
+            - { field: service, matches: '^(?i)(ssh|rdp|smb|tcp)://' }
+            - { field: service, matches: ':(22|3389|5432|3306|6379|27017|9200|2375|2376|5900|445|11211)(/|$)' }
+        - any: [{ field: access_required, present: false }, { not: { field: access_required, equals: "true" } }]
+        - any: [{ field: parent.config_access_required, present: false }, { not: { field: parent.config_access_required, equals: "true" } }]
+    not_exposed:
+      any:
+        - all:
+            - { not: { field: service, matches: '^(?i)(ssh|rdp|smb|tcp)://' } }
+            - { not: { field: service, matches: ':(22|3389|5432|3306|6379|27017|9200|2375|2376|5900|445|11211)(/|$)' } }
+        - { field: access_required, equals: "true" }
+    title: "Tunnel publishes an admin or database port: {hostname}"
+    explanation: >-
+      Tunnel {tunnel_name} routes the public hostname {hostname} to {service},
+      a remote-access protocol or a well-known database or admin port, and the
+      tunnel configuration does not require Cloudflare Access for it.
+    caveat: >-
+      A Cloudflare Access application on {hostname} is not checked. ssh://,
+      rdp:// and tcp:// hostnames need cloudflared or WARP on the client.
+    fix:
+      kind: steps
+      text: |
+        Zero Trust > Networks > Tunnels > {tunnel_name} > Public Hostname >
+        {hostname}: delete it, or protect it with a Cloudflare Access
+        application (and set Protect with Access in the hostname's settings).
+      docs_url: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/
+
+signatures:
+  # ---- Wrangler (workers-sdk 3f14c76, 2026-10-30) ----
+  - id: cloudflare.cli.d1_create
+    kind: d1_database
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+d1\s+create\b'], output: "✅ Successfully created DB '" }
+    extract:
+      - from: output # the printed binding snippet, TOML or JSON
+        pattern: '"?database_id"?\s*[:=]\s*"(?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"'
+        value: "{id}"
+
+  - id: cloudflare.cli.kv_namespace_create
+    kind: kv_namespace
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+kv:?\s*namespace\s+create\b'], output: '✨ Success!' }
+    extract:
+      - from: output # "id" or, with --preview, "preview_id"
+        pattern: '"?(?:preview_)?id"?\s*[:=]\s*"(?P<id>[0-9a-f]{32})"'
+        value: "{id}"
+
+  - id: cloudflare.cli.r2_bucket_create
+    kind: r2_bucket
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+r2\s+bucket\s+create\b'] }
+    extract:
+      - from: output # a jurisdiction prints as "name (eu)": not listed, so no match
+        pattern: "✅ Created bucket '(?P<name>[a-z0-9][a-z0-9-]{1,61}[a-z0-9])'"
+        value: "{name}"
+
+  # Turning on r2.dev is not creation: record the bucket as touched.
+  - id: cloudflare.cli.r2_dev_url_enable
+    kind: r2_bucket
+    role: referenced
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+r2\s+bucket\s+dev-url\s+enable\b'], output: "✨ Public access enabled at 'https://" }
+    extract:
+      - from: output
+        pattern: "Enabling public access for bucket '(?P<name>[a-z0-9-]+)'"
+        value: "{name}"
+
+  - id: cloudflare.cli.r2_domain_add
+    kind: r2_custom_domain
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+r2\s+bucket\s+domain\s+add\b'] }
+    extract:
+      - from: output
+        pattern: "Connecting custom domain '(?P<domain>[^']+)' to bucket '(?P<bucket>[a-z0-9-]+)'\\.\\.\\.\\s+✨ Custom domain '[^']+' connected successfully\\."
+        value: "{bucket}/{domain}"
+
+  # wrangler deploy creates or updates a Worker (attribution vetoes updates
+  # through created_on). It prints "Uploaded <name> (x.xx sec)".
+  - id: cloudflare.cli.deploy
+    kind: worker
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bwrangler(?:@[\w.-]+)?\s+(?:deploy|publish)\b']
+      not_command: ['--dry-run']
+    extract:
+      - from: output
+        pattern: '(?m)^Uploaded (?P<name>[A-Za-z0-9_-]+) \([0-9.]+ sec\)'
+        value: "{name}"
+      - from: output # the workers.dev target line under "Deployed <name> triggers"
+        pattern: '(?m)^\s+https://(?P<name>[a-z0-9-]+)\.[a-z0-9-]+\.workers\.dev\s*$'
+        value: "{name}"
+
+  - id: cloudflare.cli.pages_project_create
+    kind: pages_project
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+pages\s+(?:project\s+create|deploy|publish)\b'] }
+    extract:
+      - from: output
+        pattern: "✨ Successfully created the '(?P<name>[a-z0-9][a-z0-9-]*)' project\\."
+        value: "{name}"
+
+  - id: cloudflare.cli.pages_deploy
+    kind: pages_deployment
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+pages\s+(?:deploy|publish)\b'] }
+    extract:
+      - from: output
+        pattern: '✨ Deployment complete! Take a peek over at (?P<url>https://[a-z0-9-]+\.[a-z0-9-]+\.pages\.dev)'
+        value: "{url}"
+        match: { value: "{url}" }
+
+  - id: cloudflare.cli.tunnel_create
+    kind: tunnel
+    role: created
+    when: { tool: ^Bash$, command: ['\bwrangler(?:@[\w.-]+)?\s+tunnel\s+create\b'], output: 'Created tunnel\.' }
+    extract:
+      - from: output
+        pattern: '(?m)^ID: (?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$'
+        value: "{id}"
+
+  # ---- cloudflared (cloudflared 872b241, 2026-10-30) ----
+  - id: cloudflare.cli.cloudflared_tunnel_create
+    kind: tunnel
+    role: created
+    when: { tool: ^Bash$, command: ['\bcloudflared\s+(?:\S+\s+)*tunnel\s+(?:\S+\s+)*create\b'] }
+    extract:
+      - from: output
+        pattern: 'Created tunnel (?P<name>\S+) with id (?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})'
+        value: "{id}"
+      - from: output # --output json|yaml renders the tunnel instead
+        pattern: '(?m)^\s*"?id"?\s*:\s*"?(?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"?,?\s*$'
+        value: "{id}"
+
+  # ---- curl against the API. Errors come back as {success: false, errors,
+  # result: null}, so result.result.<id> only resolves on success. ----
+  - id: cloudflare.api.d1_create
+    kind: d1_database
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', '(?i)-X\s*POST|--request\s+POST|\s(?:-d|--data(?:-raw)?|--json)\s', 'api\.cloudflare\.com/client/v4/accounts/[0-9a-f]{32}/d1/database/?["''\s]']
+      result_has: [result]
+    extract:
+      - { from: result, value: "{result.result.uuid}" }
+
+  - id: cloudflare.api.kv_namespace_create
+    kind: kv_namespace
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', '(?i)-X\s*POST|--request\s+POST|\s(?:-d|--data(?:-raw)?|--json)\s', 'api\.cloudflare\.com/client/v4/accounts/[0-9a-f]{32}/storage/kv/namespaces/?["''\s]']
+      result_has: [result]
+    extract:
+      - { from: result, value: "{result.result.id}" }
+
+  - id: cloudflare.api.r2_bucket_create
+    kind: r2_bucket
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', '(?i)-X\s*POST|--request\s+POST|\s(?:-d|--data(?:-raw)?|--json)\s', 'api\.cloudflare\.com/client/v4/accounts/[0-9a-f]{32}/r2/buckets/?["''\s]']
+      result_has: [result]
+    extract:
+      - from: result
+        capture: [{ from: command, pattern: 'api\.cloudflare\.com/client/v4/accounts/(?P<acct>[0-9a-f]{32})/r2/buckets' }]
+        value: "{result.result.name}"
+        container: "{acct}"
+        match: { value: "{name}", container: "{account_id}" }
+
+  - id: cloudflare.api.pages_project_create
+    kind: pages_project
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', '(?i)-X\s*POST|--request\s+POST|\s(?:-d|--data(?:-raw)?|--json)\s', 'api\.cloudflare\.com/client/v4/accounts/[0-9a-f]{32}/pages/projects/?["''\s]']
+      result_has: [result]
+    extract:
+      - from: result
+        value: "{result.result.id}"
+        match: { value: "{provider_id}" }
+
+  - id: cloudflare.api.tunnel_create
+    kind: tunnel
+    role: created
+    when:
+      tool: ^Bash$
+      command: ['\bcurl\b', '(?i)-X\s*POST|--request\s+POST|\s(?:-d|--data(?:-raw)?|--json)\s', 'api\.cloudflare\.com/client/v4/accounts/[0-9a-f]{32}/cfd_tunnel/?["''\s]']
+      result_has: [result]
+    extract:
+      - from: result
+        value: "{result.result.id}"
+        match: { value: "{provider_id}" }
+
+  # ---- Cloudflare MCP (mcp.cloudflare.com, cloudflare/mcp 4938f2f). In code
+  # mode `execute` returns whatever the agent's JavaScript returns, so a call
+  # counts as creation only when its code POSTs to the create endpoint and
+  # the result has that endpoint's create-response shape. ----
+  - id: cloudflare.mcp.execute_d1_create
+    kind: d1_database
+    role: created
+    when:
+      mcp_tools: [execute]
+      input_matches: { code: '(?is)method\s*:\s*["'']POST["''].*?/d1/database[`"'']|/d1/database[`"''].*?method\s*:\s*["'']POST["'']' }
+      result_lacks: [error]
+    extract:
+      - { from: result, value: "{result.uuid|or:result.result.uuid}" }
+
+  - id: cloudflare.mcp.execute_kv_namespace_create
+    kind: kv_namespace
+    role: created
+    when:
+      mcp_tools: [execute]
+      input_matches: { code: '(?is)method\s*:\s*["'']POST["''].*?/storage/kv/namespaces[`"'']|/storage/kv/namespaces[`"''].*?method\s*:\s*["'']POST["'']' }
+      result_lacks: [error]
+    extract:
+      - from: result # KV's create response is {id, title, supports_url_encoding}
+        value: "{result.id|or:result.result.id}"
+
+  # With ?codemode=false each endpoint is its own tool, e.g. post_d1_database,
+  # returning the whole API response.
+  - id: cloudflare.mcp.post_d1_database
+    kind: d1_database
+    role: created
+    when: { mcp_tools: [post_d1_database], result_lacks: [error] }
+    extract:
+      - { from: result, value: "{result.result.uuid|or:result.uuid}" }
+
+  # Every other Cloudflare MCP call: D1 ids that appear were only read.
+  - id: cloudflare.mcp.read
+    kind: d1_database
+    role: referenced
+    when: { mcp_tools: ["*"] }
+    extract:
+      - from: output
+        pattern: '"(?:uuid|database_id)"\s*:\s*"(?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"'
+        value: "{id}"
+
+  # Reading a Wrangler config shows its D1 bindings (cat wrangler.jsonc).
+  # The command regex keeps this signature from claiming every Bash call.
+  - id: cloudflare.file.d1_binding_seen
+    kind: d1_database
+    role: referenced
+    when: { tool: ^Bash$, command: ['\bwrangler\.(?:toml|jsonc?)\b'], output: 'database_id' }
+    extract:
+      - from: output
+        pattern: '"?database_id"?\s*[:=]\s*"(?P<id>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"'
+        value: "{id}"
+
+coverage:
+  - { kind: r2_bucket, status: partial, note: "GET /accounts/{id}/r2/buckets, cursor paged; default jurisdiction only (eu/fedramp need the cf-r2-jurisdiction header per bucket call)" }
+  - { kind: r2_custom_domain, status: full, note: "GET /r2/buckets/{name}/domains/custom per bucket" }
+  - { kind: worker, status: full, note: "GET /accounts/{id}/workers/workers (GA; /workers/scripts is deprecated) with workers.dev and preview URL state" }
+  - { kind: pages_project, status: full, note: "GET /accounts/{id}/pages/projects; env var values stripped. Preview protection (Access apps) not decided" }
+  - { kind: pages_deployment, status: full, note: "GET /pages/projects/{name}/deployments per project, page paged (max 50 pages)" }
+  - { kind: d1_database, status: full, note: "GET /accounts/{id}/d1/database, per_page 1000; paged until an empty page (no total_pages documented)" }
+  - { kind: kv_namespace, status: full, note: "GET /accounts/{id}/storage/kv/namespaces, per_page 1000; paged until an empty page (no total_pages documented)" }
+  - { kind: zone, status: full, note: "GET /zones?account.id=" }
+  - { kind: dns_record, status: full, note: "GET /zones/{id}/dns_records per zone" }
+  - { kind: tunnel, status: full, note: "GET /accounts/{id}/cfd_tunnel?is_deleted=false, per_page 1000; paged until an empty page (no total_pages documented)" }
+  - { kind: tunnel_route, status: partial, note: "Remotely managed tunnels only (for_each_where config_src = cloudflare); config.yml ingress on the host is invisible" }
+  - { kind: worker_custom_domain, status: planned, note: "GET /accounts/{id}/workers/domains" }
+  - { kind: worker_route, status: planned, note: "GET /zones/{id}/workers/routes" }
+  - { kind: access_application, status: planned, note: "GET /accounts/{id}/access/apps; needed to decide Pages/Workers preview protection; SaaS apps carry client secrets" }
+  - { kind: queue, status: planned, note: "GET /accounts/{id}/queues" }
+  - { kind: hyperdrive, status: planned, note: "GET /accounts/{id}/hyperdrive/configs; origin passwords must be stripped" }
+  - { kind: durable_object_namespace, status: planned, note: "GET /accounts/{id}/workers/durable_objects/namespaces" }
+  - { kind: vectorize_index, status: planned, note: "GET /accounts/{id}/vectorize/v2/indexes" }
+  - { kind: worker_secret, status: planned, note: "GET /workers/scripts/{name}/secrets lists names; not needed by any rule yet" }
+
+recorder:
+  pseudonymize: [id, uuid, name, title, account_tag, bucketId, domain, zoneId, zoneName, zone_id, zone_name, hostname, content, subdomain, url, short_id, aliases, project_id, project_name, tunnel_id, account_id]
+  keep: [r2.dev, workers.dev, pages.dev, cfargotunnel.com, production, preview, default, cloudflare, local, http_status:404]

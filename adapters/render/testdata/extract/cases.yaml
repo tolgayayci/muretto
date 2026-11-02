@@ -1,0 +1,252 @@
+# Extract cases built from the output strings in adapters/render/research.md
+# (render-oss/cli @ccd220c, render-oss/render-mcp-server @2e131d6, the
+# public OpenAPI spec). All ids are fakes; created cases match the
+# scan/basic fixtures.
+
+# ---- CLI ----
+- name: render services create (text, non-TTY default)
+  tool: Bash
+  input: { command: 'render services create --name example-api --type web_service --repo https://github.com/example-org/example-api --runtime node --build-command "npm install" --start-command "npm start"' }
+  output: "Created service example-api (srv-example0000000000001)"
+  expect:
+    - { kind: render.service, value: srv-example0000000000001, role: created }
+  matches: [render.service:srv-example0000000000001]
+
+- name: render services create --output json prints the service
+  tool: Bash
+  input: { command: "render services create --name example-site --type static_site --repo https://github.com/example-org/example-site --output json" }
+  output: |
+    {
+      "id": "srv-example0000000000002",
+      "name": "example-site",
+      "ownerId": "tea-example0000000000001",
+      "type": "static_site",
+      "suspended": "not_suspended",
+      "serviceDetails": {
+        "url": "https://example-site.onrender.com"
+      }
+    }
+  expect:
+    - { kind: render.service, value: srv-example0000000000002, role: created }
+  matches: [render.service:srv-example0000000000002]
+
+- name: render postgres create (text)
+  tool: Bash
+  input: { command: "render postgres create --name example-db --plan free --confirm" }
+  output: |
+    Created Postgres database
+
+    Name: example-db
+    ID: dpg-example0000000000001
+    Workspace: Example Team (tea-example0000000000001)
+    Plan: free
+    Version: 18
+    Region: oregon
+    Status: creating
+    Database: example_db
+    User: example_db_user
+    Disk autoscaling: disabled
+    Connection pool: none
+    High availability: disabled
+    Dashboard: https://dashboard.render.com/d/dpg-example0000000000001
+    IP allow-list:
+      - 0.0.0.0/0 (everywhere)
+  expect:
+    - { kind: render.postgres, value: dpg-example0000000000001, role: created }
+  matches: [render.postgres:dpg-example0000000000001]
+
+- name: render pg create --output json wraps the database in data
+  tool: Bash
+  input: { command: "render pg create --name example-prod-db --plan basic_256mb --output json --confirm" }
+  output: '{"data":{"id":"dpg-example0000000000002","name":"example-prod-db","plan":"basic_256mb","ipAllowList":[{"cidrBlock":"203.0.113.5/32","description":"office"}]}}'
+  expect:
+    - { kind: render.postgres, value: dpg-example0000000000002, role: created }
+  matches: [render.postgres:dpg-example0000000000002]
+
+- name: render kv create (text)
+  tool: Bash
+  input: { command: "render kv create --name example-queue --plan starter --confirm" }
+  output: |
+    Created Render Key Value
+
+    Name: example-queue
+    ID: red-example0000000000002
+    Workspace: Example Team (tea-example0000000000001)
+    Plan: starter
+    Region: oregon
+    Status: creating
+    IP allow-list: empty (external connections blocked)
+  expect:
+    - { kind: render.key_value, value: red-example0000000000002, role: created }
+  matches: [render.key_value:red-example0000000000002]
+
+- name: render ea blueprints create (text)
+  tool: Bash
+  input: { command: "render ea blueprints create --repo https://github.com/example-org/example-api" }
+  output: |
+    Blueprint example-stack (exs-example0000000000001)
+    Source: https://github.com/example-org/example-api
+    Branch: main
+    Path: render.yaml
+  expect:
+    - { kind: render.blueprint, value: exs-example0000000000001, role: created }
+  matches: [render.blueprint:exs-example0000000000001]
+
+- name: render services create that failed proves nothing
+  tool: Bash
+  status: error
+  input: { command: "render services create --name example-api --type web_service" }
+  output: "Error: failed to create service: name is already taken"
+  expect: []
+
+- name: render services list only references
+  tool: Bash
+  input: { command: "render services list --output text" }
+  output: |
+    example-api   web_service   srv-example0000000000001
+    example-db    postgres      dpg-example0000000000001
+  expect:
+    - { kind: render.service, value: srv-example0000000000001, role: referenced }
+    - { kind: render.postgres, value: dpg-example0000000000001, role: referenced }
+
+- name: render deploys create only references the service
+  tool: Bash
+  input: { command: "render deploys create srv-example0000000000001 --wait" }
+  output: "Deploy dep-example0000000000001 for srv-example0000000000001 is live"
+  expect:
+    - { kind: render.service, value: srv-example0000000000001, role: referenced }
+
+- name: a render.yaml edit proves nothing
+  tool: Bash
+  input: { command: "cat render.yaml" }
+  output: "services:\n  - type: web\n    name: example-api\n"
+  expect: []
+
+# ---- MCP ----
+- name: MCP create_web_service returns serviceAndDeploy
+  tool: mcp__render__create_web_service
+  input: { name: example-api, runtime: node, buildCommand: npm install, startCommand: npm start }
+  output: '{"service":{"id":"srv-example0000000000001","name":"example-api","type":"web_service","ownerId":"tea-example0000000000001"},"deployId":"dep-example0000000000001"}'
+  expect:
+    - { kind: render.service, value: srv-example0000000000001, role: created }
+  matches: [render.service:srv-example0000000000001]
+
+- name: MCP create_static_site through the Claude Code plugin
+  tool: mcp__plugin_render_render__create_static_site
+  input: { name: example-site }
+  output: '{"service":{"id":"srv-example0000000000002","name":"example-site","type":"static_site"},"deployId":"dep-example0000000000002"}'
+  expect:
+    - { kind: render.service, value: srv-example0000000000002, role: created }
+  matches: [render.service:srv-example0000000000002]
+
+- name: MCP create_postgres returns postgresDetail
+  tool: mcp__render__create_postgres
+  input: { name: example-db }
+  output: '{"id":"dpg-example0000000000001","name":"example-db","plan":"free","status":"creating","ipAllowList":[{"cidrBlock":"0.0.0.0/0","description":"everywhere"}]}'
+  expect:
+    - { kind: render.postgres, value: dpg-example0000000000001, role: created }
+  matches: [render.postgres:dpg-example0000000000001]
+
+- name: MCP create_key_value returns keyValueDetail
+  tool: mcp__render__create_key_value
+  input: { name: example-cache, plan: free }
+  output: '{"id":"red-example0000000000001","name":"example-cache","plan":"free","status":"creating","ipAllowList":[]}'
+  expect:
+    - { kind: render.key_value, value: red-example0000000000001, role: created }
+  matches: [render.key_value:red-example0000000000001]
+
+- name: MCP create_blueprint
+  tool: mcp__render__create_blueprint
+  input: { repo: https://github.com/example-org/example-api }
+  output: '{"blueprint":{"id":"exs-example0000000000001","name":"example-stack","status":"created"},"notices":[],"planningOutcome":"planned","sync":null}'
+  expect:
+    - { kind: render.blueprint, value: exs-example0000000000001, role: created }
+  matches: [render.blueprint:exs-example0000000000001]
+
+- name: MCP create_postgres error text proves nothing
+  tool: mcp__render__create_postgres
+  status: error
+  input: { name: example-db }
+  output: "Free plan does not support custom disk size"
+  expect: []
+
+- name: MCP create_web_service plain-text error with ok status proves nothing
+  tool: mcp__render__create_web_service
+  input: { name: example-api }
+  output: "no workspace set. Prompt the user to select a workspace"
+  expect: []
+
+- name: MCP list_services only references
+  tool: mcp__render__list_services
+  input: {}
+  output: '[{"id":"srv-example0000000000001","name":"example-api"}]'
+  expect:
+    - { kind: render.service, value: srv-example0000000000001, role: referenced }
+
+# ---- curl against the REST API ----
+- name: curl POST /v1/services
+  tool: Bash
+  input: { command: "curl -s -X POST https://api.render.com/v1/services -H \"Authorization: Bearer $RENDER_API_KEY\" -H 'Content-Type: application/json' -d @service.json" }
+  output: '{"service":{"id":"srv-example0000000000001","name":"example-api","type":"web_service"},"deployId":"dep-example0000000000001"}'
+  expect:
+    - { kind: render.service, value: srv-example0000000000001, role: created }
+  matches: [render.service:srv-example0000000000001]
+
+- name: curl POST /v1/postgres
+  tool: Bash
+  input: { command: "curl -s --request POST --url https://api.render.com/v1/postgres --header \"Authorization: Bearer $RENDER_API_KEY\" --data '{\"name\":\"example-db\",\"ownerId\":\"tea-example0000000000001\",\"plan\":\"free\",\"version\":\"18\"}'" }
+  output: '{"id":"dpg-example0000000000001","name":"example-db","plan":"free","status":"creating"}'
+  expect:
+    - { kind: render.postgres, value: dpg-example0000000000001, role: created }
+  matches: [render.postgres:dpg-example0000000000001]
+
+- name: curl POST /v1/key-value
+  tool: Bash
+  input: { command: "curl -s -X POST 'https://api.render.com/v1/key-value' -H \"Authorization: Bearer $RENDER_API_KEY\" -d '{\"name\":\"example-queue\",\"ownerId\":\"tea-example0000000000001\",\"plan\":\"starter\"}'" }
+  output: '{"id":"red-example0000000000002","name":"example-queue","plan":"starter","status":"creating"}'
+  expect:
+    - { kind: render.key_value, value: red-example0000000000002, role: created }
+  matches: [render.key_value:red-example0000000000002]
+
+- name: curl POST /v1/env-groups
+  tool: Bash
+  input: { command: "curl -s -X POST https://api.render.com/v1/env-groups -H \"Authorization: Bearer $RENDER_API_KEY\" -d @group.json" }
+  output: '{"id":"evg-example0000000000001","name":"example-shared","ownerId":"tea-example0000000000001","serviceLinks":[],"envVars":[],"secretFiles":[]}'
+  expect:
+    - { kind: render.env_group, value: evg-example0000000000001, role: created }
+  matches: [render.env_group:evg-example0000000000001]
+
+- name: curl POST custom domain returns an array
+  tool: Bash
+  input: { command: "curl -s -X POST https://api.render.com/v1/services/srv-example0000000000001/custom-domains -H \"Authorization: Bearer $RENDER_API_KEY\" -d '{\"name\":\"api.example.com\"}'" }
+  output: '[{"id":"cdm-example0000000000001","name":"api.example.com","domainType":"subdomain","publicSuffix":"com","redirectForName":"","verificationStatus":"unverified"}]'
+  expect:
+    - { kind: render.custom_domain, value: cdm-example0000000000001, role: created }
+  matches: [render.custom_domain:cdm-example0000000000001]
+
+- name: curl POST that Render rejected proves nothing
+  tool: Bash
+  input: { command: "curl -s -X POST https://api.render.com/v1/postgres -H \"Authorization: Bearer $RENDER_API_KEY\" -d '{\"name\":\"example-db\"}'" }
+  output: '{"id":"invalid","message":"ownerId is required"}'
+  expect: []
+
+- name: curl GET /v1/services is not a create
+  tool: Bash
+  input: { command: "curl -s https://api.render.com/v1/services?limit=20 -H \"Authorization: Bearer $RENDER_API_KEY\"" }
+  output: '[{"cursor":"cursorSRVEXAMPLE01","service":{"id":"srv-example0000000000001"}}]'
+  expect: []
+
+# ---- Stripe Projects ----
+- name: stripe projects add render/static-site with a printed service id
+  tool: Bash
+  input: { command: "stripe projects add render/static-site --json --no-interactive" }
+  output: '{"status":"ok","resource":{"provider":"render","backend_id":"srv-example0000000000002"}}'
+  expect:
+    - { kind: render.service, value: srv-example0000000000002, role: created }
+  matches: [render.service:srv-example0000000000002]
+
+- name: stripe projects add render/static-site without an id proves nothing
+  tool: Bash
+  input: { command: "stripe projects add render/static-site" }
+  output: "Provisioning render/static-site... done"
+  expect: []

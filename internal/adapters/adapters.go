@@ -3,7 +3,7 @@
 //
 // The engine is generic: every provider-specific fact (endpoints, field
 // mappings, signatures, rules) lives in the adapter YAML. Adding a provider is
-// one YAML file plus fixtures; see docs/WRITING_AN_ADAPTER.md.
+// one YAML file plus fixtures; see adapters/WRITING.md.
 package adapters
 
 import (
@@ -90,17 +90,23 @@ type Registry struct {
 	now      func() time.Time
 }
 
-// Load reads every adapter file in fsys. Files whose name starts with
+// Load reads every adapter in fsys: <provider>/adapter.yaml folders (the
+// layout of adapters/) and plain *.yaml files. Names starting with "_" or
 // "template" are documentation and are not loaded.
 func Load(fsys fs.FS) (*Registry, error) {
-	names, err := fs.Glob(fsys, "*.yaml")
+	flat, err := fs.Glob(fsys, "*.yaml")
 	if err != nil {
 		return nil, err
 	}
+	nested, err := fs.Glob(fsys, "*/adapter.yaml")
+	if err != nil {
+		return nil, err
+	}
+	names := append(flat, nested...)
 	r := &Registry{byName: map[string]*adapterSpec{}, now: func() time.Time { return time.Now().UTC() }}
 	var errs []error
 	for _, name := range names {
-		if strings.HasPrefix(name, "template") {
+		if strings.HasPrefix(name, "template") || strings.HasPrefix(name, "_") {
 			continue
 		}
 		data, err := fs.ReadFile(fsys, name)
