@@ -16,7 +16,7 @@ DEMO_RUN_DIR=${DEMO_RUN_DIR:-$DEMO_DIR/.run}
 MURETTO_BIN=${MURETTO_BIN:-$REPO_ROOT/bin/muretto}
 DRY_RUN=${DRY_RUN:-0}
 
-# The five developers, their display names and their tasks (BRIEF §13).
+# The five developers, their display names and their tasks.
 DEMO_DEVS="alice bob carol dan eve"
 TMUX_SESSION=muretto-demo
 

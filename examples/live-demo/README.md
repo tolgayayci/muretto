@@ -1,8 +1,13 @@
-# Muretto demo harness
+# Live demo (optional)
 
-One command runs the real demo behind the 60-second video (`SCRIPT.md`): five headless Claude Code sessions (alice, bob, carol, dan, eve) build things in **test** Supabase and Vercel accounts while Muretto's hooks record them and a local dashboard fills up live.
+An optional, end-to-end run of Muretto against **your own test accounts**. Five headless Claude Code sessions (alice, bob, carol, dan, eve) build small things in a test Supabase org and a test Vercel team. Muretto's hooks record them, each developer syncs to a local server, and a local dashboard fills up as they work.
 
-> **This harness is a demo tool for test accounts only. It is not part of Muretto.** The agents and these scripts create and delete real resources. **Muretto itself never writes**: it only reads, through its broker allowlist.
+You don't need this to use or develop Muretto. `make test` covers everything offline.
+
+> **Read this before you run it.**
+> - It **creates and deletes real resources** (tables, buckets, edge functions, Vercel projects and deployments) in the accounts you configure. Use dedicated test accounts, never real ones.
+> - It **spends Claude usage**: five `claude -p` sessions per run, each capped by `DEMO_MAX_BUDGET_USD`. Vercel and Supabase plan limits apply too.
+> - These scripts are a demo tool, not part of Muretto. The agents and the scripts write. **Muretto itself never writes**: it only reads, through its broker allowlist.
 
 ## What is here
 
@@ -11,18 +16,17 @@ One command runs the real demo behind the 60-second video (`SCRIPT.md`): five he
 | `.env.example` | Every variable, documented. Copy to `examples/live-demo/.env` (git-ignored). |
 | `lib.sh` | Shared guards: `MURETTO_DEMO=1`, typed confirmation of the test project ref, tool checks with install hints (never installs), unsets inherited `CLAUDECODE` / `CLAUDE_CODE_*`, dry-run printing with secrets masked. |
 | `setup.sh` | One-time test-account prep (dry run by default, `--apply` to run). |
-| `run.sh` | The demo: seeds the Vercel demo projects, local server + dashboard, five developers, tmux 2×3 grid. `--dry-run` prints every command. |
+| `run.sh` | The run: seeds the Vercel demo projects, local server + dashboard, five developers, tmux 2×3 grid. `--dry-run` prints every command. |
 | `session.sh` | One headless `claude -p` session (used by `run.sh` in each pane). |
 | `syncloop.sh` | The sixth pane: start signal, `muretto sync now` per developer, status line. |
 | `pretty.jq` | Turns `stream-json` into readable pane output; masks token-shaped strings. |
-| `prove.sh` | The curl with only the public key, then `muretto why/fix customers` as bob. |
+| `prove.sh` | The curl with only the public key, then `muretto why customers` and `muretto fix customers` as bob. `--check` prints one line and exits 0 only if rows come back and Muretto flags `customers`. |
 | `reset.sh` | Deletes what the demo created (dry run by default, `--apply` to run), including the demo workdirs' Claude Code transcript folders, so the next run's Muretto doesn't read earlier runs' sessions. |
 | `selftest.sh` | Offline check of the local plumbing. No accounts, no network beyond 127.0.0.1. |
-| `SCRIPT.md` | Shot list, disclosure, run checklist, recording tips, the 10-run reliability loop. |
 
 ## Prerequisites
 
-**Test accounts (never your real ones):**
+**Test accounts (never your real ones).** The scripts refuse to run unless the names look like test accounts, but they cannot tell a real account that is named `test`.
 
 - A dedicated **Supabase** org with 1 or 2 **pre-created** projects. Don't create projects live: it is slow and plan-limited. Each project's name must contain `demo` or `test`; the scripts check it (`GET /v1/projects`) and refuse otherwise.
   - Free plan: 2 active free projects per user, counted across every org where you are Owner or Admin; paused projects don't count. Free projects pause after a week of inactivity. Branching needs Pro (the demo doesn't use branches). Source: `adapters/supabase/research.md` Q8.
@@ -30,7 +34,7 @@ One command runs the real demo behind the 60-second video (`SCRIPT.md`): five he
   - Optional but better: a second, read-scoped token for Muretto (`MURETTO_SUPABASE_TOKEN`). Muretto's broker keeps reads read-only either way.
   - The primary project's **publishable** key (`sb_publishable_…`) for `prove.sh`. Each project's **secret** key only if you want `reset.sh` to delete the `demo-uploads` bucket (the Management API has no bucket delete).
 - A dedicated **Vercel** team whose slug contains `demo` or `test`, and a team-scoped token (`vcp_…`). Vercel has no read-only token (`adapters/vercel/research.md` Q2).
-  - Hobby: 1 concurrent build (alice's and eve's deploys queue, which is fine but slower on video), non-commercial use only. A Pro trial avoids both (`adapters/vercel/research.md` Q8).
+  - Hobby: 1 concurrent build (alice's and eve's deploys queue, which is fine but slower), non-commercial use only. A Pro trial avoids both (`adapters/vercel/research.md` Q8).
 
 **Tools** (the scripts check and print install hints; they never install anything): Claude Code (`claude`, logged in), `tmux`, `jq`, `curl`, Go 1.27.3+, Node/npm (dashboard), `uuidgen`, the Vercel CLI (`vercel`, used by the agents), and `muretto` built from this repo (`make build` → `bin/muretto`; the hooks point at it). The scripts are bash 3.2 compatible (macOS default).
 
@@ -45,7 +49,7 @@ examples/live-demo/setup.sh --apply            # once per test project (see "Why
 
 examples/live-demo/run.sh --dry-run            # every command, nothing run
 examples/live-demo/run.sh                      # type the test ref; tmux attaches
-#   open the printed dashboard link (signs in as alice), switch to Team,
+#   open the printed dashboard link (signs in as alice),
 #   press Enter in the bottom-right pane to start all five sessions
 examples/live-demo/prove.sh                    # curl with the public key, then why/fix as bob
 examples/live-demo/reset.sh --apply            # list, confirm, delete; also stops everything local
@@ -57,7 +61,7 @@ What `run.sh` does, in order:
 2. When alice and/or eve run: seeds their Vercel projects (`demo-waitlist`, `demo-landing-staging`) with one placeholder **production** deploy of a tiny `index.html`, from a temp dir named like the project (`vercel deploy --yes --prod`, token from the environment). A project's first deploy always goes to production, even with `--target preview`; after the seed, the agents' `vercel deploy --yes` links to the project by name and makes a **preview**. A project that already has a READY production deployment is skipped (`GET /v10/projects`, `GET /v7/deployments?target=production`). If a seed fails, `run.sh` stops (log: `examples/live-demo/.run/logs/seed-<project>.log`).
 3. Builds and starts `murettod` with `MURETTO_DEV_LOGIN=1` on `127.0.0.1:$DEMO_SERVER_PORT`, in-memory (stopping it clears all server data), and the dashboard (`apps/dashboard`, `next dev`) on `localhost:$DEMO_WEB_PORT` with `MURETTO_API_URL` pointing at it and `MURETTO_DEV_AUTH=1`.
 4. For each developer: their own `MURETTO_HOME` under `examples/live-demo/.run/devs/<dev>/home`, a CLI token from the dev-only `POST /v1/dev/token` (stored 0600, local server only), `muretto init --yes --no-hooks` (connects the test accounts from `MURETTO_SUPABASE_TOKEN` / `MURETTO_VERCEL_TOKEN`), `sync.server` set to the local server, `muretto sync on --yes`.
-5. alice creates the team `DEMO_ORG_NAME`; bob, carol, dan and eve join with invites (Bearer auth with each developer's dev token, which a dev-login server accepts where the dashboard would send a Supabase access token).
+5. alice creates the team `DEMO_ORG_NAME` on the local server; bob, carol, dan and eve join with invites (Bearer auth with each developer's dev token, which a dev-login server accepts where the dashboard would send a Supabase access token). The dashboard itself is personal-only today, so it shows the signed-in developer's own data; the team exists only in the server API (`GET /v1/orgs/{id}/answer`).
 6. Writes `examples/live-demo/.run/hooks.json` (Muretto's six hook events in exec form, pointing at the repo-built `bin/muretto`, plus `enabledMcpjsonServers: ["supabase"]`; passed with `--settings`, so your own Claude Code settings are never touched), and a `.mcp.json` in each developer's workdir with the Supabase MCP server pinned to that developer's test project (`?project_ref=<ref>`; the token is `"Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"`, expanded by Claude Code, never written to disk).
 7. Creates the tmux grid. Each pane runs `claude -p` in its workdir with `--settings`, `--session-id`, `-n "<dev>: <task>"`, `--permission-mode dontAsk --allowedTools …` (only what that task needs), `--max-budget-usd`, `--output-format stream-json --verbose --include-hook-events`, piped through `pretty.jq`. Never `--bare` (it would skip hooks).
 
@@ -67,9 +71,9 @@ Each developer's muretto reads only its own session's transcripts: `CLAUDE_CONFI
 
 ### Why setup.sh
 
-Since Oct 30, 2026, Supabase no longer grants new `public` tables to `anon`/`authenticated`. Bob's RLS-off table would then return `42501` to the curl, and Muretto would correctly not flag it. `setup.sh --apply` restores the pre-change default privileges **on the test project only** (option (a) in `docs/OPEN_QUESTIONS.md` §5; undo statement in the script). `SCRIPT.md` discloses it on screen. On a test project created on 2026-10-27 the old default grants were still in place, so the statement may be a no-op; it makes sure either way. It also prints the steps to set the Vercel **test** team's default deployment protection to None (§5b).
+Since Oct 30, 2026, Supabase no longer grants new `public` tables to `anon`/`authenticated`. Bob's RLS-off table would then return `42501` to the curl, and Muretto would correctly not flag it. `setup.sh --apply` restores the pre-change default privileges **on the test project only** (decision 0702; the undo statement is in the script). This makes the demo table readable the way it would be on most projects created before the change; say so if you show the result to anyone. On a test project created on 2026-10-27 the old default grants were still in place, so the statement may be a no-op; it makes sure either way. It also prints the steps to set the Vercel **test** team's default deployment protection to None.
 
-The Vercel side needs one more step, done by `run.sh` on every run rather than by `setup.sh` (because `reset.sh` deletes the projects): each demo project gets one placeholder production deploy first, since a project's first deploy always goes to production and the demo needs alice's and eve's deploys to be public **previews**. `SCRIPT.md` discloses this too.
+The Vercel side needs one more step, done by `run.sh` on every run rather than by `setup.sh` (because `reset.sh` deletes the projects): each demo project gets one placeholder production deploy first, since a project's first deploy always goes to production and the demo needs alice's and eve's deploys to be public **previews**.
 
 ## Troubleshooting
 
@@ -85,10 +89,10 @@ The Vercel side needs one more step, done by `run.sh` on every run rather than b
 | A pane shows `mcp: supabase=failed` | Check `SUPABASE_ACCESS_TOKEN`, and that the project ref is right. `examples/live-demo/.run/logs/<dev>.stderr` has the details. |
 | A pane says a tool was denied | That task's `--allowedTools` list in `session.sh` lacks it. Add the narrowest rule that works. |
 | `prove.sh` gets HTTP 401/403 or `42501` | 42501: `setup.sh --apply` was not run on that project. 401: wrong publishable key or project ref. |
-| Bob's table has RLS on | The agent changed the SQL. Read `examples/live-demo/.run/logs/bob.jsonl`; measure with the 10-run loop in `SCRIPT.md`. |
+| Bob's table has RLS on | The agent changed the SQL. Read `examples/live-demo/.run/logs/bob.jsonl`; measure reliability by repeating `reset.sh --apply`, `run.sh` and `prove.sh --check`. |
 | Alice's/eve's deployment is Production, not Preview | The seeding step failed or was skipped (it runs whenever alice or eve is part of the run). Check `examples/live-demo/.run/logs/seed-<project>.log`, run `examples/live-demo/reset.sh --apply`, then `examples/live-demo/run.sh` again. |
 | Alice's/eve's preview needs a Vercel login | The test team's default protection is still on (setup.sh step 2). |
-| Alert doesn't turn green | Pane 6 forces a fresh check for bob every `DEMO_REFRESH_INTERVAL` s; Muretto otherwise caches scans for 60 s. |
+| A change doesn't show up | Pane 6 forces a fresh check for bob every `DEMO_REFRESH_INTERVAL` s; Muretto otherwise caches scans for 60 s. |
 | `reset.sh` can't delete the bucket | Set `SUPABASE_SECRET_KEY` (and `_2`) or delete `demo-uploads` in the dashboard. |
 | Hooks didn't fire | Panes show `⚑ muretto hooks active` at start. If not: `bin/muretto` missing (run `make build`), or `examples/live-demo/.run/devs/<dev>/home/hook-errors.log`. |
 

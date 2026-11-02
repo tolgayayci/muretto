@@ -13,7 +13,7 @@
 #   examples/live-demo/run.sh                  the real demo (asks you to type the test ref)
 #   examples/live-demo/run.sh --only bob --wait
 #                                no tmux: run bob only, wait, sync, exit
-#                                (the 10-run reliability loop in SCRIPT.md)
+#                                (for repeated reliability runs)
 #
 # Demo tool for TEST accounts only. The agents create real resources in the
 # test accounts; examples/live-demo/reset.sh removes them. Muretto itself never writes.

@@ -53,7 +53,7 @@ bob)
 	# rows on every run. It hands the agent the exact SQL and allows only
 	# execute_sql, so nothing (list_tables advisories, other tools) nudges it
 	# to change the SQL. RLS off is simply Postgres' default for SQL-created
-	# tables. SCRIPT.md discloses this and says how to measure the 10/10 rate.
+	# tables. README.md discloses this.
 	TITLE="Prototype a customer import"
 	PROMPT="Prototype a customer import. Run this SQL exactly as written, in one call, with the Supabase execute_sql tool, then reply with one line saying how many rows are in public.customers. Don't run anything else.
 

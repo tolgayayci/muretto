@@ -51,9 +51,8 @@ confirm_ref "setup.sh changes default privileges on the test project(s)."
 #     RLS-off table in public is readable by anyone holding the public key.
 #
 # So the demo restores the pre-change default ON THE TEST PROJECT ONLY, once,
-# with the statement Supabase's own docs show (adapters/supabase/research.md Q7,
-# option (a) in docs/OPEN_QUESTIONS.md §5). examples/live-demo/SCRIPT.md discloses this in
-# the video's on-screen text. Never run this on a real project: it makes every
+# with the statement Supabase's own docs show (adapters/supabase/research.md Q7).
+# README.md discloses this. Never run this on a real project: it makes every
 # future table in public reachable through the Data API.
 #
 # To undo it on the test project:
@@ -83,7 +82,7 @@ done
 step "Vercel team $VERCEL_TEAM_SLUG: deployment protection (manual, one time)"
 cat >&2 <<EOF
   New Vercel projects default to Standard Protection: previews need a Vercel
-  login, so a demo preview would not be public (docs/OPEN_QUESTIONS.md §5b).
+  login, so a demo preview would not be public.
   For the demo, on the TEST team only:
 
     1. Open https://vercel.com/$VERCEL_TEAM_SLUG/~/settings
@@ -91,7 +90,7 @@ cat >&2 <<EOF
     3. Set Vercel Authentication / Standard Protection to Disabled ("None")
        for new projects, and save.
 
-  This does not change existing projects. examples/live-demo/SCRIPT.md states it on screen.
+  This does not change existing projects.
   If your plan has no team-level default, alice's and eve's previews stay
   protected: Muretto then shows them as protected, which is also true.
   Plan notes: Hobby allows 1 concurrent build (alice's and eve's deploys

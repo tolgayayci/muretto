@@ -13,7 +13,7 @@
 #   examples/live-demo/prove.sh --curl     only the curl (e.g. again after the fix)
 #   examples/live-demo/prove.sh --check    one line; exit 0 only if rows come back AND
 #                            Muretto (as bob) flags customers as exposed
-#                            (the 10-run reliability loop in SCRIPT.md)
+#                            (for repeated reliability runs)
 #   examples/live-demo/prove.sh --dry-run  print the commands
 #
 # Reading with a public key is what the attacker would do; it writes nothing.
@@ -86,7 +86,7 @@ else
 	jq -C . "$body" 2>/dev/null || cat "$body"
 	printf '\n%sHTTP %s%s\n' "$C_YEL" "$code" "$C_0"
 	if grep -q 42501 "$body" 2>/dev/null; then
-		say "42501: the table has no grant for anon. Was examples/live-demo/setup.sh --apply run on this project? (SCRIPT.md, disclosure)"
+		say "42501: the table has no grant for anon. Was examples/live-demo/setup.sh --apply run on this project? (see README.md)"
 	fi
 fi
 
