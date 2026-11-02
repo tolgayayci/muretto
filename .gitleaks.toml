@@ -17,12 +17,12 @@ paths = [
 ]
 
 # Local build output is git-ignored and never committed (Next.js writes a fresh
-# preview-mode signing key into web/.next on every build). Skip it so a local
+# preview-mode signing key into apps/dashboard/.next on every build). Skip it so a local
 # `make secrets` scans what could actually be committed.
 [[allowlists]]
 description = "Git-ignored build output"
 paths = [
-  '''^web/\.next/''',
+  '''^apps/dashboard/\.next/''',
   '''(^|/)node_modules/''',
   '''^bin/''',
   '''^dist/''',

@@ -1,7 +1,7 @@
 // Package schema embeds Muretto's JSON Schema files, the single source of
 // truth for every entity the CLI stores, prints and syncs. Go types are
 // generated from these files into internal/contract; TypeScript types into
-// web/src/contract.
+// apps/dashboard/src/contract.
 package schema
 
 import "embed"

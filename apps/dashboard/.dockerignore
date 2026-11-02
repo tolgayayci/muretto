@@ -1,0 +1,7 @@
+# Only what the image build needs; never local env files or build output.
+node_modules
+.next
+.env*
+!.env.example
+*.tsbuildinfo
+Dockerfile

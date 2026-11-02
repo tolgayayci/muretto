@@ -1,0 +1,74 @@
+/* Session page pieces that need more than inline styles: the live ping, the
+   collapsible groups, stretched row links and the timeline rail. */
+
+@keyframes ping {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+.ping { position: relative; display: inline-flex; width: 6px; height: 6px; flex: 0 0 auto; }
+.ping::before { content: ""; position: absolute; inset: 0; border-radius: 999px; background: var(--accent); animation: ping 1.6s ease-out infinite; }
+.ping::after { content: ""; position: absolute; inset: 0; border-radius: 999px; background: var(--accent); }
+.big { width: 9px; height: 9px; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.pulse { animation: pulse 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ping::before, .pulse { animation: none; }
+}
+
+/* Header */
+.head { display: flex; align-items: flex-start; gap: 20px; }
+@media (max-width: 760px) {
+  .head { flex-wrap: wrap; }
+  .head > :last-child { flex-basis: 100%; }
+}
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.crumb { font: 13px var(--font-mono); color: var(--ink-faint); }
+.crumb a { color: var(--ink-muted); }
+
+/* What it created */
+.list { border: 1px solid var(--line); border-radius: var(--radius-2xl); background: var(--surface-raised); overflow: hidden; }
+.group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 0 20px; border-bottom: 1px solid var(--line); }.group > summary::-webkit-details-marker { display: none; }
+.group > summary:hover .chev { color: var(--accent); }
+.group:last-child:not([open]) > summary { border-bottom: 0; }
+.chev { flex: 0 0 16px; font-size: 16px; color: var(--ink-faint); text-align: center; transform: rotate(90deg); transition: transform 0.15s ease; }
+.group[open] > summary .chev { transform: rotate(-90deg); }
+.row { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto 70px 96px 16px; gap: 16px; align-items: center; min-height: 70px; padding: 0 20px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.group:last-child .row:last-child, .list > .row:last-child { border-bottom: 0; }
+.row:hover { background: var(--surface-hover); }
+.row:hover .chev2 { color: var(--accent); }
+.stretch { color: inherit; }
+.stretch::after { content: ""; position: absolute; inset: 0; }
+.above { position: relative; z-index: 1; }
+.chev2 { font-size: 16px; color: var(--ink-faint); text-align: right; }
+@media (max-width: 900px) {
+  .row { grid-template-columns: 34px minmax(0, 1fr) auto 16px; }
+  .hideNarrow { display: none; }
+}
+
+/* What the agent did */
+.steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.stepsCard { padding: 12px 24px 8px 8px; border-radius: var(--radius-2xl); }
+.step { display: grid; grid-template-columns: 56px 24px minmax(0, 1fr); gap: 14px; }
+.time { padding-top: 13px; white-space: pre-line; font: 12.5px/18px var(--font-mono); text-align: right; color: var(--ink-faint); }
+.rail { display: flex; flex-direction: column; align-items: center; }
+.railTop { width: 1px; height: 18px; background: var(--line-strong); }
+.railBottom { width: 1px; flex-grow: 1; background: var(--line-strong); }
+.dashed .railTop, .dashed .railBottom { width: 0; background: none; border-left: 1px dashed var(--control-line); }
+.step:first-child .railTop, .step:last-child .railBottom { visibility: hidden; }
+.dot { flex: 0 0 auto; width: 9px; height: 9px; border-radius: 999px; box-sizing: border-box; }
+.body { padding: 10px 0 18px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.excerpt { flex: 1 1 360px; min-width: 0; box-sizing: border-box; padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); font: 12.5px var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink-muted); }
+.fold > summary { list-style: none; cursor: pointer; align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 12px; border: 1px dashed var(--line-strong); border-radius: var(--radius-md); color: var(--ink-muted); font: 12.5px var(--font-mono); }
+.fold > summary::-webkit-details-marker { display: none; }
+.fold > summary:hover { border-color: var(--control-line); color: var(--ink); }
+.fold[open] > summary .chev { transform: rotate(-90deg); }
+.fold[open] > summary .closed, .fold:not([open]) > summary .opened { display: none; }
+
+/* Two-column cards that stack on narrow screens */
+.split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+.split > * + * { border-left: 1px dashed var(--line-strong); }
+.solid > * + * { border-left-style: solid; border-color: var(--line); }
+@media (max-width: 1100px) {
+  .split { grid-template-columns: minmax(0, 1fr); }
+  .split > * + * { border-left: 0; border-top: 1px dashed var(--line-strong); }
+}

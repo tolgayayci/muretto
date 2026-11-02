@@ -1,0 +1,25 @@
+/* Filter dropdown: an outlined trigger and a raised menu of links. */
+.root { position: relative; flex: 0 0 auto; }
+.trigger { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px 0 12px; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface); color: var(--ink-muted); font: 500 13px var(--font-sans); white-space: nowrap; cursor: pointer; }
+.trigger:hover, .trigger[aria-expanded="true"] { border-color: var(--control-line); color: var(--ink); background: var(--surface-raised); }
+.trigger.active { border-color: var(--control-line); color: var(--ink); }
+.label { color: inherit; }
+.value { display: inline-flex; align-items: center; gap: 6px; max-width: 200px; padding: 2px 8px; border-radius: 6px; background: var(--surface-hover); color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.chev { flex: 0 0 auto; color: var(--ink-faint); }
+
+.menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 240px; max-width: min(340px, calc(100vw - 32px)); max-height: min(420px, 70vh); overflow-y: auto; box-sizing: border-box; padding: 6px; border: 1px solid var(--line-strong); border-radius: var(--radius-lg); background: var(--surface-raised); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: 1px; }
+.menu.end { left: auto; right: 0; }
+.group { display: flex; align-items: center; gap: 7px; padding: 10px 10px 5px; font: 500 11.5px var(--font-mono); letter-spacing: 0.02em; color: var(--ink-faint); text-transform: uppercase; }
+.group:first-child { padding-top: 6px; }
+.item { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px 0 6px; border-radius: 8px; color: var(--ink); font-size: 13.5px; outline: none; }
+.item:hover, .item:focus-visible { background: var(--surface-hover); }
+.item.dim { color: var(--ink-faint); }
+.check { flex: 0 0 16px; text-align: center; font-size: 12px; color: var(--accent); }
+.mark { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 16px; color: var(--ink-muted); }
+.itemLabel { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count { flex: 0 0 auto; font: 500 12px var(--font-mono); color: var(--ink-faint); }
+.count.red { color: var(--exposed); }
+
+@media (max-width: 760px) {
+  .value { max-width: 120px; }
+}

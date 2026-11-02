@@ -78,12 +78,11 @@ jobs:
       - name: gitleaks (working tree)
         run: /tmp/gitleaks dir --redact --no-banner --verbose .
 
-  web:
+  dashboard:
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('web/package-lock.json') != '' }}
     defaults:
       run:
-        working-directory: web
+        working-directory: apps/dashboard
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -92,8 +91,11 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: apps/dashboard/package-lock.json
       - run: npm ci --ignore-scripts
+      - name: generated TS contract is up to date
+        run: npm run generate && git diff --exit-code -- src/contract
       - run: npm run lint
       - run: npx --no-install tsc --noEmit
+      - run: npm test
       - run: npm run build

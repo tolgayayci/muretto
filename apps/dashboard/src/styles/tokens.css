@@ -1,0 +1,67 @@
+/* Muretto design tokens (from the Muretto Design System). Dark only. */
+
+:root {
+  color-scheme: dark;
+
+  --surface: #0b0b0a;
+  --surface-raised: #121211;
+  --surface-sunken: #0e0e0c;
+  --surface-hover: #1a1a17;
+  --line: #24231f;
+  --line-strong: #36352f;
+  --control-line: #63625a;
+  --ink: #edece6;
+  --ink-muted: #a9a8a0;
+  --ink-faint: #858479;
+  --accent: #c8f169;
+  --on-accent: #141a05;
+  --accent-wash: #c8f16914;
+  --accent-line: #c8f16952;
+  --exposed: #ff6b61;
+  --exposed-wash: #ff6b611f;
+  --exposed-line: #ff6b616b;
+  --exposed-ink: #ffd9d6;
+  --term-bg: #0e0e0c;
+  --term-line: #2c2b26;
+  --term-chrome: #22211d;
+  --term-dot: #3a3934;
+  --term-ink: #d6d5cd;
+  --term-bold: #f4f3ec;
+  --term-dim: #8a897f;
+  --term-prompt: #c8f169;
+  --code-key: #c8f169;
+  --code-value: #bdbcb3;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-14: 56px;
+  --space-16: 64px;
+  --space-22: 88px;
+  --space-30: 120px;
+
+  --radius-xs: 4px;
+  --radius-sm: 5px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 18px;
+  --radius-full: 999px;
+
+  --shadow-float: 0 40px 90px -40px #00000099;
+  --shadow-pop: 0 28px 60px -28px #000000a6;
+  --focus-ring: 0 0 0 2px #0b0b0a, 0 0 0 4px #c8f169;
+
+  --container: 1200px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --section-y: 120px;
+  --measure: 680px;
+}
