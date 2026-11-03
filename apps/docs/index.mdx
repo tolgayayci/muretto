@@ -4,28 +4,30 @@ description: "Muretto shows what your AI coding agents created outside the repo,
 icon: "book-open"
 ---
 
+import { Terminal } from "/snippets/terminal.jsx";
+
 Coding agents like Claude Code create real infrastructure in your provider accounts: tables, storage buckets, functions, deployments, webhooks. Your repo shows the code they wrote, but not what they left running in those accounts.
 
 Muretto is an open-source command-line tool that shows you. Here is one agent session, traced:
 
-```text
-$ muretto session 8f2a
-Session 8f2a · alice · Claude Code · Oct 19 14:02–14:31
-Task: "add customer import with file uploads"
-Repo: acme/web (feat/import)
-
-  SUPABASE  project acme-dev
-  ✓ table      customers        exact   ⚠ RLS off: publicly readable
-  ✓ bucket     customer-files   exact   ⚠ public
-  ✓ function   process-import   exact
-  ✓ branch     import-test      exact   7 days old · review due
-
-  VERCEL  project acme-web
-  ✓ deployment preview-a81f     exact   ⚠ public preview
-
-  3 exposed · 1 needs review · checked 3 min ago
-  → muretto why customers
-```
+<Terminal title="muretto session 8f2a" lines={[
+  "$ muretto session 8f2a",
+  "«b|Session 8f2a» · alice · Claude Code · Oct 19 14:02–14:31",
+  "Task: \"add customer import with file uploads\"",
+  "Repo: acme/web (feat/import)",
+  "",
+  "  «b|SUPABASE»  project acme-dev",
+  "  «g|✓» table      customers        exact   «r|⚠ RLS off: publicly readable»",
+  "  «g|✓» bucket     customer-files   exact   «r|⚠ public»",
+  "  «g|✓» function   process-import   exact",
+  "  «g|✓» branch     import-test      exact   7 days old · review due",
+  "",
+  "  «b|VERCEL»  project acme-web",
+  "  «g|✓» deployment preview-a81f     exact   «r|⚠ public preview»",
+  "",
+  "  «r|3 exposed» · 1 needs review · «d|checked 3 min ago»",
+  "  → muretto why customers",
+]} />
 
 In one command you see the task alice gave the agent, the five resources it created, and the three that anyone on the internet can reach.
 

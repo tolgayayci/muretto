@@ -4,6 +4,8 @@ description: "Install Muretto, connect a provider and see what your agent sessio
 icon: "rocket"
 ---
 
+import { Terminal } from "/snippets/terminal.jsx";
+
 In about two minutes you will have Muretto recording your Claude Code sessions and showing what they created.
 
 You need macOS or Linux (Windows through WSL), Claude Code, and an account with at least one [provider](/providers).
@@ -48,18 +50,18 @@ You need macOS or Linux (Windows through WSL), Claude Code, and an account with 
     muretto
     ```
 
-    ```text
-    Muretto · alice · checked 3 min ago
-
-      5 agent-created resources · 5 still exist · 3 exposed · 1 needs review
-      3 resources with creator unknown
-
-      Recent sessions
-      b0b5  today 09:15         bob       prototype orders table                      0 created
-      8f2a  Oct 19 14:02        alice     add customer import with file uploads       5 created · 3 exposed · 1 review due
-
-      → muretto exposed   → muretto session 8f2a   → muretto resources
-    ```
+    <Terminal title="muretto" lines={[
+      "«b|Muretto» · alice · «d|checked 3 min ago»",
+      "",
+      "  5 agent-created resources · 5 still exist · «r|3 exposed» · 1 needs review",
+      "  3 resources with creator unknown",
+      "",
+      "  «b|Recent sessions»",
+      "  b0b5  today 09:15         bob       prototype orders table                      0 created",
+      "  8f2a  Oct 19 14:02        alice     add customer import with file uploads       5 created · «r|3 exposed» · 1 review due",
+      "",
+      "  → muretto exposed   → muretto session 8f2a   → muretto resources",
+    ]} />
 
     Open one session to see everything it created, and list what is exposed, worst first:
 
@@ -68,13 +70,13 @@ You need macOS or Linux (Windows through WSL), Claude Code, and an account with 
     muretto exposed
     ```
 
-    ```text
-    3 exposed · checked 3 min ago
-
-      critical table      customers        ⚠ RLS off: publicly readable
-        Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it. · session 8f2a (alice)
-        → muretto show customers
-    ```
+    <Terminal title="muretto exposed" lines={[
+      "«r|3 exposed» · «d|checked 3 min ago»",
+      "",
+      "  «r|critical» table      customers        «r|⚠ RLS off: publicly readable»",
+      "    Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it. · session 8f2a (alice)",
+      "    → muretto show customers",
+    ]} />
 
     Session and resource arguments accept unique prefixes and names. Every read command takes `--json`.
   </Step>

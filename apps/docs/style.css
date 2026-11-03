@@ -45,6 +45,7 @@ html:root {
   --mu-term-ink: #d6d5cd;
   --mu-term-bold: #f4f3ec;
   --mu-term-dim: #8a897f;
+  --mu-term-dot: #3a3934;
   --mu-code-key: #c8f169;
   --mu-code-value: #bdbcb3;
 
@@ -548,3 +549,17 @@ details.accordion,
 #footer {
   border-color: var(--mu-line) !important;
 }
+
+/* ---------- Terminal (snippets/terminal.jsx) ----------
+ * CLI output in the CLI's own colours: bold headings, dim metadata,
+ * red for exposed only, the accent for the prompt and check marks. */
+.mu-term { margin: 1.25rem 0; border: 1px solid var(--mu-term-line); border-radius: var(--mu-radius-xl); background: var(--mu-term-bg); overflow: hidden; }
+.mu-term-bar { display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-bottom: 1px solid var(--mu-term-chrome); }
+.mu-term-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--mu-term-dot); }
+.mu-term-title { min-width: 0; margin-left: 8px; font: 12px var(--mu-font-mono); color: var(--mu-term-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mu-term pre.mu-term-body { margin: 0; padding: 16px 18px 18px; border: 0; border-radius: 0; background: transparent; overflow-x: auto; white-space: pre; font: 13px/1.7 var(--mu-font-mono); color: var(--mu-term-ink); }
+.mu-term-body code { padding: 0; border: 0; background: none; font: inherit; color: inherit; }
+.mu-t-b, .mu-t-c { color: var(--mu-term-bold); font-weight: 600; }
+.mu-t-d { color: var(--mu-term-dim); }
+.mu-t-r { color: var(--mu-exposed); }
+.mu-t-g, .mu-t-p { color: var(--mu-accent); }
