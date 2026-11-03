@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/tolgayayci/muretto/schema/session.schema.json",
   "title": "Session",
-  "description": "One Claude Code session: the 'commit' in git log for infrastructure.",
+  "description": "One Claude Code session: who ran it, where and when.",
   "type": "object",
   "required": [
     "id",

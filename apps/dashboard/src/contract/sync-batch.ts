@@ -66,7 +66,7 @@ export interface SyncSession {
   entity: Session;
 }
 /**
- * One Claude Code session: the 'commit' in git log for infrastructure.
+ * One Claude Code session: who ran it, where and when.
  */
 export interface Session {
   /**

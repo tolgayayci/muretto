@@ -1,7 +1,7 @@
 {
   "name": "muretto",
   "version": "0.0.0-dev",
-  "description": "A read-only git log for infrastructure: see what your AI coding agents created outside the repo.",
+  "description": "See what your AI coding agents created outside the repo. Read-only.",
   "license": "Apache-2.0",
   "homepage": "https://github.com/tolgayayci/muretto#readme",
   "bugs": {

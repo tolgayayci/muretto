@@ -78,7 +78,7 @@ export interface SessionView {
   review_due_count: number;
 }
 /**
- * One Claude Code session: the 'commit' in git log for infrastructure.
+ * One Claude Code session: who ran it, where and when.
  */
 export interface Session {
   /**

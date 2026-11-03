@@ -516,7 +516,7 @@ const ReviewItemStateKeep ReviewItemState = "keep"
 const ReviewItemStateNotNeeded ReviewItemState = "not_needed"
 const ReviewItemStatePending ReviewItemState = "pending"
 
-// One Claude Code session: the 'commit' in git log for infrastructure.
+// One Claude Code session: who ran it, where and when.
 type Session struct {
 	// Agent corresponds to the JSON schema field "agent".
 	Agent SessionAgent `json:"agent"`
