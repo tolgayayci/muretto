@@ -1,0 +1,155 @@
+---
+title: "CLI commands"
+description: "Every muretto command, its arguments and its flags."
+icon: "terminal"
+---
+
+Run `muretto help` for the same list in your terminal, and `muretto adapter help` for the adapter commands.
+
+## Reading
+
+These commands show what Muretto found. They never change anything in a provider account.
+
+| Command | What it shows |
+| --- | --- |
+| `muretto` or `muretto summary` | Totals (agent-created, exposed, needs review, creator unknown) and recent sessions. |
+| `muretto sessions` | Recent agent sessions, newest first. |
+| `muretto session <id>` | Everything one agent session created. |
+| `muretto resources` | Every resource Muretto can see, grouped by provider and project. |
+| `muretto show <resource>` | One resource: timeline, creator, exposure, cost and review. |
+| `muretto why <resource>` | The evidence behind its label (`exact` or creator unknown). |
+| `muretto exposed` | Exposure findings, worst first. |
+| `muretto review` | Agent-created resources that are due for a keep or not-needed decision. |
+| `muretto review <resource> keep\|not-needed` | Records your decision. Muretto never deletes anything. |
+
+`resources` takes filters you can combine:
+
+| Flag | Effect |
+| --- | --- |
+| `--provider <name>` | Only this provider, for example `supabase` or `vercel`. |
+| `--exposed` | Only exposed resources. |
+| `--unknown` | Only resources with creator unknown. |
+
+`review` with a decision also takes `--note "<text>"`, a short note stored with the decision (up to 500 characters).
+
+### Global flags
+
+Every reading command, plus `providers` and `doctor`, accepts these flags. They can go before or after the arguments.
+
+<ParamField path="--json" type="flag">
+  Print JSON instead of text. Reading commands print an Answer that matches `schema/answer.schema.json`. `providers` and `doctor` print their own smaller shapes.
+</ParamField>
+<ParamField path="--refresh" type="flag">
+  Check the providers again now. Without it, Muretto reuses a scan from the last 60 seconds.
+</ParamField>
+<ParamField path="--no-color" type="flag">
+  Turn off color. Color is also off when output is not a terminal, when `NO_COLOR` is set, when `TERM=dumb`, and with `--json`.
+</ParamField>
+
+### Arguments
+
+`<id>` and `<resource>` accept unique prefixes and names, so you rarely type a full id.
+
+- A session matches its full id, a unique prefix (`8f2a`), or its task title.
+- A resource matches its full Muretto id, its provider id, its name (`customers`, case-insensitive), or a unique prefix of its id or name.
+
+If an argument matches more than one session or resource, Muretto lists the candidates and asks for a longer prefix or the full id.
+
+## Setup
+
+| Command | What it does |
+| --- | --- |
+| `muretto init` | Adds Claude Code hooks (after a backup of your settings) and connects your providers, one at a time. |
+| `muretto providers` | Lists providers and connected accounts, with where each token comes from. |
+| `muretto doctor` | Checks hooks, tokens, the local spool, the last provider checks and sync. |
+| `muretto uninstall` | Removes exactly the hooks that `muretto init` added. |
+
+| Command | Flag | Effect |
+| --- | --- | --- |
+| `init` | `--name <name>` | Your display name. Defaults to your OS user name. |
+| `init` | `--no-hooks` | Do not add Claude Code hooks. |
+| `init` | `--yes` | Accept defaults without prompting. |
+| `providers` | `--coverage` | Also show which resource kinds each provider covers. |
+| `uninstall` | `--purge` | Also delete stored tokens and the local data directory. |
+| `uninstall` | `--yes` | Do not ask for confirmation. |
+
+## Dashboard sync
+
+Sync is optional and off by default. See [Dashboard](/dashboard) and [Privacy](/privacy).
+
+| Command | What it does |
+| --- | --- |
+| `muretto login` | Logs in to the dashboard and stores the token in your OS keychain. It does not turn sync on. |
+| `muretto logout` | Revokes and removes the token, and turns sync off. |
+| `muretto sync on` | Lists exactly which fields would be sent, then asks before turning sync on. Add `--yes` to skip the prompt. Once on, every muretto command pushes changes. |
+| `muretto sync off` | Turns sync off. Nothing more is sent. |
+| `muretto sync status` | Shows whether sync is on, the server, the login and the last push. |
+| `muretto sync now` | Pushes changes once, right away. |
+
+## Adapters
+
+An adapter is a YAML file that tells Muretto how to read one provider's API. See [Write an adapter](/adapters).
+
+| Command | What it does |
+| --- | --- |
+| `muretto adapter new <openapi-file>` | Drafts an adapter from a local OpenAPI file. Muretto never fetches the spec. |
+| `muretto adapter check <adapter.yaml>` | Validates an adapter and shows which endpoints it may call. |
+| `muretto adapter test <adapter.yaml>` | Runs its fixtures offline. Tests never touch the network. |
+| `muretto adapter install <adapter.yaml>` | Uses it on this machine (`~/.muretto/adapters`). `--force` overwrites. |
+| `muretto adapter list` | Lists built-in and installed adapters. |
+| `muretto adapter remove <provider>` | Uninstalls an installed adapter. |
+
+<AccordionGroup>
+  <Accordion title="Flags for adapter new">
+    | Flag | Effect |
+    | --- | --- |
+    | `--provider <slug>` | Provider name. Defaults to the spec title. |
+    | `--name "<Display>"` | Display name. |
+    | `--base-url <url>` | HTTPS base URL, when the spec has none or several. |
+    | `--list` | Only list the candidate kinds. Writes nothing. |
+    | `--kinds a,b,c` | Generate only these kinds and their parents. |
+    | `--max-depth <n>` | Nesting levels for child kinds. Default `2`. |
+    | `--accounts <path>\|none` | Accounts endpoint, or `none` for one account per token. |
+    | `--mcp-server <name>` | Add MCP signatures, assuming tools are named after operationIds. |
+    | `--no-rules` | Do not suggest exposure rules. |
+    | `--include-deprecated` | Also use deprecated operations. |
+    | `-o`, `--out <file>` | Where to write the adapter. Default `<provider>.yaml`; `-` for stdout. |
+    | `--fixtures <dir>` | Also write starter test fixtures there. |
+    | `--install` | Install it right away. |
+    | `--force` | Overwrite existing files. |
+    | `--json` | Print the generation report as JSON. |
+  </Accordion>
+  <Accordion title="Flags for adapter test">
+    | Flag | Effect |
+    | --- | --- |
+    | `--fixtures <dir>` | Fixtures to run. Default: `testdata/` next to `adapter.yaml`, or `testdata/<provider>` next to any other file. |
+    | `--openapi <file>` | Also dry-run a scan against fake responses built from this spec. |
+    | `--strict` | Apply the rules every adapter shipped with Muretto must meet. |
+  </Accordion>
+</AccordionGroup>
+
+## Other commands
+
+| Command | What it does |
+| --- | --- |
+| `muretto version` | Prints the version, commit and build date. `--version` works too. |
+| `muretto help` | Prints the command list. `-h` and `--help` work too. |
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success, including `help`. |
+| `1` | The command failed, for example no session matches the argument. |
+| `2` | Usage error: unknown command, wrong arguments or a bad flag. |
+| `130` | Interrupted with Ctrl-C. |
+
+## Environment variables
+
+| Variable | Effect |
+| --- | --- |
+| `MURETTO_<PROVIDER>_TOKEN` | Token for a provider, used before the keychain. For example `MURETTO_SUPABASE_TOKEN`. |
+| `MURETTO_SYNC_TOKEN` | Dashboard sync token, used before the keychain. |
+| `MURETTO_HOME` | Where Muretto keeps its local data. Default `~/.muretto`. |
+| `CLAUDE_CONFIG_DIR` | Claude Code's config directory, if you moved it. Default `~/.claude`. |
+| `NO_COLOR` | Any non-empty value turns off color. |

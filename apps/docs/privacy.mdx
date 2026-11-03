@@ -1,38 +1,69 @@
 ---
-title: "Privacy"
-description: "What stays on your machine, what can leave it, and how secrets are handled."
+title: "Privacy and security"
+sidebarTitle: "Privacy"
+description: "What stays on your machine, what can leave it, and how Muretto handles secrets and tokens."
+icon: "lock"
 ---
 
-Muretto is local-first. Everything works without an account.
+Muretto is local-first. Everything works without an account, and it only reads.
+
+## What stays on your machine
+
+- **The hook spool.** Claude Code runs `muretto hook` on each tool call. The hook redacts what it gets, writes one file to `~/.muretto/spool/` and exits. It never touches the network.
+- **The local store.** Sessions, resources and findings live in `~/.muretto/muretto.db`. Directories under `~/.muretto` are `0700` and files are `0600`. Set `MURETTO_HOME` to use another folder.
+- **Your tokens.** Provider and sync tokens go into your OS keychain (macOS Keychain or Linux Secret Service). In CI you can set `MURETTO_<PROVIDER>_TOKEN` or `MURETTO_SYNC_TOKEN` instead. If neither is available, Muretto refuses. It never falls back to a file.
 
 ## What leaves your machine
 
-- **Without sync:** only read-only API requests to the providers you connected, with your own tokens, through the broker.
-- **With sync on:** the fields listed in [`docs/SYNC_PAYLOAD.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md), sent to the sync server over HTTPS.
+<AccordionGroup>
+  <Accordion title="Without sync" icon="cloud-off">
+    Only read-only API requests to the providers you connected, made with your own tokens. Nothing goes to Muretto.
+  </Accordion>
+  <Accordion title="With sync on" icon="cloud">
+    Only the fields listed in [`docs/SYNC_PAYLOAD.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md), sent over HTTPS. `muretto sync on` prints the same list before it asks you to confirm. A test fails if that list and the code ever disagree. See [Dashboard](/dashboard).
+  </Accordion>
+</AccordionGroup>
 
-There is no telemetry.
+### Never sent
 
-## What is never sent
-
-- Tokens or keys, or any secret value.
-- Raw transcripts or full prompts. Sync sends only a short task title (at most 80 characters) and short evidence excerpts.
-- Local paths. The working directory is sent only as a hash.
+- Tokens, keys or any secret value. Your Muretto token travels only in the `Authorization` header.
+- Raw transcripts or full prompts. Sync sends a short task title (at most 80 characters) and short evidence excerpts (at most 1000 characters).
+- Local paths. The working directory is sent only as a hash, and home-directory paths in text become `~`.
 - Raw tool input or output.
 
-## Sync and the dashboard are opt-in
+## No telemetry
 
-`muretto login` and `muretto sync on` are both off by default. `sync on` prints every field it will send before it asks you to confirm. `muretto sync off` stops it.
+Muretto sends no usage data anywhere.
 
-The dashboard shows only your own synced data. Team features are not available yet.
+## Secrets are redacted twice
 
-## Secrets
+`internal/redact` removes secrets from text before Muretto keeps or shows it. It runs twice:
 
-- Secrets are redacted twice: in the hook, before anything is written to disk, and again on output and sync.
-- Provider and sync tokens live in your OS keychain (macOS Keychain or Linux Secret Service). In CI you can use environment variables instead. Muretto never falls back to a file.
-- Env var values are never stored. Where a provider's API returns them, the broker strips them before anything else sees them.
+1. **When data is recorded**, inside the hook, before anything is written to disk.
+2. **On output**: CLI text, `--json` and sync.
 
-## Read-only
+It catches provider tokens and keys, JWTs, passwords in URLs, `Authorization` and `apikey` header values, secret-looking keys in `.env`, YAML and JSON, PEM blocks and secret CLI flags. It keeps ids that aren't secret, like project refs, because tracing a resource to its session depends on them. Before upload, sync also replaces resource attributes under secret-looking keys (password, token, api_key and similar) with `[REDACTED]`.
 
-Muretto never creates, changes or deletes anything in a provider account. This is enforced in code: the broker allows only listed read endpoints, and a test fails if any other code makes HTTP requests. Some providers, like Vercel, have no read-only token, so the token you give Muretto can write. Treat it like a password.
+<Note>
+  Redaction is pattern-based. It can miss a secret with no recognizable shape or key name, like a token split across a line break.
+</Note>
 
-The full security model, with where each promise is enforced in the code, is in [`docs/SECURITY.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SECURITY.md). To report a vulnerability, use [GitHub private vulnerability reporting](https://github.com/tolgayayci/muretto/security/advisories/new).
+Env var values are never stored. Some provider APIs return them even when you ask only for names. The broker strips them, and other secret fields, from every response before anything else sees it (`internal/broker/sanitize.go`).
+
+## Read-only, enforced in code
+
+Muretto never creates, changes or deletes anything in a provider account. It has no command that does. The code enforces this in three ways:
+
+- **One door.** Every provider request goes through `internal/broker`. The broker refuses any request that doesn't match an allowlisted rule (host, method, path and query names), before any network I/O.
+- **GET only.** Any other method is refused. The one exception is a single constant read-only SQL query that lists Supabase tables and their RLS state. It is compiled into the binary, off by default, and used only if you opt in during `muretto init`. Endpoints that return secrets are always denied, even if an adapter lists them (`internal/broker/pinned.go`).
+- **A test that checks the rest of the code.** `internal/broker/bypass_test.go` parses every Go file and fails if code outside the broker makes its own HTTP requests. The only exceptions are Muretto's own sync client and server, which never talk to a provider.
+
+## What your tokens can do
+
+Muretto's code only reads, but your token may allow more. Some providers, like Vercel, have no read-only token, so the token you give Muretto can also write. Create each token with the fewest permissions that work, and treat it like a password. [Providers](/providers) lists the token and permissions for each one.
+
+## Report a vulnerability
+
+Please don't open a public issue. Use [GitHub private vulnerability reporting](https://github.com/tolgayayci/muretto/security/advisories/new), or email [tolga@yk-labs.com](mailto:tolga@yk-labs.com). See [`SECURITY.md`](https://github.com/tolgayayci/muretto/blob/main/SECURITY.md) for details.
+
+The full security model, with where each promise is enforced in the code, is in [`docs/SECURITY.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SECURITY.md).
