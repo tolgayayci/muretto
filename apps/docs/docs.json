@@ -35,17 +35,31 @@
   "navigation": {
     "groups": [
       {
-        "group": "Getting started",
+        "group": "Get started",
         "pages": [
           "index",
-          "quickstart"
+          "quickstart",
+          "how-it-works"
         ]
       },
       {
-        "group": "Concepts",
+        "group": "Guides",
         "pages": [
-          "how-it-works",
+          "examples",
+          "dashboard"
+        ]
+      },
+      {
+        "group": "Providers",
+        "pages": [
           "providers",
+          "adapters"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "cli",
           "privacy"
         ]
       }

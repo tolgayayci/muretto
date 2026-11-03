@@ -6,18 +6,17 @@ The Muretto documentation site, built with [Mintlify](https://mintlify.com).
 |---|---|
 | `docs.json` | Site config: name, theme, colors, navigation |
 | `style.css` | The Muretto design system mapped onto Mintlify (dark only) |
-| `index.mdx` | Introduction |
-| `quickstart.mdx` | Install, `muretto init`, first scan |
-| `providers.mdx` | Supported providers and exposure checks |
-| `how-it-works.mdx` | Hooks, spool, broker, attribution |
-| `privacy.mdx` | What leaves the machine; secrets |
-| `AGENTS.md` | Writing rules for these pages |
+| `index.mdx`, `quickstart.mdx`, `how-it-works.mdx` | Get started |
+| `examples.mdx`, `dashboard.mdx` | Guides |
+| `providers.mdx`, `adapters.mdx` | Providers and writing an adapter |
+| `cli.mdx`, `privacy.mdx` | Reference |
+| `images/` | Dashboard screenshots, taken from the dashboard's sample data |
 
 ## Preview locally
 
 ```sh
 cd apps/docs
-npx mint dev        # http://localhost:3000
+npx mint@4.2.1063 dev    # http://localhost:3000
 ```
 
 ## Writing rules
