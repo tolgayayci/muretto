@@ -43,6 +43,7 @@ const (
 	ansiBold  = "\x1b[1m"
 	ansiDim   = "\x1b[2m"
 	ansiRed   = "\x1b[31m"
+	ansiGreen = "\x1b[32m"
 )
 
 type printer struct {
@@ -80,9 +81,10 @@ func (p *printer) wrap(code, s string) string {
 	return code + s + ansiReset
 }
 
-func (p *printer) red(s string) string  { return p.wrap(ansiRed, s) }
-func (p *printer) dim(s string) string  { return p.wrap(ansiDim, s) }
-func (p *printer) bold(s string) string { return p.wrap(ansiBold, s) }
+func (p *printer) red(s string) string   { return p.wrap(ansiRed, s) }
+func (p *printer) green(s string) string { return p.wrap(ansiGreen, s) }
+func (p *printer) dim(s string) string   { return p.wrap(ansiDim, s) }
+func (p *printer) bold(s string) string  { return p.wrap(ansiBold, s) }
 
 // ---- shared helpers ----
 
@@ -526,7 +528,7 @@ func Session(w io.Writer, a contract.Answer, sessionID string, o Options) error 
 			if firstName == "" {
 				firstName = DisplayName(r)
 			}
-			mark := "✓"
+			mark := p.green("✓")
 			var notes []string
 			if r.Existence == contract.ResourceExistenceGone {
 				mark = "✗"
@@ -629,7 +631,7 @@ func Resources(w io.Writer, a contract.Answer, o Options) error {
 			mark := "·"
 			creator := p.dim("creator unknown")
 			if at.Label == contract.AttributionLabelExact && at.SessionID != nil {
-				mark = "✓"
+				mark = p.green("✓")
 				creator = "session " + ix.sessionLabel(*at.SessionID)
 			} else if c := ix.claimant(id); c != "" && r.SeenVia == contract.ResourceSeenViaEvidence {
 				creator = p.dim("seen in session " + ix.sessionLabel(c) + " only")
@@ -758,7 +760,7 @@ func Show(w io.Writer, a contract.Answer, resourceID string, o Options) error {
 		case contract.ExposureFindingStateExposed:
 			p.line("  %s  %s", p.red("⚠ "+f.Title), p.dim(chk))
 		case contract.ExposureFindingStateNotExposed:
-			p.line("  ✓ %s  %s", f.Title, p.dim(chk))
+			p.line("  %s %s  %s", p.green("✓"), f.Title, p.dim(chk))
 		case contract.ExposureFindingStateUnknown:
 			p.line("  ? %s  %s", f.Title, p.dim(chk))
 		}

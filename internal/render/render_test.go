@@ -123,6 +123,24 @@ func TestColorOnlyRedForExposed(t *testing.T) {
 	}
 }
 
+func TestColorGreenOnlyForChecks(t *testing.T) {
+	o := opts()
+	o.Color = true
+	var b bytes.Buffer
+	if err := Session(&b, fixtureAnswer(), tf.AliceSession, o); err != nil {
+		t.Fatal(err)
+	}
+	out := b.String()
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, ansiGreen) && !strings.Contains(line, ansiGreen+"✓"+ansiReset) {
+			t.Errorf("green on something other than a check mark: %q", line)
+		}
+	}
+	if !strings.Contains(out, ansiGreen+"✓"+ansiReset) {
+		t.Error("an exact resource's check mark should be green")
+	}
+}
+
 func TestColorEnabled(t *testing.T) {
 	env := map[string]string{"TERM": "xterm"}
 	get := func(k string) string { return env[k] }
