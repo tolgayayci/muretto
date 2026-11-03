@@ -646,8 +646,15 @@ func TestBinaryPathWarning(t *testing.T) {
 	if binaryPathWarning("/repo/node_modules/@muretto/linux-x64/bin/muretto") == "" {
 		t.Fatal("project node_modules must warn")
 	}
-	if binaryPathWarning("/opt/homebrew/bin/muretto") != "" {
-		t.Fatal("stable path must not warn")
+	for _, p := range []string{
+		"/opt/homebrew/bin/muretto",
+		"/opt/homebrew/lib/node_modules/muretto/node_modules/@muretto/darwin-arm64/bin/muretto",
+		"/home/x/.nvm/versions/node/v24.1.0/lib/node_modules/muretto/node_modules/@muretto/linux-x64/bin/muretto",
+		"/Users/x/Library/pnpm/global/5/node_modules/@muretto/darwin-arm64/bin/muretto",
+	} {
+		if w := binaryPathWarning(p); w != "" {
+			t.Fatalf("stable path %s must not warn: %s", p, w)
+		}
 	}
 }
 

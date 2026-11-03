@@ -243,6 +243,9 @@ func binaryPathWarning(path string) string {
 	switch {
 	case strings.Contains(path, "/_npx/"):
 		return "Muretto is running from the npx cache, which can be cleaned at any time; the hooks would then stop working. Install it with `npm i -g muretto`, Homebrew or install.sh, then run `muretto init` again."
+	case strings.Contains(path, "/lib/node_modules/"), strings.Contains(path, "/global/"):
+		// A global npm (<prefix>/lib/node_modules), pnpm or Yarn install stays put.
+		return ""
 	case strings.Contains(path, "/node_modules/"):
 		return "Muretto is running from a project's node_modules; the hooks break if that folder is deleted. A global install (`npm i -g muretto`, Homebrew or install.sh) is safer."
 	}
