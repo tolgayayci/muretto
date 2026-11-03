@@ -1,57 +1,101 @@
 ---
 title: "How it works"
-description: "Hooks, the spool, read-only scans through a broker, and the attribution join."
+description: "How Muretto records agent sessions, lists your resources with read-only calls, and joins the two."
+icon: "workflow"
 ---
 
-```text
-Claude Code hook ──► muretto hook <event> ──► ~/.muretto/spool/*.json   (redacted, no network)
-                                                     │
-any muretto command:   read the spool and transcripts                  (what agents did)
-                                                     │
-                       read-only scans through the broker              (what exists)
-                                                     │
-                       attribution join ──► exposure rules ──► output (text or --json)
+Muretto joins two sources: what your agent sessions did, and what really exists in your provider accounts. Each command reads both, joins them, and checks what is exposed.
+
+```mermaid
+%%{init: {"themeVariables": {"fontSize": "18px"}}}%%
+flowchart LR
+  A[Claude Code hooks] --> B["~/.muretto/spool"]
+  T[Claude Code transcripts] --> J
+  B --> J[Attribution join]
+  P["Provider accounts (read-only scan)"] --> J
+  J --> E[Exposure rules]
+  E --> O["Text or --json"]
 ```
 
 ## 1. Hooks record what the agent did
 
-`muretto init` adds hooks to your Claude Code settings for session start and end, prompts, tool calls and subagents. For each event, the hook writes one small file to `~/.muretto/spool` and exits. It redacts secrets before writing, caps large outputs, never touches the network, never prints anything and always lets the agent continue.
+`muretto init` adds hooks to your Claude Code settings for these events: session start and end, each prompt, each tool call (successful or failed) and each subagent start.
 
-For an MCP server pinned to one project (for example Supabase's `?project_ref=…`), the hook also records which project, read from your MCP config. It records only that id, never the URL or headers.
+On each event the hook writes one small file to `~/.muretto/spool` and exits. Before writing, it:
 
-Muretto also reads Claude Code transcripts, to fill gaps such as sessions from before you installed the hooks.
+- redacts secrets such as tokens, keys and passwords;
+- caps large tool output (head and tail are kept);
+- for an MCP server pinned to one project, records that project's id from your MCP config, never its URL or headers.
+
+The hook never touches the network, never prints anything and always lets the agent continue. Errors go to `~/.muretto/hook-errors.log`.
+
+Muretto also reads your Claude Code transcripts. That finds sessions the hooks missed, such as ones from before you installed them.
 
 ## 2. Read-only scans list what exists
 
-When you run a command, Muretto lists what is really in your connected accounts. Every request goes through one module, the broker. The broker refuses anything not on the adapters' allowlist of read endpoints, before any network I/O. It only sends GET requests (plus one constant, read-only catalog query for Supabase tables, and only if you opt in). It strips secret fields from responses before anything else sees them.
+When you run a command, Muretto lists what is in your connected accounts. Every request goes through one module, the broker. The broker refuses any request that is not an allowlisted read, before anything is sent:
 
-Scans are cached for 60 seconds. `--refresh` forces a new one. Output always shows how old the data is.
+- only `GET` requests, plus one fixed, read-only Supabase catalog query if you turn on full table listing;
+- only hosts, paths and query parameters the provider's adapter declares;
+- secret fields are stripped from responses before the rest of Muretto sees them.
 
-## 3. The join
+A scan is reused for 60 seconds. `--refresh` forces a new one. Output always says how old the data is ("checked 3 min ago").
 
-A resource is linked to a session only when that session's own successful tool call created it:
+## 3. The join assigns a label
 
-- the provider id, or the deployment URL, appears in the call's output; or
-- a unique name appears in a call that targeted that project or team.
+Each resource gets one of two labels.
 
-A provider's `created_at` time can rule a session out, but never rules one in. If two sessions claim the same resource, or the evidence is not enough, the label is **creator unknown**. Muretto would rather say "unknown" than guess.
+| Label | Means |
+|---|---|
+| `exact` | One session's own successful tool call created it. |
+| `unknown` | Shown as **creator unknown**. The evidence is missing, or more than one session claims it. |
 
-`muretto why <resource>` shows the evidence behind every label: the session, the tool call and the matching part of its input and output.
+A session gets `exact` only through direct evidence in its tool call:
 
-## 4. Exposure
+- the resource's provider id appears in the result of a creating call;
+- the resource's own URL appears in that result, such as a deployment URL;
+- the call names the resource in a specific project or team, the name matches exactly one resource there, the call succeeded, and no other session created something with that name.
 
-Each adapter declares rules for what is open to anyone: a table readable with the public key, a public bucket, a public preview. A rule result is `exposed`, `not exposed` or `unknown`. A missing field or a failed check gives `unknown`.
+Timing never creates a match. A provider's creation time can only rule a session out, for example when the resource is older than the call. A session that only read or mentioned a resource does not count as its creator.
 
-Muretto only shows and flags what it finds. `muretto exposed` lists every finding, worst first, and `muretto show <resource>` shows one resource with its exposure findings.
+If a session's output says it created something that no connected account lists, the resource is shown as `?` and **not confirmed**.
+
+`muretto why` shows the evidence behind a label:
+
+```text
+$ muretto why customers
+table customers: exact
+Created by session 8f2a (alice) (rule name_in_container)
+Reason: session 8f2a1c3e created it: a creating call named this table in its container, and no other session did
+
+Evidence
+  1. Oct 19 14:06 · session 8f2a (alice) · mcp__supabase__apply_migration
+     matched projaaaaaaaaaaaaaaaa/public.customers (supabase.mcp.apply_migration, toolu_01FAKEaaaaaaaaaaaaaaaaa1)
+```
+
+## 4. Exposure rules flag what is open
+
+Each provider adapter declares rules for what is open to anyone on the internet: a table anyone can read (RLS off), a public bucket, a public preview. Each result has one of three states:
+
+| State | Means |
+|---|---|
+| `exposed` | The rule found the resource open to anyone. |
+| `not_exposed` | The check ran successfully and found nothing open. |
+| `unknown` | The check failed, a field was missing, or nothing was checked. |
+
+A check that didn't run is never reported as `not_exposed`. `muretto exposed` lists every exposed finding, worst first, with the session that created it.
 
 ## Local files
 
-Everything lives in `~/.muretto` (or `MURETTO_HOME`). Directories are `0700` and files `0600`.
+Everything lives in `~/.muretto`, or in `MURETTO_HOME` if you set it. Directories are `0700` and files `0600`. Tokens are never written here: they stay in your OS keychain or your environment.
 
-| Path | What |
+| Path | What it holds |
 |---|---|
-| `config.json` | Your display name, connected accounts (ids only), sync settings. Never tokens |
-| `muretto.db` | SQLite store |
-| `spool/` | Hook output, one file per event |
-| `backups/` | Copies of Claude Code settings made before `init` edited them |
+| `config.json` | Your display name, connected account ids and sync settings |
+| `muretto.db` | The local SQLite store |
+| `spool/` | One file per hook event, read on your next command |
+| `hook-errors.log` | Hook errors (the hook itself never prints) |
+| `backups/` | Copies of your Claude Code settings from before `init` changed them |
 | `install-manifest.json` | Exactly what `init` added, so `uninstall` removes exactly that |
+
+For what stays local and what can leave your machine, see [Privacy and security](/privacy).

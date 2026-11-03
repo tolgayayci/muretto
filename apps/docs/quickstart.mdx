@@ -1,15 +1,12 @@
 ---
 title: "Quickstart"
-description: "Install Muretto, add the Claude Code hooks and run your first scan."
+description: "Install Muretto, connect a provider and see what your agent sessions created."
+icon: "rocket"
 ---
 
-## Prerequisites
+In about two minutes you will have Muretto recording your Claude Code sessions and showing what they created.
 
-- macOS or Linux (arm64 or amd64).
-- Claude Code.
-- A token for at least one provider you use. `muretto init` tells you which permissions to give it.
-
-## Get started
+You need macOS or Linux (Windows through WSL), Claude Code, and an account with at least one [provider](/providers).
 
 <Steps>
   <Step title="Install">
@@ -17,44 +14,95 @@ description: "Install Muretto, add the Claude Code hooks and run your first scan
     npm install -g muretto
     ```
 
-    Or build from source with Go 1.27.3 or newer: `go install github.com/tolgayayci/muretto/cmd/muretto@latest`. Homebrew and the `install.sh` script come with the GitHub release.
+    Install globally before you run `muretto init`. The hooks point at the binary's path, so that path has to stay put. `npx muretto` is fine for a quick look, but its cache is temporary.
+
+    <Accordion title="Build from source instead">
+      With Go 1.27.3 or newer:
+
+      ```bash
+      go install github.com/tolgayayci/muretto/cmd/muretto@latest
+      ```
+
+      Homebrew and the `install.sh` script come with the GitHub release.
+    </Accordion>
   </Step>
   <Step title="Add the hooks and connect providers">
     ```bash
     muretto init
     ```
 
-    `init` adds Muretto's hooks to your Claude Code settings (it makes a backup first), then asks, provider by provider, whether to connect it. It shows the least-privilege token to create, and stores the token in your OS keychain.
+    `init` does two things:
 
-    In CI or without a terminal, set `MURETTO_<PROVIDER>_TOKEN` (for example `MURETTO_SUPABASE_TOKEN`) and run `muretto init --yes`.
+    1. It adds Muretto's hooks to your Claude Code settings. It backs the file up to `~/.muretto/backups` first and only appends its own entries.
+    2. It asks, provider by provider, whether to connect it. For each one it shows which token to create and which permissions to give it. You paste the token (input is hidden) and Muretto stores it in your OS keychain.
+
+    <Tip>
+    Without a terminal, or in CI, set `MURETTO_<PROVIDER>_TOKEN` (for example `MURETTO_SUPABASE_TOKEN`) and run `muretto init --yes`. Tokens from the environment are used but not stored.
+    </Tip>
   </Step>
-  <Step title="Work as usual">
-    Use Claude Code as you normally do. The hooks record each tool call locally. They never block the agent.
+  <Step title="Use Claude Code as usual">
+    Ask the agent for real work: a table, a bucket, a deployment. The hooks record each tool call to a local file. They never block or change the agent.
   </Step>
   <Step title="See what was created">
     ```bash
-    muretto                  # summary: agent-created, exposed, needs review, recent sessions
-    muretto sessions         # recent agent sessions
-    muretto exposed          # exposure findings, worst first
-    muretto why customers    # the evidence behind an attribution label
+    muretto
     ```
 
-    Every read command takes `--json`.
+    ```text
+    Muretto · alice · checked 3 min ago
+
+      5 agent-created resources · 5 still exist · 3 exposed · 1 needs review
+      3 resources with creator unknown
+
+      Recent sessions
+      b0b5  today 09:15         bob       prototype orders table                      0 created
+      8f2a  Oct 19 14:02        alice     add customer import with file uploads       5 created · 3 exposed · 1 review due
+
+      → muretto exposed   → muretto session 8f2a   → muretto resources
+    ```
+
+    Open one session to see everything it created, and list what is exposed, worst first:
+
+    ```bash
+    muretto session 8f2a
+    muretto exposed
+    ```
+
+    ```text
+    3 exposed · checked 3 min ago
+
+      critical table      customers        ⚠ RLS off: publicly readable
+        Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it. · session 8f2a (alice)
+        → muretto show customers
+    ```
+
+    Session and resource arguments accept unique prefixes and names. Every read command takes `--json`.
   </Step>
 </Steps>
 
-## Other commands
+## If something looks off
 
-| Command | What it does |
-|---|---|
-| `muretto session <id>` | Everything one session created |
-| `muretto resources [--provider p] [--exposed] [--unknown]` | Resources, filtered |
-| `muretto show <resource>` | One resource: timeline, creator, exposure, cost, review |
-| `muretto review [<resource> keep\|not-needed]` | Record whether you still need a resource |
-| `muretto providers --coverage` | What each provider adapter covers |
-| `muretto doctor` | Check hooks, tokens, spool and last checks |
-| `muretto uninstall` | Remove exactly what `muretto init` added |
+```bash
+muretto doctor
+```
 
-## Getting help
+`doctor` checks the hooks, each provider token, the spool of recorded events and the last provider checks. Each failed check comes with a hint.
 
-Run `muretto doctor` first. If something still looks wrong, open an issue on [GitHub](https://github.com/tolgayayci/muretto/issues).
+## Remove Muretto
+
+```bash
+muretto uninstall
+```
+
+This removes exactly the hooks `muretto init` added, and nothing else. Your local data and tokens stay. To delete them too, run `muretto uninstall --purge`. Then remove the binary with `npm uninstall -g muretto`.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Examples" icon="list-checks" href="/examples">
+    Recipes for common questions, with real output.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/cli">
+    Every command and flag.
+  </Card>
+</CardGroup>

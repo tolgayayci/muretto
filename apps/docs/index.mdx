@@ -1,17 +1,12 @@
 ---
 title: "Introduction"
-description: "Muretto shows what your AI coding agents created outside the repo. It is open source and read-only."
+description: "Muretto shows what your AI coding agents created outside the repo, which session created it, and what is open to anyone."
+icon: "book-open"
 ---
 
-Coding agents like Claude Code create real infrastructure: tables, storage buckets, functions, deployments, webhooks. Your repo shows the code they wrote. It doesn't show what they made in your provider accounts.
+Coding agents like Claude Code create real infrastructure in your provider accounts: tables, storage buckets, functions, deployments, webhooks. Your repo shows the code they wrote, but not what they left running in those accounts.
 
-Muretto is a command-line tool that:
-
-- **lists** the resources in your connected provider accounts;
-- **traces** each one to the agent session and the tool call that created it, or labels it **creator unknown**;
-- **flags** what is open to anyone on the internet.
-
-It is read-only. It never creates, changes or deletes anything in your accounts.
+Muretto is an open-source command-line tool that shows you. Here is one agent session, traced:
 
 ```text
 $ muretto session 8f2a
@@ -32,17 +27,48 @@ Repo: acme/web (feat/import)
   → muretto why customers
 ```
 
+In one command you see the task alice gave the agent, the five resources it created, and the three that anyone on the internet can reach.
+
+## What Muretto does
+
+- **Lists** the resources in the provider accounts you connect.
+- **Traces** each one to the agent session and tool call that created it. If the evidence is not clear, it labels the resource **creator unknown**.
+- **Flags** what is exposed: open to anyone on the internet, such as a table anyone can read (RLS off), a public bucket or a public preview.
+- **Shows its evidence.** `muretto why <resource>` prints the tool call behind every label.
+
+## What Muretto never does
+
+Muretto is read-only. It never creates, changes or deletes anything in your accounts, and it never runs a command for you.
+
+- Every provider request goes through one module that refuses anything but an allowlisted read.
+- The hooks it adds to Claude Code only record. They never block or change the agent.
+- Your data stays on your machine unless you turn on the optional [dashboard](/dashboard) sync.
+
+## Supported today
+
+| | |
+|---|---|
+| Agent | Claude Code |
+| Providers | Supabase, Vercel, GitHub, Cloudflare, Neon, Stripe, Render, PlanetScale |
+| Platforms | macOS and Linux, arm64 and x64. Windows through WSL |
+
+<Note>
+Supabase and Vercel are checked against live accounts. The other six providers are built from each provider's documented API and tested offline, not yet against a live account. See [Providers](/providers).
+</Note>
+
+## Next steps
+
 <CardGroup cols={2}>
   <Card title="Quickstart" icon="rocket" href="/quickstart">
-    Install the CLI, add the hooks and run your first scan.
+    Install, connect a provider and see your first session in two minutes.
   </Card>
   <Card title="How it works" icon="workflow" href="/how-it-works">
-    Hooks, the spool, read-only scans and the attribution join.
+    Hooks, read-only scans, attribution labels and exposure.
+  </Card>
+  <Card title="Examples" icon="list-checks" href="/examples">
+    Common tasks, with real output.
   </Card>
   <Card title="Providers" icon="plug" href="/providers">
-    Supabase, Vercel, GitHub, Cloudflare, Neon, Stripe, Render and PlanetScale.
-  </Card>
-  <Card title="Privacy" icon="shield" href="/privacy">
-    What stays on your machine and what can leave it.
+    Each provider, the token it needs and what it checks.
   </Card>
 </CardGroup>
