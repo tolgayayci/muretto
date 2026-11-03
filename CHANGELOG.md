@@ -2,9 +2,9 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] (v0.1.0)
+## [0.1.0] - 2026-11-03
 
-The first public version. Nothing has been tagged or published yet.
+The first public version. It ships on npm first; Homebrew and `install.sh` follow with the GitHub release.
 
 ### Added
 
