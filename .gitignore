@@ -23,6 +23,10 @@ spool/
 .dev.vars*
 .mint/
 .yk/
+# Internal notes stay local only; never commit them.
+/docs/
+adapters/*/research.md
+adapters/*/coverage.md
 # Agent instructions and notes are local only; never commit them.
 .claude/
 CLAUDE.md
