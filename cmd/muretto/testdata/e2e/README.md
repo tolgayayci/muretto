@@ -1,7 +1,7 @@
 # End-to-end fixtures
 
-Fake provider responses for `cmd/muretto/e2e_test.go`, in the documented
-shapes from `adapters/supabase/research.md` and `adapters/vercel/research.md`. Nothing
+Fake provider responses for `cmd/muretto/e2e_test.go`, in the shapes
+Supabase and Vercel document. Nothing
 here was recorded from a real account. The fake values follow
 `adapters/FIXTURES.md` (project ref `abcdefghijklmnopqrst`, org
 `example-org`, team `team_EXAMPLE00000000000000` / `example-team`).

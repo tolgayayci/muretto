@@ -1,5 +1,5 @@
 # Extract cases built from the CLI, API and MCP output documented in
-# adapters/neon/research.md (Creation paths). All ids are fakes. `expect` is the
+# Neon's documentation. All ids are fakes. `expect` is the
 # exact set of identifiers (kind, value, container, role); [] means none.
 
 # ---- neon / neonctl CLI ----

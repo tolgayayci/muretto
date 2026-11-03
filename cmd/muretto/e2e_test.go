@@ -339,7 +339,7 @@ func (w *e2eWorld) end(sid string, at time.Duration) {
 }
 
 // mcp records a PostToolUse for an MCP tool: tool_response is the MCP
-// content array itself (docs/research/claude-code.md §1.3).
+// content array itself.
 func (w *e2eWorld) mcp(sid, toolUseID string, at time.Duration, tool string, input map[string]any, resultText string) {
 	w.hook(sid, at, map[string]any{
 		"hook_event_name": "PostToolUse", "prompt_id": "prompt-" + sid[:8], "permission_mode": "default",
@@ -410,7 +410,7 @@ func (w *e2eWorld) scenario(v e2eVariant) {
 	}, "", "  ")
 	if v.humanDeploy {
 		// --non-interactive=false: labels on stderr, the bare URL on stdout
-		// (adapters/vercel/research.md §5.2). No dpl_ id is printed.
+		//. No dpl_ id is printed.
 		w.bash(sessAlice, "toolu_01E2Ealice0000000000002", -160*time.Minute, "vercel deploy --non-interactive=false --token "+vercelToken,
 			"https://acme-web-a81f2c3d4-example-team.vercel.app\n",
 			"  Inspect         https://vercel.com/example-team/acme-web/EXAMPLEalicedeployment0001\n  Preview         https://acme-web-a81f2c3d4-example-team.vercel.app\n")
@@ -462,7 +462,7 @@ func (w *e2eWorld) scenario(v e2eVariant) {
 }
 
 // transcript writes a main transcript for one session in the observed
-// 2.1.310 shape (docs/research/fixtures/claude-code/transcript-sample.jsonl).
+// 2.1.310 shape (internal/hook/testdata/claude-code/transcript-sample.jsonl).
 func (w *e2eWorld) transcript(sid, prompt, toolUseID, tool string, input map[string]any, resultText string) {
 	w.t.Helper()
 	common := func(ts time.Duration, uuid, parent string) map[string]any {
@@ -921,7 +921,7 @@ func TestE2EAdvisorDown(t *testing.T) {
 }
 
 // `vercel deploy` in human mode prints only the deployment URL: it is matched
-// to the listed deployment by host (docs/decisions/0901), with no phantom
+// to the listed deployment by host, with no phantom
 // evidence-only deployment beside it.
 func TestE2EHumanModeDeploy(t *testing.T) {
 	w := newE2EWorld(t, e2eOpts{catalog: true})

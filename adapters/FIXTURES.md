@@ -3,12 +3,12 @@
 Every fixture under `adapters/<provider>/testdata/` is **fake**. The fixtures
 for Supabase and Vercel (2026-10-26) and for GitHub, Cloudflare, Neon, Stripe,
 Render and PlanetScale (2026-11-01) were built by hand from the documented
-response shapes and examples cited in each provider's `research.md` and the
+response shapes and examples in each provider's documentation and the
 providers' OpenAPI specs. None of them were recorded from a real account.
 
 That is also the expected path for a community pull request: build the
 responses from the provider's docs, use the fake values below, and say in your
-`research.md` that the fixtures are hand-built.
+pull request that the fixtures are hand-built.
 
 Fake values used throughout:
 

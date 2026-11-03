@@ -8,9 +8,7 @@ A community pull request does not have to meet all of this on day one. It needs 
 
 | File | Contents |
 |---|---|
-| `adapters/<slug>/adapter.yaml` | The adapter. Header comment: `# <Name> adapter. Every endpoint, field and output string here comes from adapters/<slug>/research.md (checked YYYY-MM-DD). Format: adapters/WRITING.md.` |
-| `adapters/<slug>/research.md` | Research with a source URL and date for every fact. Sections: **Sources**, **Spec** (URL, version, how to watch it), **Token** (narrowest token, step by step, and what it can still do), **Resources**, **Exposure** (each rule, its endpoint and field, its caveat), **Creation paths** (CLI, MCP, API, Stripe Projects: exact output strings), **Never call** (endpoints that return secrets or write), **Open questions**, and **Live verification** (filled in once checked against a test account). |
-| `adapters/<slug>/coverage.md` | Every resource kind the provider has: `full`, `partial` or `planned`, with the reason. |
+| `adapters/<slug>/adapter.yaml` | The adapter. Header comment: `# <Name> adapter. Every endpoint, field and output string here comes from the provider's own documentation (checked YYYY-MM-DD). Format: adapters/WRITING.md.` Its `coverage:` list names every resource kind the provider has: `full`, `partial` or `planned`, with the reason. |
 | `adapters/<slug>/testdata/scan/<scenario>/` | `routes.yaml`, `expect.yaml` and JSON bodies. At least `basic` and one failure scenario **(CI)**. |
 | `adapters/<slug>/testdata/extract/cases.yaml` | Extract cases **(CI)**. |
 
@@ -27,7 +25,7 @@ The slug is the brand in lower case (`github`, `cloudflare`, `neon`, `stripe`, `
 ## Read-only and secrets
 
 - **GET only.** A POST needs a body pinned in Go (`internal/broker/pinned.go`) and a security review.
-- **Never call:** every endpoint that returns a secret value or writes is listed in the research doc. Endpoints that return secrets go into the broker's Go deny list (`deniedPaths`, a Go change reviewed with the adapter), even though the adapter never lists them.
+- **Never call:** every endpoint that returns a secret value or writes is listed in the pull request. Endpoints that return secrets go into the broker's Go deny list (`deniedPaths`, a Go change reviewed with the adapter), even though the adapter never lists them.
 - **`strip`** lists every response field that can hold a secret: passwords, tokens, keys, connection strings, plaintext environment-variable values, signing secrets, URLs with embedded credentials or unauthenticated trigger URLs. The broker's built-in strip list doesn't count as yours.
 - **Attributes:** never secrets, and never personal data (emails, names, IPs) unless a rule needs them.
 - **Token formats** the provider issues go into `internal/redact` (a Go change), so tokens an agent prints never reach the spool.
@@ -43,8 +41,8 @@ The account is what the token belongs to: the user's own org, team, workspace or
 ## Scanning
 
 - **Every list that paginates declares `pagination`**, in whichever of the four styles the API uses. A list that can't be paged completely is `partial` in `coverage`, with the reason. Truncation is never silent.
-- **Pin API versions** with `headers` where the provider supports it (`X-GitHub-Api-Version`, `Stripe-Version`), and record the version in the research doc.
-- **Keep fan-out bounded:** child kinds multiply calls. Note the calls per scan in the research doc.
+- **Pin API versions** with `headers` where the provider supports it (`X-GitHub-Api-Version`, `Stripe-Version`), and note the version in a comment.
+- **Keep fan-out bounded:** child kinds multiply calls. Note the calls per scan in the pull request.
 - **`created_at`** comes from the provider's own creation time. Leave it out if it isn't the creation time (Supabase's pre-provisioned projects).
 
 ## Exposure rules
@@ -81,6 +79,6 @@ The account is what the token belongs to: the user's own org, team, workspace or
 Before merging an official adapter:
 
 1. `go test ./adapters/` passes (the gate: `TestShippedAdapters`, `TestFolderNamesMatchProviders`), as do `muretto adapter test adapters/<slug>/adapter.yaml --strict` and `go test ./internal/adapters ./internal/adaptercheck ./internal/broker ./internal/redact` **(CI)**. Locally: `make adapter-test P=<slug>`.
-2. The research doc cites a source for every endpoint, field and output string.
-3. Changes outside the adapter folder are made in the same pull request or right after it (see [WRITING.md section 11](WRITING.md#11-official-adapters-changes-outside-the-folder)): the deny list in `internal/broker/pinned.go` and token formats in `internal/redact/redact.go`, both reviewed as security changes and noted in [`docs/SECURITY.md`](../docs/SECURITY.md); the dashboard's provider list; the README's "Supported today" table.
-4. **Live verification**, read-only against a test account: every kind lists, every rule decides, and the research doc's "Live verification" section is filled in. Until then the adapter is marked `# Not yet verified live` in its `adapter.yaml` header, and the README marks it as not yet verified live.
+2. The pull request cites a source for every endpoint, field and output string.
+3. Changes outside the adapter folder are made in the same pull request or right after it (see [WRITING.md section 11](WRITING.md#11-official-adapters-changes-outside-the-folder)): the deny list in `internal/broker/pinned.go` and token formats in `internal/redact/redact.go`, both reviewed as security changes; the dashboard's provider list; the README's "Supported today" table.
+4. **Live verification**, read-only against a test account: every kind lists, every rule decides, and the pull request says so. Until then the adapter is marked `# Not yet verified live` in its `adapter.yaml` header, and the README marks it as not yet verified live.

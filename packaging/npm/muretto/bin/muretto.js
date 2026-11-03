@@ -8,7 +8,7 @@
 //
 // The child gets MURETTO_LAUNCHER_BINARY=<absolute path of the real binary>.
 // `muretto init` must write that real path (os.Executable()) into Claude Code
-// hooks, never `npx muretto`. See docs/INSTALL.md.
+// hooks, never `npx muretto`.
 "use strict";
 
 const { spawn } = require("node:child_process");

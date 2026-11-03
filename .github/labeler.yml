@@ -54,7 +54,6 @@ area:docs:
   - changed-files:
       - any-glob-to-any-file:
           - apps/docs/**
-          - docs/**
           - '*.md'
           - adapters/*.md
 

@@ -19,7 +19,7 @@ import (
 // Claude Code doesn't send the server URL, only its name and scope, so the
 // hook reads the server's entry from Claude Code's MCP config and keeps only
 // allowlisted identifier query params. Never the URL, its path, headers,
-// other params or env values (docs/decisions/0905-project-scoped-mcp.md).
+// other params or env values.
 
 // mcpParamKeys are the query parameter names that may be recorded.
 var mcpParamKeys = map[string]bool{

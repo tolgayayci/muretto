@@ -1,5 +1,5 @@
 # Sandbox-and-live mix in one account (shapes from the API reference list and
-# create examples, adapters/stripe/research.md). Two live webhooks (a Vercel
+# create examples). Two live webhooks (a Vercel
 # branch-preview host and a stable host subscribed to "*"), a sandbox webhook
 # to an ngrok dev domain, live and sandbox products, prices and payment links.
 - { path: /v1/account, file: account.json }

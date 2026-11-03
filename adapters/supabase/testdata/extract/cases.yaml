@@ -1,5 +1,5 @@
 # Extract cases built from the CLI/MCP output documented in
-# adapters/supabase/research.md (Q5, Q6). All ids are fakes. `expect` is the exact
+# Supabase's documentation. All ids are fakes. `expect` is the exact
 # set of identifiers (kind, value, container, role); [] means none.
 
 - name: CLI projects create (text mode)
@@ -120,7 +120,7 @@
     - { kind: supabase.table, value: public.customers, container: abcdefghijklmnopqrst, role: created }
     - { kind: supabase.bucket, value: customer-files, container: abcdefghijklmnopqrst, role: created }
 
-# Proof of creation (docs/decisions/0406-proof-of-creation.md): the SQL is
+# Proof of creation: the SQL is
 # lexed first, and statements that succeed whether or not the thing existed
 # only reference it.
 - name: CLI db query CREATE TABLE IF NOT EXISTS only references the table
@@ -302,7 +302,7 @@
     - { kind: supabase.bucket, value: customer-files, container: abcdefghijklmnopqrst, role: created }
 
 # A server pinned with ?project_ref=<ref> takes no project_id; the hook
-# records the ref as mcp.project_ref (docs/decisions/0905-project-scoped-mcp.md).
+# records the ref as mcp.project_ref.
 - name: MCP apply_migration on a project-pinned server
   tool: mcp__supabase__apply_migration
   mcp: { project_ref: abcdefghijklmnopqrst }
@@ -426,7 +426,7 @@
   expect: []
 
 # Cases for the signatures the shipping rules found untested (2026-11-01).
-# Shapes from adapters/supabase/research.md (Management API BranchResponse; MCP
+# Shapes from Supabase's docs (Management API BranchResponse; MCP
 # list_branches, list_edge_functions and list_storage_buckets results).
 - name: Management API create branch through curl
   tool: Bash

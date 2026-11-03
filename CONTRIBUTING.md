@@ -15,7 +15,7 @@ fixtures, and you don't need a provider account. Start at
 |---|---|
 | [`cmd/muretto`](cmd/muretto) | The CLI (`main` package): `init`, `sessions`, `resources`, `exposed`, `adapter`, `doctor`, … |
 | [`internal/`](internal) | The CLI's packages. `broker` (the only code that talks to providers, with the read-only allowlist), `adapters` (the YAML engine), `adaptercheck` (the adapter test gate), `adaptergen` and `openapi` (drafting adapters from OpenAPI), `redact`, `hook`, `observe`, `attrib`, `store`, `syncclient`, … |
-| [`adapters/`](adapters) | One folder per provider: `adapter.yaml`, research, coverage and fixtures. |
+| [`adapters/`](adapters) | One folder per provider: `adapter.yaml` and fixtures. |
 | [`schema/`](schema) | JSON Schemas for every record. Go types (`internal/contract`) and TypeScript types (`apps/dashboard/src/contract`) are generated from them. |
 | [`plugin/`](plugin) | The Claude Code plugin: the hooks that record agent tool calls. |
 | [`server/`](server) | `murettod`, the optional sync API behind `muretto login`, `muretto sync` and the dashboard. |
@@ -24,11 +24,9 @@ fixtures, and you don't need a provider account. Start at
 | [`apps/docs`](apps/docs) | The documentation site (Mintlify). |
 | [`packaging/npm`](packaging/npm) | The npm packages that install the prebuilt binary. |
 | [`examples/live-demo`](examples/live-demo) | An optional end-to-end run against your own **test** accounts. It creates and deletes real resources. |
-| [`docs/`](docs) | Architecture, security model, install notes, the sync payload and design decisions. |
 | `tools/` | Pinned Go tools (gitleaks, govulncheck, go-jsonschema), run with `go tool -modfile=tools/go.mod`. |
 
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) explains how the parts fit
-together.
+[How it works](apps/docs/how-it-works.mdx) explains how the parts fit together.
 
 ## Dev setup
 
@@ -94,7 +92,7 @@ Read [`adapters/README.md`](adapters/README.md). In short:
 mkdir -p adapters/example
 go run ./cmd/muretto adapter new openapi.json --provider example \
   -o adapters/example/adapter.yaml --fixtures adapters/example/testdata
-# edit adapter.yaml, write research.md, coverage.md and the fixtures, then:
+# edit adapter.yaml and the fixtures, then:
 make adapter-test P=example
 ```
 
@@ -129,8 +127,8 @@ make adapter-test P=example
 - **Honest output.** A label is `exact` only with stored evidence. Missing data
   is `unknown`, never "not exposed", and unknown cost is never shown as `$0`.
 - **Few dependencies.** Justify each new dependency in your pull request.
-- **Security changes** (the broker, redaction, the hooks, sync) update
-  [`docs/SECURITY.md`](docs/SECURITY.md) in the same pull request.
+- **Security changes** (the broker, redaction, the hooks, sync) are explained
+  in the pull request.
 
 ## Pull requests
 
@@ -142,9 +140,7 @@ make adapter-test P=example
 - CI runs on every pull request from a fork with a read-only token and no
   secrets. Labels (`provider:<slug>`, `area:<part>`) are added automatically.
 - New behaviour has a test. Tests never call a real provider.
-- Non-obvious design decisions get a short record in
-  [`docs/DECISIONS.md`](docs/DECISIONS.md) and
-  [`docs/decisions/`](docs/decisions).
+- Explain non-obvious design decisions in the pull request.
 
 ### Commit style
 

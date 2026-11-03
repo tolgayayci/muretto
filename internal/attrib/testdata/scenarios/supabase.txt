@@ -230,7 +230,7 @@ action toolu_a1 session=s1 at=10:05 tool=Bash
 resource supabase.project:projaaaaaaaaaaaaaaaa name=shop account=org-fake created=10:04
 expect supabase.project:projaaaaaaaaaaaaaaaa unknown
 
-# ---- Proof of creation (docs/decisions/0406-proof-of-creation.md) ----
+# ---- Proof of creation ----
 
 === CREATE TABLE IF NOT EXISTS on an existing advisor table only references it
 # The review's reproduction: the statement succeeds whether or not the table
@@ -297,7 +297,7 @@ action toolu_a1 session=s1 at=10:00 tool=Bash
 resource supabase.function:projaaaaaaaaaaaaaaaa/sync-users name=sync-users first_seen=09:00 gone=09:30
 expect supabase.function:projaaaaaaaaaaaaaaaa/sync-users unknown
 
-# ---- Deleted and created again under the same name (docs/decisions/0906-recreated-resources.md) ----
+# ---- Deleted and created again under the same name ----
 
 === function deleted and created again by a later session: the later session
 # Seen live: s1 deployed demo-webhook at 15:07, it was deleted, s2 deployed a

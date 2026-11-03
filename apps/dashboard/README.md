@@ -62,4 +62,3 @@ Behind Railway's proxy a route handler sees its own address as `localhost:3000`,
 - `src/proxy.ts`: per-request nonce CSP, session refresh, sign-in redirect.
 - `src/components`: the Muretto design system (`ds.tsx`), provider logos and badges (`brand.tsx`), shared page pieces (`ui.tsx`).
 
-See [decision 0605](../../docs/decisions/0605-dashboard-v2-supabase-auth.md) for why it is built this way.

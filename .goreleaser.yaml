@@ -6,7 +6,7 @@
 #
 # TODO(signing): sign checksums.txt and attach build provenance before 1.0
 # (cosign keyless `signs:` + SLSA provenance / actions/attest-build-provenance).
-# Then make install.sh verify the signature too. See docs/INSTALL.md.
+# Then make install.sh verify the signature too.
 version: 2
 
 project_name: muretto

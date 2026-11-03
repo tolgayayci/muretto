@@ -10,8 +10,8 @@ import (
 	"github.com/tolgayayci/muretto/internal/contract"
 )
 
-// attribMatch is Stream D's identifier matching contract (docs/decisions/0401
-// on D's branch), reimplemented here so this package fails if its identifiers
+// attribMatch is the attribution package's identifier matching contract,
+// reimplemented here so this package fails if its identifiers
 // stop fitting it:
 //   - id_in_result: value == provider_id;
 //   - host_in_result: value == attributes.host;
@@ -26,7 +26,7 @@ func attribMatch(id contract.Identifier, res contract.Resource, byID map[string]
 		return true
 	}
 	if h, ok := res.Attributes["host"].(string); ok && h != "" && id.Value == h {
-		return true // host_in_result (docs/decisions/0901)
+		return true // host_in_result
 	}
 	if id.Container == nil {
 		return false

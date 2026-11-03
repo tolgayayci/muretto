@@ -28,9 +28,7 @@ adapters/
   _template/
     adapter.yaml       every field with a comment; copy it to start
   <provider>/
-    adapter.yaml       the adapter
-    research.md        sources (URL and date) for every endpoint, field and output string
-    coverage.md        every resource kind the provider has: full, partial or planned
+    adapter.yaml       the adapter, with a coverage: list of every resource kind
     testdata/
       scan/<scenario>/   routes.yaml, expect.yaml and JSON response bodies
       extract/cases.yaml tool calls and the identifiers they should yield
@@ -49,11 +47,11 @@ are not loaded.
 You need Go (the version in `go.mod`) and a clone. No provider account is
 needed. The examples use a provider called `example`.
 
-**1. Research.** Read the provider's API docs and write
-`adapters/example/research.md`: the list endpoints, the fields you will keep,
-the narrowest read-only token, how agents create resources (CLI, MCP, API) with
-the exact output, and the endpoints that return secrets. Cite a URL and date
-for each. Never guess an endpoint or an output string.
+**1. Research.** Read the provider's API docs: the list endpoints, the fields
+you will keep, the narrowest read-only token, how agents create resources (CLI,
+MCP, API) with the exact output, and the endpoints that return secrets. Put the
+source links in your pull request description. Never guess an endpoint or an
+output string.
 
 **2. Draft the adapter.** With an OpenAPI file:
 
@@ -73,7 +71,7 @@ cp adapters/_template/adapter.yaml adapters/example/adapter.yaml
 
 Then edit it: set `provider: example`, review every line marked `REVIEW`, and
 add CLI signatures from your research (OpenAPI cannot describe CLI output).
-Add a `coverage.md` listing every kind.
+List every kind under `coverage:`.
 
 **3. Write fixtures** in `adapters/example/testdata/`:
 

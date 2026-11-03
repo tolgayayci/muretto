@@ -13,7 +13,7 @@ import (
 
 // TestProofOfCreation runs real tool calls through the shipped adapters and
 // attribution together: a session gets exact only when its action proves it
-// created the resource (docs/decisions/0406-proof-of-creation.md).
+// created the resource.
 func TestProofOfCreation(t *testing.T) {
 	reg, err := adapters.Load(adapterfiles.Files)
 	if err != nil {

@@ -29,12 +29,12 @@ You don't need this to use or develop Muretto. `make test` covers everything off
 **Test accounts (never your real ones).** The scripts refuse to run unless the names look like test accounts, but they cannot tell a real account that is named `test`.
 
 - A dedicated **Supabase** org with 1 or 2 **pre-created** projects. Don't create projects live: it is slow and plan-limited. Each project's name must contain `demo` or `test`; the scripts check it (`GET /v1/projects`) and refuse otherwise.
-  - Free plan: 2 active free projects per user, counted across every org where you are Owner or Admin; paused projects don't count. Free projects pause after a week of inactivity. Branching needs Pro (the demo doesn't use branches). Source: `adapters/supabase/research.md` Q8.
+  - Free plan: 2 active free projects per user, counted across every org where you are Owner or Admin; paused projects don't count. Free projects pause after a week of inactivity. Branching needs Pro (the demo doesn't use branches).
   - A personal access token (`sbp_…`) of a member of that org. The agents' Supabase MCP server and `setup.sh` / `reset.sh` use it; it can write.
   - Optional but better: a second, read-scoped token for Muretto (`MURETTO_SUPABASE_TOKEN`). Muretto's broker keeps reads read-only either way.
   - The primary project's **publishable** key (`sb_publishable_…`) for `prove.sh`. Each project's **secret** key only if you want `reset.sh` to delete the `demo-uploads` bucket (the Management API has no bucket delete).
-- A dedicated **Vercel** team whose slug contains `demo` or `test`, and a team-scoped token (`vcp_…`). Vercel has no read-only token (`adapters/vercel/research.md` Q2).
-  - Hobby: 1 concurrent build (alice's and eve's deploys queue, which is fine but slower), non-commercial use only. A Pro trial avoids both (`adapters/vercel/research.md` Q8).
+- A dedicated **Vercel** team whose slug contains `demo` or `test`, and a team-scoped token (`vcp_…`). Vercel has no read-only token.
+  - Hobby: 1 concurrent build (alice's and eve's deploys queue, which is fine but slower), non-commercial use only. A Pro trial avoids both.
 
 **Tools** (the scripts check and print install hints; they never install anything): Claude Code (`claude`, logged in), `tmux`, `jq`, `curl`, Go 1.27.3+, Node/npm (dashboard), `uuidgen`, the Vercel CLI (`vercel`, used by the agents), and `muretto` built from this repo (`make build` → `bin/muretto`; the hooks point at it). The scripts are bash 3.2 compatible (macOS default).
 
@@ -65,13 +65,13 @@ What `run.sh` does, in order:
 6. Writes `examples/live-demo/.run/hooks.json` (Muretto's six hook events in exec form, pointing at the repo-built `bin/muretto`, plus `enabledMcpjsonServers: ["supabase"]`; passed with `--settings`, so your own Claude Code settings are never touched), and a `.mcp.json` in each developer's workdir with the Supabase MCP server pinned to that developer's test project (`?project_ref=<ref>`; the token is `"Authorization": "Bearer ${SUPABASE_ACCESS_TOKEN}"`, expanded by Claude Code, never written to disk).
 7. Creates the tmux grid. Each pane runs `claude -p` in its workdir with `--settings`, `--session-id`, `-n "<dev>: <task>"`, `--permission-mode dontAsk --allowedTools …` (only what that task needs), `--max-budget-usd`, `--output-format stream-json --verbose --include-hook-events`, piped through `pretty.jq`. Never `--bare` (it would skip hooks).
 
-**Why `.mcp.json` and not `--mcp-config`.** A server pinned to one project takes no `project_id` in its tool calls, so Muretto learns the project from the server's config: the hook reads the server's `project_ref` from `.mcp.json` (project scope) and records only that (decision 0905). Claude Code doesn't say where a `--mcp-config` server came from (`source: "dynamic"`), so those sessions would show every Supabase resource as "creator unknown". Without `--strict-mcp-config`, your own user-scope MCP servers (from `~/.claude.json`) also load in the panes; `--allowedTools` still limits each agent to its task's tools, so they can't be called.
+**Why `.mcp.json` and not `--mcp-config`.** A server pinned to one project takes no `project_id` in its tool calls, so Muretto learns the project from the server's config: the hook reads the server's `project_ref` from `.mcp.json` (project scope) and records only that. Claude Code doesn't say where a `--mcp-config` server came from (`source: "dynamic"`), so those sessions would show every Supabase resource as "creator unknown". Without `--strict-mcp-config`, your own user-scope MCP servers (from `~/.claude.json`) also load in the panes; `--allowedTools` still limits each agent to its task's tools, so they can't be called.
 
 Each developer's muretto reads only its own session's transcripts: `CLAUDE_CONFIG_DIR` for muretto points at `examples/live-demo/.run/devs/<dev>/claude`, which holds a symlink to that developer's Claude Code project directory only. Without this, every developer would also pick up the other four sessions and your personal Claude Code history.
 
 ### Why setup.sh
 
-Since Oct 30, 2026, Supabase no longer grants new `public` tables to `anon`/`authenticated`. Bob's RLS-off table would then return `42501` to the curl, and Muretto would correctly not flag it. `setup.sh --apply` restores the pre-change default privileges **on the test project only** (decision 0702; the undo statement is in the script). This makes the demo table readable the way it would be on most projects created before the change; say so if you show the result to anyone. On a test project created on 2026-10-27 the old default grants were still in place, so the statement may be a no-op; it makes sure either way. It also prints the steps to set the Vercel **test** team's default deployment protection to None.
+Since Oct 30, 2026, Supabase no longer grants new `public` tables to `anon`/`authenticated`. Bob's RLS-off table would then return `42501` to the curl, and Muretto would correctly not flag it. `setup.sh --apply` restores the pre-change default privileges **on the test project only** (the undo statement is in the script). This makes the demo table readable the way it would be on most projects created before the change; say so if you show the result to anyone. On a test project created on 2026-10-27 the old default grants were still in place, so the statement may be a no-op; it makes sure either way. It also prints the steps to set the Vercel **test** team's default deployment protection to None.
 
 The Vercel side needs one more step, done by `run.sh` on every run rather than by `setup.sh` (because `reset.sh` deletes the projects): each demo project gets one placeholder production deploy first, since a project's first deploy always goes to production and the demo needs alice's and eve's deploys to be public **previews**.
 
@@ -100,6 +100,6 @@ The Vercel side needs one more step, done by `run.sh` on every run rather than b
 
 - `--allowedTools` permission rules with arguments (`Bash(vercel *)`) in `dontAsk` mode; the research verified exact tool names only.
 - `enabledMcpjsonServers` from a `--settings` file approving a workdir's `.mcp.json` server in `-p` mode (observed once in a live test, with `source: "project"` in the hook input).
-- The raw Storage API paths `POST /storage/v1/bucket/{id}/empty` and `DELETE /storage/v1/bucket/{id}` (from supabase storage-js; `adapters/supabase/research.md` Q9 marks them unverified).
+- The raw Storage API paths `POST /storage/v1/bucket/{id}/empty` and `DELETE /storage/v1/bucket/{id}` (from supabase storage-js, unverified).
 - Whether the Vercel team settings page offers a team-wide default for deployment protection on your plan.
 - `GET /v10/projects?search=` matching by name prefix; `reset.sh` filters by the `demo-` prefix again anyway.

@@ -226,7 +226,7 @@ func (a *app) loadAllAdapters() (Registry, error) {
 }
 
 // binaryPath is the path written into Claude Code hooks: the real binary,
-// never npx (docs/decisions/0802-hook-binary-path.md).
+// never npx.
 func binaryPath() (string, error) {
 	if p := os.Getenv("MURETTO_LAUNCHER_BINARY"); p != "" {
 		return filepath.EvalSymlinks(p)

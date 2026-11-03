@@ -1,5 +1,5 @@
 # GitHub adapter. Every endpoint, field and output string here comes from
-# adapters/github/research.md (checked 2026-11-01). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-11-01). Format: adapters/WRITING.md.
 # Not yet verified live.
 format: 1
 provider: github
@@ -33,7 +33,7 @@ token_help: |
   GET requests (internal/broker). Do not use a classic token: the "repo" scope
   it needs can write to every repository you can access.
 
-# Pinned REST API version (adapters/github/research.md "Spec"). Every list that
+# Pinned REST API version. Every list that
 # pages declares Link-header paging; per_page is the documented maximum.
 endpoints:
   user:

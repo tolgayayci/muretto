@@ -5,8 +5,8 @@ steps, what CI checks), read [README.md](README.md) first.
 
 An adapter teaches Muretto one provider: how to list what exists (read-only),
 how to recognise an agent creating something, and which exposure rules apply.
-It is **one folder, `adapters/<provider>/`**, holding `adapter.yaml`, a
-`research.md` with sources, a `coverage.md`, and fixtures in `testdata/`.
+It is **one folder, `adapters/<provider>/`**, holding `adapter.yaml` and
+fixtures in `testdata/`.
 The adapter itself is YAML only. For what an official adapter also changes
 outside its folder, see [section 11](#11-official-adapters-changes-outside-the-folder).
 
@@ -112,8 +112,8 @@ broken file is reported and skipped. To ship one with Muretto, put it in
    exact body is declared in Go (`internal/broker/pinned.go`), reviewed like
    any security change. YAML can name such a body but never define one.
 2. **Never invent.** Every endpoint, field, CLI output string and MCP tool name
-   must come from the provider's docs, OpenAPI spec or source. Write what you
-   found, with links and the date, to `adapters/<provider>/research.md` first.
+   must come from the provider's docs, OpenAPI spec or source. Link what you
+   found, with the date, in your pull request description.
 3. **Store only what you list.** Attributes are an explicit allowlist. Nothing
    else from a response is kept. Secret-bearing fields must also be listed
    under `strip` so the broker drops them before anything else sees the body.
@@ -199,7 +199,7 @@ endpoints:
   (Neon answers 404 when a branch has no Data API).
 - `method: POST` requires `pinned_body: <name>` naming a body in
   `internal/broker/pinned.go`. Adding one is a Go change with a security
-  review and a note in `docs/SECURITY.md`.
+  review.
 
 The broker also denies some endpoints in Go even if you list them (for example
 Supabase `/v1/branches/{id}`, which returns database passwords, and Vercel
@@ -422,8 +422,7 @@ signatures:
   Use it as a fallback for servers pinned to one project, whose tools take no
   project id: `container: "{input.project_id|or:mcp.project_ref}"`. It is
   only set for hook-recorded calls to servers from the project, local or user
-  scope, and only for allowlisted keys (decision 0905 in
-  [DECISIONS.md](../docs/DECISIONS.md)).
+  scope, and only for allowlisted keys.
 - `preprocess` rewrites the text a regex extract runs on, in order:
   - `shell_args` splits a shell command into its arguments (quotes and
     escapes removed; a command with an unclosed quote yields nothing);
@@ -439,8 +438,7 @@ signatures:
 - `referenced_if: <group>`: a match where that named group is non-empty
   yields role `referenced`. Use it for statements that succeed whether or not
   the thing existed (`CREATE TABLE IF NOT EXISTS`, `INSERT … ON CONFLICT`):
-  they do not prove creation
-  ([decision 0406](../docs/decisions/0406-proof-of-creation.md)).
+  they do not prove creation.
 - `split: { field: names, sep: "," }` turns one captured list into several ids.
 - `capture: [{ from: command, pattern: '--project (?P<project>\S+)' }]` adds
   groups from a second regex, typically a flag naming the container.
@@ -579,7 +577,7 @@ from `muretto adapter new spec.json --fixtures adapters/example/testdata`,
 which writes a passing starter set (a basic scan, a failure scan and an
 extract case per signature) from fake bodies. Replace the generated values with
 the shapes and examples from the provider's docs (or recorded, sanitized
-responses, if you have a test account), and say in `research.md` which they are.
+responses, if you have a test account), and say in your pull request which they are.
 Hand-built fixtures are fine for a pull request; [FIXTURES.md](FIXTURES.md) lists
 the fake values to use.
 
@@ -611,7 +609,7 @@ under `scan/`.
 
 ## 11. Official adapters: changes outside the folder
 
-The YAML, research and fixtures are enough for an adapter to load, scan and
+The YAML and fixtures are enough for an adapter to load, scan and
 pass CI. An adapter that ships as official also needs a few small changes
 outside `adapters/`. They are reviewed as security changes, and a maintainer
 can make them for you when your pull request lands:
@@ -623,5 +621,4 @@ can make them for you when your pull request lands:
 | `apps/dashboard/src/app/(app)/providers/_components/derive.ts` | The dashboard's Providers page: move the provider from `COMING` to `SUPPORTED`, and add its `ENV`, `LISTS` and `FLAGS` entries. |
 | [`README.md`](../README.md) | The "Supported today" table. |
 
-Note the Go changes in [`docs/SECURITY.md`](../docs/SECURITY.md).
 

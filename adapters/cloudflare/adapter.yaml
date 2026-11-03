@@ -1,5 +1,5 @@
 # Cloudflare adapter. Every endpoint, field and output string here comes from
-# adapters/cloudflare/research.md (checked 2026-11-01). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-11-01). Format: adapters/WRITING.md.
 # Not yet verified live.
 format: 1
 provider: cloudflare

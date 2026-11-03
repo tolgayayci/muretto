@@ -1,5 +1,5 @@
 # Supabase adapter. Every endpoint, field and output string here comes from
-# adapters/supabase/research.md (checked 2026-10-26). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-10-26). Format: adapters/WRITING.md.
 format: 1
 provider: supabase
 display_name: Supabase
@@ -275,7 +275,7 @@ signatures:
   # constants and quoted identifiers encoded), so CREATE TABLE in a comment or
   # a string never counts. Statements that succeed whether or not the thing
   # already existed (IF NOT EXISTS, ON CONFLICT) only reference it
-  # (docs/decisions/0406-proof-of-creation.md).
+  #.
   - id: supabase.cli.db_query
     kind: table
     role: created
@@ -372,7 +372,7 @@ signatures:
   # ---- Supabase MCP server (github.com/supabase/mcp). Results are JSON text. ----
   # A server pinned to one project (?project_ref=<ref> in its URL) takes no
   # project_id; the hook records the pinned ref as mcp.project_ref
-  # (docs/decisions/0905-project-scoped-mcp.md). With neither, identifiers
+  #. With neither, identifiers
   # have no container and stay "seen in session only".
   - id: supabase.mcp.create_project
     kind: project

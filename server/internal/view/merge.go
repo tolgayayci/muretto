@@ -8,7 +8,7 @@ import (
 )
 
 // The team view merges members' copies of one entity conservatively
-// (docs/decisions/0505-team-view-merge.md): merging never makes the view look
+//: merging never makes the view look
 // safer than any member's latest report. Stores keep one copy per (member,
 // entity), so each copy is that member's latest report.
 
@@ -134,7 +134,7 @@ func checkFreshness(x owned[contract.ProviderCheck]) time.Time {
 	return capped(t, x.recv)
 }
 
-// mergeAttribution mirrors the CLI's conflict rule (docs/decisions/0401):
+// mergeAttribution mirrors the CLI's conflict rule:
 // exact claims naming different sessions give unknown with all their
 // evidence, so no member can take over another member's exact attribution.
 // Exact claims that agree stay exact; with no exact claim the newest capped

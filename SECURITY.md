@@ -31,4 +31,4 @@ Muretto is built so that it cannot change your infrastructure or leak your secre
 - **Hooks never block your agent.** They write one small file locally and exit, with no network access.
 - **No telemetry.**
 
-The full model, including where each guarantee is enforced, is in [`docs/SECURITY.md`](docs/SECURITY.md). If the code changes, that document changes in the same pull request.
+More detail is on the [Privacy and security](apps/docs/privacy.mdx) page.

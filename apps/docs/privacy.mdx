@@ -20,7 +20,7 @@ Muretto is local-first. Everything works without an account, and it only reads.
     Only read-only API requests to the providers you connected, made with your own tokens. Nothing goes to Muretto.
   </Accordion>
   <Accordion title="With sync on" icon="cloud">
-    Only the fields listed in [`docs/SYNC_PAYLOAD.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md), sent over HTTPS. `muretto sync on` prints the same list before it asks you to confirm. A test fails if that list and the code ever disagree. See [Dashboard](/dashboard).
+    Only the fields listed in [`internal/syncclient/SYNC_PAYLOAD.md`](https://github.com/tolgayayci/muretto/blob/main/internal/syncclient/SYNC_PAYLOAD.md), sent over HTTPS. `muretto sync on` prints the same list before it asks you to confirm. A test fails if that list and the code ever disagree. See [Dashboard](/dashboard).
   </Accordion>
 </AccordionGroup>
 
@@ -65,5 +65,3 @@ Muretto's code only reads, but your token may allow more. Some providers, like V
 ## Report a vulnerability
 
 Please don't open a public issue. Use [GitHub private vulnerability reporting](https://github.com/tolgayayci/muretto/security/advisories/new), or email [tolga@yk-labs.com](mailto:tolga@yk-labs.com). See [`SECURITY.md`](https://github.com/tolgayayci/muretto/blob/main/SECURITY.md) for details.
-
-The full security model, with where each promise is enforced in the code, is in [`docs/SECURITY.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SECURITY.md).

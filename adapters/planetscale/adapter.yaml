@@ -1,5 +1,5 @@
 # PlanetScale adapter. Every endpoint, field and output string here comes from
-# adapters/planetscale/research.md (checked 2026-11-01). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-11-01). Format: adapters/WRITING.md.
 # Not yet verified live.
 format: 1
 provider: planetscale
@@ -34,7 +34,7 @@ token_help: |
   them only once, when a password is created). Muretto only sends GET
   requests to the endpoints in this file, enforced in code.
 
-# Never add (adapters/planetscale/research.md "Never call"): any POST/PATCH/PUT/
+# Never add: any POST/PATCH/PUT/
 # DELETE, .../passwords/{id}/renew, .../roles/{id}/reset, .../roles/reset-default,
 # .../roles/{id} with replica/bouncer/router query (connection details),
 # .../webhooks (returns the signing secret), /service-tokens,

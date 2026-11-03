@@ -1,5 +1,5 @@
 // Package testfixture is a small, fully fake dataset shaped like the
-// `muretto session` target view in docs/BRIEF.md §10. Tests for answer,
+// `muretto session` view. Tests for answer,
 // render and the CLI share it. Every id, name and ref here is fake.
 package testfixture
 

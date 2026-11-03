@@ -5,7 +5,7 @@
 #
 # Only for the first publish: npm trusted publishing can only be set up on a
 # package that already exists. After that, the release workflow publishes from
-# a v* tag. See docs/INSTALL.md ("Maintainers").
+# a v* tag.
 #
 # Builds the archives with GoReleaser from HEAD (which must be clean), checks
 # and assembles the packages with assemble.mjs, packs them into

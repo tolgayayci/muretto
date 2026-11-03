@@ -1,5 +1,5 @@
 # Neon adapter. Every endpoint, field and output string here comes from
-# adapters/neon/research.md (checked 2026-11-01). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-11-01). Format: adapters/WRITING.md.
 # Not yet verified live.
 format: 1
 provider: neon
@@ -31,7 +31,7 @@ token_help: |
 # The broker allowlist is built from exactly these endpoints. Never add:
 # /projects/{id}/connection_uri, .../roles/{role}/reveal_password,
 # .../credentials/{token}/reveal, .../realtime/secret, /api_keys
-# (adapters/neon/research.md "Never call").
+#.
 endpoints:
   organizations:
     path: /api/v2/users/me/organizations
@@ -39,7 +39,7 @@ endpoints:
     path: /api/v2/projects
     query: { org_id: "{account}", limit: "400" }
     # pagination.cursor marks the last item of every page, even the last one;
-    # the official SDK stops on an empty page (adapters/neon/research.md).
+    # the official SDK stops on an empty page.
     pagination: { next: pagination.cursor, param: cursor, items: projects }
   project:
     path: /api/v2/projects/{project_id}

@@ -1,4 +1,4 @@
-# Extract cases built from the output strings in adapters/render/research.md
+# Extract cases built from the output strings in Render's sources
 # (render-oss/cli @ccd220c, render-oss/render-mcp-server @2e131d6, the
 # public OpenAPI spec). All ids are fakes; created cases match the
 # scan/basic fixtures.

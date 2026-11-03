@@ -1,5 +1,5 @@
 # Extract cases built from the pscale CLI output strings (planetscale/cli
-# v0.348.0) and API response shapes documented in adapters/planetscale/research.md.
+# v0.348.0) and the API response shapes in PlanetScale's documentation.
 # All names and ids are fakes. Credentials in outputs appear as the hook
 # leaves them ([REDACTED]). `expect` is the exact set of identifiers.
 

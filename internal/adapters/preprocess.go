@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Signature text preprocessing (docs/decisions/0406-proof-of-creation.md).
+// Signature text preprocessing.
 //
 // An extract may list `preprocess` steps that rewrite the text its pattern
 // runs on, so a regex only sees the parts of the text that act:

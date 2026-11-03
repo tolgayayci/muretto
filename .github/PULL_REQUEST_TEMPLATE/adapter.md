@@ -22,9 +22,9 @@ Required (CI checks the ones marked CI):
 - [ ] A `basic` scan scenario and at least one failure scenario (403 or 500) (CI)
 - [ ] Every stripped field holds `MURETTO_FAKE_SECRET`, listed under `forbidden` (CI)
 - [ ] Every signature has an extract case; every `created` signature has a case with `matches:`; one case proves nothing (CI)
-- [ ] `research.md` cites a source URL and date for every endpoint, field, token permission and CLI/MCP output string. Nothing invented.
-- [ ] `coverage.md` and `coverage:` list every resource kind: `full`, `partial` or `planned`, with the reason
-- [ ] GET only. Endpoints that return secrets or write are listed under "Never call" in `research.md`
+- [ ] The sources below cite a URL and date for every endpoint, field, token permission and CLI/MCP output string. Nothing invented.
+- [ ] `coverage:` lists every resource kind: `full`, `partial` or `planned`, with the reason
+- [ ] GET only. Endpoints that return secrets or write are listed below under "Never call"
 - [ ] `strip` covers every field that can hold a secret; attributes hold no secrets or personal data
 - [ ] `token_help` names the narrowest token, and says plainly what it can do if it is not read-only
 - [ ] Every paginated list declares `pagination`, or is `partial` in coverage
@@ -35,10 +35,17 @@ Required (CI checks the ones marked CI):
 For official adapters (a maintainer can do these):
 - [ ] Endpoints that return secrets added to `deniedPaths` in `internal/broker/pinned.go`
 - [ ] The provider's token formats added to `internal/redact/redact.go`, with a test
-- [ ] `docs/SECURITY.md` notes the Go changes
 - [ ] Dashboard provider list updated (`apps/dashboard/src/app/(app)/providers/_components/derive.ts`)
 - [ ] README "Supported today" table updated
-- [ ] Verified read-only against a live test account, and "Live verification" filled in `research.md`; otherwise the header says `# Not yet verified live.`
+- [ ] Verified read-only against a live test account; otherwise the header says `# Not yet verified live.`
+
+## Sources
+
+<!-- Provider docs, OpenAPI spec or source for each endpoint, field and output string, with the date you checked. -->
+
+## Never call
+
+<!-- Endpoints that return secrets or write. -->
 
 ## Open questions
 

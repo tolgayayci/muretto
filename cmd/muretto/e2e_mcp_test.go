@@ -1,6 +1,6 @@
 package main
 
-// Project-scoped Supabase MCP server (docs/decisions/0905-project-scoped-mcp.md):
+// Project-scoped Supabase MCP server:
 // the server is pinned to one project in its URL (?project_ref=...), so its
 // tools take no project_id. The hook reads the server's identifier params
 // from Claude Code's MCP config, and the supabase.mcp.* signatures use them

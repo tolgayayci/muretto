@@ -27,7 +27,7 @@ The first public version. It ships on npm first; Homebrew and `install.sh` follo
 - SQLite store with scan history, so a deleted or recreated resource is detected.
 
 **Optional sync and dashboard**
-- `muretto login` (device flow) and `muretto sync on|off|status|now`. Sync is off by default and `sync on` prints every field it will send ([`docs/SYNC_PAYLOAD.md`](docs/SYNC_PAYLOAD.md)).
+- `muretto login` (device flow) and `muretto sync on|off|status|now`. Sync is off by default and `sync on` prints every field it will send ([`internal/syncclient/SYNC_PAYLOAD.md`](internal/syncclient/SYNC_PAYLOAD.md)).
 - Sync API (`server/`, `murettod`): schema-validated ingest, hashed CLI tokens, Supabase Auth for dashboard users, review decisions, live events over SSE, a conservative team-view merge in the API, and a loopback-only development login.
 - Personal dashboard (`apps/dashboard`) with Supabase Auth sign-in. Team features are marked "soon".
 - The muretto.ai landing page (`apps/site`) and a Mintlify docs site (`apps/docs`).

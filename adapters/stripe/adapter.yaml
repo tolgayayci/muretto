@@ -1,5 +1,5 @@
 # Stripe adapter. Every endpoint, field and output string here comes from
-# adapters/stripe/research.md (checked 2026-11-01). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-11-01). Format: adapters/WRITING.md.
 # Not yet verified live.
 format: 1
 provider: stripe
@@ -180,7 +180,7 @@ rules:
     signal: api_field
     applies: { field: livemode, equals: "true" }
     # Hosts documented as tunnels to a developer machine or as preview /
-    # per-deployment URLs (adapters/stripe/research.md, Exposure). Production
+    # per-deployment URLs. Production
     # defaults (<project>.vercel.app, <site>.netlify.app, <project>.pages.dev)
     # do not match.
     exposed:

@@ -1,5 +1,5 @@
-# Extract cases built from the CLI, curl and API reference examples quoted in
-# adapters/stripe/research.md (Creation paths). All ids are fakes. The signing
+# Extract cases built from the CLI, curl and API reference examples in
+# Stripe's documentation. All ids are fakes. The signing
 # secret in create responses is redacted before the spool (internal/redact,
 # whsec_); here it is a placeholder. MCP result shapes are unverified: they
 # follow the API objects, as the Stripe MCP passes API calls through.

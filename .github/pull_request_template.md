@@ -11,8 +11,7 @@
 - [ ] New behaviour has a test, and no test calls a real provider
 - [ ] No secrets, real account ids, URLs or personal data in code, fixtures, docs or screenshots
 - [ ] Provider calls go only through `internal/broker`, and only to allowlisted read endpoints
-- [ ] Security model changed (broker, redaction, hooks, sync): `docs/SECURITY.md` updated
-- [ ] Non-obvious decision: recorded in `docs/DECISIONS.md`
+- [ ] Security model changed (broker, redaction, hooks, sync): explained below
 - [ ] Schema changed: `make generate` run and the generated files committed
 - [ ] New dependencies (if any) are justified below
 

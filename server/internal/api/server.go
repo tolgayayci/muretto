@@ -1,7 +1,6 @@
 // Package api is the Muretto sync API: authentication (Supabase Auth access
 // tokens for the dashboard, a device flow minting CLI tokens), orgs and
-// invites, ingest, answer views and the SSE live channel. See
-// docs/ARCHITECTURE.md "Sync API".
+// invites, ingest, answer views and the SSE live channel.
 package api
 
 import (

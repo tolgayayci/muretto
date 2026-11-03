@@ -39,7 +39,7 @@ go install github.com/tolgayayci/muretto/cmd/muretto@latest
 
 Homebrew (`brew install tolgayayci/tap/muretto`) and the [`install.sh`](install.sh) script come with the GitHub release. macOS and Linux, arm64 and amd64.
 
-`npx muretto` works for a quick look, but install it before running `muretto init`: the hooks need a binary that stays put. More in [`docs/INSTALL.md`](docs/INSTALL.md).
+`npx muretto` works for a quick look, but install it before running `muretto init`: the hooks need a binary that stays put.
 
 ## Quick start
 
@@ -73,15 +73,15 @@ Each provider is one folder in [`adapters/`](adapters/). Agents: Claude Code tod
 3. A resource is linked to a session only when that session's own tool call created it. Everything else is labelled **creator unknown**. Muretto never guesses.
 4. Each adapter declares what counts as open to anyone, such as a table readable with the public key or a public bucket. A check that didn't run shows as `unknown`, never "not exposed".
 
-Details: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Details: [How it works](apps/docs/how-it-works.mdx).
 
 ## Privacy
 
 - **Read-only, enforced in code.** Every provider request goes through one broker that allows only listed read endpoints.
 - **Local by default.** Tokens live in your OS keychain. Secrets are redacted. No telemetry.
-- **Optional dashboard.** `muretto login` and `muretto sync on` send a listed set of fields ([`docs/SYNC_PAYLOAD.md`](docs/SYNC_PAYLOAD.md)) to app.muretto.ai or your own server. Both are off by default.
+- **Optional dashboard.** `muretto login` and `muretto sync on` send a listed set of fields ([`internal/syncclient/SYNC_PAYLOAD.md`](internal/syncclient/SYNC_PAYLOAD.md)) to app.muretto.ai or your own server. Both are off by default.
 
-More in [`docs/SECURITY.md`](docs/SECURITY.md). To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
+More in [Privacy and security](apps/docs/privacy.mdx). To report a vulnerability, see [`SECURITY.md`](SECURITY.md).
 
 ## Contributing
 

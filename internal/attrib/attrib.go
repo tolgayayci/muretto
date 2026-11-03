@@ -1,7 +1,7 @@
 // Package attrib joins agent evidence (actions with identifiers) to provider
 // resources. It is pure: no I/O, no clock other than the now argument.
 //
-// The rules (docs/decisions/0401-attribution-rules.md):
+// The rules:
 //
 //   - id_in_result: an identifier with role created whose value equals a
 //     resource's provider id gives exact.
@@ -15,12 +15,12 @@
 //   - Provider created_at may veto a match (the resource is older than every
 //     creating action); so may Muretto's own history: a scan that listed it
 //     (first_seen_at) before the earliest creating action means the action
-//     did not create it (docs/decisions/0406-proof-of-creation.md); so may a
+//     did not create it; so may a
 //     recorded disappearance after the last creating action (the resource
 //     was recreated). Timing never creates one.
 //   - Provider created_at more than VetoTolerance after a creating action
 //     drops that action's claim: it created an earlier resource with the same
-//     name, deleted since (docs/decisions/0906-recreated-resources.md). A
+//     name, deleted since. A
 //     dropped claim is no conflict; the claims left are judged by the rules
 //     above and below, and the reason names the dropped ones. Resources
 //     without created_at keep every claim.

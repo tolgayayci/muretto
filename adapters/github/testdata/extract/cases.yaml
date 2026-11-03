@@ -1,4 +1,4 @@
-# Extract cases built from the output documented in adapters/github/research.md
+# Extract cases built from the output in GitHub's documentation
 # ("Creation paths"): gh CLI source (cli/cli trunk, v2.103.3), GitHub MCP
 # server source (github/github-mcp-server main) and the REST create responses
 # in GitHub's OpenAPI description. All ids and names are fakes.

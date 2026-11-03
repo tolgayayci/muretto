@@ -1,5 +1,5 @@
 # Vercel adapter. Every endpoint, field and output string here comes from
-# adapters/vercel/research.md (checked 2026-10-26). Format: adapters/WRITING.md.
+# the provider's own documentation (checked 2026-10-26). Format: adapters/WRITING.md.
 format: 1
 provider: vercel
 display_name: Vercel

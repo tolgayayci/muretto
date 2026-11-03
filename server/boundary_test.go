@@ -10,9 +10,8 @@ import (
 	"testing"
 )
 
-// TestImportBoundary enforces docs/DECISIONS.md: server/ may import only
-// internal/contract and schema from the rest of this repository, so the hosted
-// parts can take a different license later.
+// TestImportBoundary enforces that server/ imports only internal/contract and
+// schema from the rest of this repository.
 func TestImportBoundary(t *testing.T) {
 	const mod = "github.com/tolgayayci/muretto/"
 	allowed := []string{mod + "internal/contract", mod + "schema", mod + "server/"}

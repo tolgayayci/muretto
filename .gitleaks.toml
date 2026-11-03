@@ -25,7 +25,6 @@ targetRules = ["curl-auth-user"]
 paths = [
   '''^adapters/stripe/research\.md$''',
   '''^adapters/stripe/testdata/extract/cases\.yaml$''',
-  '''^docs/research/stripe\.md$''',
   '''^adapters/testdata/stripe/extract/cases\.yaml$''',
 ]
 

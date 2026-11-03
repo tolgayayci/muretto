@@ -3,7 +3,6 @@
 #
 # Publishes: GitHub release (archives + checksums.txt), Homebrew cask in
 # tolgayayci/homebrew-tap, and 5 npm packages via trusted publishing (OIDC).
-# One-time maintainer setup: docs/INSTALL.md ("Maintainers").
 #
 # TODO(signing): add cosign keyless signing of checksums.txt and SLSA build
 # provenance (actions/attest-build-provenance) before 1.0.

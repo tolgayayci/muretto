@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// Supabase function created_at is an int64 whose unit is unverified (ms or s,
-// adapters/supabase/research.md). format auto must read both as the same instant,
+// Supabase function created_at is an int64 whose unit is unverified (ms or
+// s). format auto must read both as the same instant,
 // so the created_at veto works for redeployed functions either way.
 func TestParseTimeAutoUnits(t *testing.T) {
 	want := time.Date(2025, 10, 24, 10, 0, 0, 0, time.UTC)

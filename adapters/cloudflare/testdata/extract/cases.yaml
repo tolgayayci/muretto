@@ -1,4 +1,4 @@
-# Extract cases built from the output strings in adapters/cloudflare/research.md
+# Extract cases built from the output strings in Cloudflare's documentation
 # (Wrangler source at workers-sdk 3f14c76, cloudflared 872b241, Cloudflare
 # MCP README at cloudflare/mcp 4938f2f, API create responses from the OpenAPI
 # spec). All ids are fakes and match the scan/basic fixtures.

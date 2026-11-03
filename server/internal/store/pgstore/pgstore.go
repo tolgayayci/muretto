@@ -1,8 +1,8 @@
 // Package pgstore implements store.Store on Postgres with pgx.
 //
 // Production runs against Supabase through the Supavisor session-mode pooler
-// (port 5432), which keeps prepared statements and LISTEN/NOTIFY working
-// (decision 0503). The transaction-mode pooler (port 6543) is
+// (port 5432), which keeps prepared statements and LISTEN/NOTIFY working.
+// The transaction-mode pooler (port 6543) is
 // supported for queries only: statements then run in exec mode, and the
 // LISTEN connection must use a session-mode or direct URL.
 package pgstore

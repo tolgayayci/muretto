@@ -1,5 +1,5 @@
 # Extract cases built from the CLI/MCP output documented in
-# adapters/vercel/research.md (Q5, Q6). All ids are fakes. MCP result shapes are
+# Vercel's documentation. All ids are fakes. MCP result shapes are
 # unverified upstream; these follow the REST create responses as the research
 # recommends.
 

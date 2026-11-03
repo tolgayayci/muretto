@@ -335,7 +335,7 @@ func testIngest(t *testing.T, s store.Store) {
 			t.Fatalf("record of another user: %+v", r)
 		}
 		// UpdatedAt is when the current rev was received; the team view caps
-		// client timestamps at it (docs/decisions/0505).
+		// client timestamps at it.
 		want := t0
 		if r.Key == "r:2" {
 			want = t0.Add(time.Hour)

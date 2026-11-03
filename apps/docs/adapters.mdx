@@ -12,8 +12,6 @@ A community adapter is one folder with no Go:
 ```text
 adapters/example/
   adapter.yaml   the adapter: endpoints, resources, exposure rules
-  research.md    what you found in the provider's docs, with links and dates
-  coverage.md    every resource type the provider has: full, partial or planned
   testdata/      fake API responses and agent tool calls for the offline tests
 ```
 
@@ -165,8 +163,8 @@ Installed adapters load after the built-in ones. They can't reuse a built-in pro
 
 From [STANDARDS.md](https://github.com/tolgayayci/muretto/blob/main/adapters/STANDARDS.md):
 
-- **Read endpoints only.** GET only. List every endpoint that returns secrets or writes under "Never call" in `research.md`, and `strip` every response field that can hold a secret.
-- **Cite the provider's docs.** Every endpoint, field, token permission and CLI or MCP output string in `research.md` has a source link and a date. Nothing invented.
+- **Read endpoints only.** GET only. List every endpoint that returns secrets or writes under "Never call" in your pull request, and `strip` every response field that can hold a secret.
+- **Cite the provider's docs.** Every endpoint, field, token permission and CLI or MCP output string has a source link and a date in your pull request. Nothing invented.
 - **Narrowest token.** `token_help` names the least-privilege token. If the provider has no read-only token, say plainly what the token can do.
 - **No secrets in fixtures.** Fake values only: no real ids, URLs or tokens. CI scans every file for secrets.
 
