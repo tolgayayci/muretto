@@ -26,12 +26,13 @@ import { fileURLToPath } from "node:url";
 const NPM_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_DIR = resolve(NPM_DIR, "..", "..");
 
-// npm package -> GoReleaser {{ .Os }}_{{ .Arch }}
+// packaging/npm/<dir> (published as @muretto/<dir>) -> GoReleaser {{ .Os }}_{{ .Arch }}
+const SCOPE = "@muretto";
 const PLATFORMS = {
-  "muretto-darwin-arm64": "darwin_arm64",
-  "muretto-darwin-x64": "darwin_amd64",
-  "muretto-linux-arm64": "linux_arm64",
-  "muretto-linux-x64": "linux_amd64",
+  "darwin-arm64": "darwin_arm64",
+  "darwin-x64": "darwin_amd64",
+  "linux-arm64": "linux_arm64",
+  "linux-x64": "linux_amd64",
 };
 
 // Semver 2.0 (no leading "v").
@@ -102,7 +103,8 @@ function main() {
   const sums = readChecksums(dist);
   const license = join(REPO_DIR, "LICENSE");
 
-  for (const [pkgName, target] of Object.entries(PLATFORMS)) {
+  for (const [dir, target] of Object.entries(PLATFORMS)) {
+    const pkgName = `${SCOPE}/${dir}`;
     const archive = `muretto_${version}_${target}.tar.gz`;
     const archivePath = join(dist, archive);
     if (!existsSync(archivePath)) die(`${archivePath} not found`);
@@ -111,7 +113,7 @@ function main() {
     const got = sha256(archivePath);
     if (got !== want) die(`checksum mismatch for ${archive}: want ${want}, got ${got}`);
 
-    const pkgDir = join(NPM_DIR, pkgName);
+    const pkgDir = join(NPM_DIR, dir);
     const binDir = join(pkgDir, "bin");
     const tmp = mkdtempSync(join(tmpdir(), "muretto-assemble-"));
     try {
@@ -141,7 +143,7 @@ function main() {
   checkNoScripts(launcher, launcherFile);
   launcher.version = version;
   launcher.optionalDependencies = Object.fromEntries(
-    Object.keys(PLATFORMS).map((name) => [name, version]),
+    Object.keys(PLATFORMS).map((dir) => [`${SCOPE}/${dir}`, version]),
   );
   writeJSON(launcherFile, launcher);
   if (existsSync(license)) copyFileSync(license, join(launcherDir, "LICENSE"));

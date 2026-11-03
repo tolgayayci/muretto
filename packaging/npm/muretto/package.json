@@ -30,9 +30,9 @@
     "node": ">=18"
   },
   "optionalDependencies": {
-    "muretto-darwin-arm64": "0.0.0-dev",
-    "muretto-darwin-x64": "0.0.0-dev",
-    "muretto-linux-arm64": "0.0.0-dev",
-    "muretto-linux-x64": "0.0.0-dev"
+    "@muretto/darwin-arm64": "0.0.0-dev",
+    "@muretto/darwin-x64": "0.0.0-dev",
+    "@muretto/linux-arm64": "0.0.0-dev",
+    "@muretto/linux-x64": "0.0.0-dev"
   }
 }

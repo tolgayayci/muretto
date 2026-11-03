@@ -640,10 +640,10 @@ func TestProvidersDoctorVersionAndUsage(t *testing.T) {
 }
 
 func TestBinaryPathWarning(t *testing.T) {
-	if binaryPathWarning("/Users/x/.npm/_npx/abc/node_modules/muretto-darwin-arm64/bin/muretto") == "" {
+	if binaryPathWarning("/Users/x/.npm/_npx/abc/node_modules/@muretto/darwin-arm64/bin/muretto") == "" {
 		t.Fatal("npx cache path must warn")
 	}
-	if binaryPathWarning("/repo/node_modules/muretto-linux-x64/bin/muretto") == "" {
+	if binaryPathWarning("/repo/node_modules/@muretto/linux-x64/bin/muretto") == "" {
 		t.Fatal("project node_modules must warn")
 	}
 	if binaryPathWarning("/opt/homebrew/bin/muretto") != "" {

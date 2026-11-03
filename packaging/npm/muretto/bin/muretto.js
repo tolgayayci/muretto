@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Launcher for the prebuilt muretto Go binary.
 //
-// The binary ships in one optional dependency per platform (muretto-<os>-<cpu>);
+// The binary ships in one optional dependency per platform (@muretto/<os>-<cpu>);
 // npm installs only the one whose "os"/"cpu" match. This file finds it and runs
 // it with the same arguments, stdio, exit code and signals. No postinstall, no
 // network access.
@@ -16,10 +16,10 @@ const path = require("node:path");
 const os = require("node:os");
 
 const PLATFORMS = {
-  "darwin-arm64": "muretto-darwin-arm64",
-  "darwin-x64": "muretto-darwin-x64",
-  "linux-arm64": "muretto-linux-arm64",
-  "linux-x64": "muretto-linux-x64",
+  "darwin-arm64": "@muretto/darwin-arm64",
+  "darwin-x64": "@muretto/darwin-x64",
+  "linux-arm64": "@muretto/linux-arm64",
+  "linux-x64": "@muretto/linux-x64",
 };
 
 const OTHER_INSTALLS =

@@ -90,10 +90,11 @@ jobs:
           version="${TAG#v}"
           dist_tag=latest
           case "$version" in *-*) dist_tag=next ;; esac
-          for p in muretto-darwin-arm64 muretto-darwin-x64 muretto-linux-arm64 muretto-linux-x64 muretto; do
-            if npm view "$p@$version" version >/dev/null 2>&1; then
-              echo "$p@$version already published; skipping (re-run)"
+          for dir in darwin-arm64 darwin-x64 linux-arm64 linux-x64 muretto; do
+            name=$(node -p "require('./packaging/npm/$dir/package.json').name")
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version already published; skipping (re-run)"
               continue
             fi
-            npm publish "./packaging/npm/$p" --access public --provenance --tag "$dist_tag" --ignore-scripts
+            npm publish "./packaging/npm/$dir" --access public --provenance --tag "$dist_tag" --ignore-scripts
           done
