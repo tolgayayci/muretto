@@ -11,12 +11,12 @@ Include what you found, how to reproduce it, and which version or commit you use
 
 ## Supported versions
 
-Muretto is pre-1.0 and has no tagged release yet. Security fixes go to the `main` branch and, once releases exist, to the latest release only.
+Muretto is pre-1.0. Security fixes go to the `main` branch and to the latest release only.
 
 | Version | Supported |
 |---|---|
 | `main` | yes |
-| latest `0.x` release (from v0.1.0) | yes |
+| latest `0.x` release | yes |
 | older `0.x` releases | no |
 
 ## Security model (summary)

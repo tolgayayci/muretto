@@ -31,13 +31,13 @@ Repo: acme/web (feat/import)
 npm install -g muretto
 ```
 
-Or `brew install tolgayayci/tap/muretto`, or the [`install.sh`](install.sh) script. macOS and Linux, arm64 and amd64.
+Or build from source with Go 1.27.3 or newer:
 
-> **Not released yet.** Until v0.1.0 is out, build from source (Go 1.27.3 or newer):
->
-> ```sh
-> go install github.com/tolgayayci/muretto/cmd/muretto@latest
-> ```
+```sh
+go install github.com/tolgayayci/muretto/cmd/muretto@latest
+```
+
+Homebrew (`brew install tolgayayci/tap/muretto`) and the [`install.sh`](install.sh) script come with the GitHub release. macOS and Linux, arm64 and amd64.
 
 `npx muretto` works for a quick look, but install it before running `muretto init`: the hooks need a binary that stays put. More in [`docs/INSTALL.md`](docs/INSTALL.md).
 

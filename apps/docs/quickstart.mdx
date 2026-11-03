@@ -13,13 +13,11 @@ description: "Install Muretto, add the Claude Code hooks and run your first scan
 
 <Steps>
   <Step title="Install">
-    There is no tagged release yet, so install from source. You need Go 1.27.3 or newer.
-
     ```bash
-    go install github.com/tolgayayci/muretto/cmd/muretto@latest
+    npm install -g muretto
     ```
 
-    From v0.1.0, `npm install -g muretto`, `brew install tolgayayci/tap/muretto` and the `install.sh` script will also work.
+    Or build from source with Go 1.27.3 or newer: `go install github.com/tolgayayci/muretto/cmd/muretto@latest`. Homebrew and the `install.sh` script come with the GitHub release.
   </Step>
   <Step title="Add the hooks and connect providers">
     ```bash
