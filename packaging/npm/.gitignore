@@ -1,5 +1,7 @@
 # Filled in by scripts/assemble.mjs at release time; never committed.
 .dist/
-muretto-*/bin/
+darwin-*/bin/
+linux-*/bin/
 */LICENSE
 *.tgz
+.pack/
