@@ -28,7 +28,7 @@ Usage:
   muretto review [<resource> keep|not-needed]
   muretto providers [--coverage]
   muretto adapter new <openapi-file>   draft an adapter for any API from its OpenAPI spec
-  muretto adapter check|install|list|remove
+  muretto adapter check|test|install|list|remove
   muretto login | logout       optional dashboard login
   muretto sync on|off|status|now
   muretto doctor               check hooks, tokens, spool and last checks

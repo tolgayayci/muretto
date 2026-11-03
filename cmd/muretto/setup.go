@@ -305,7 +305,7 @@ func (a *app) cmdLogout(ctx context.Context, args []string) error {
 	if err := s.cfg.Save(s.p.Config); err != nil {
 		return err
 	}
-	a.out("Logged out. Sync is off. Data already on the server stays there until you delete it in the dashboard.")
+	a.out("Logged out. Sync is off. Data already on the server stays there.")
 	return nil
 }
 

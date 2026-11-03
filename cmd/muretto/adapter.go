@@ -80,7 +80,7 @@ func (a *app) cmdAdapter(args []string) error {
 	case "remove", "uninstall":
 		return a.adapterRemove(rest)
 	}
-	return usageErr("unknown adapter command %q (new, check, install, list, remove)", sub)
+	return usageErr("unknown adapter command %q (new, check, test, install, list, remove)", sub)
 }
 
 func (a *app) adapterNew(args []string) error {
