@@ -1,6 +1,7 @@
 # Muretto build tasks. `make test` needs no network access to providers and no accounts.
 
 GO        ?= go
+NPM       ?= npm
 TOOL      := $(GO) tool -modfile=tools/go.mod
 SCHEMAS   := $(wildcard schema/*.schema.json)
 BIN       := bin/muretto
@@ -9,7 +10,7 @@ COMMIT    ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE      ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS   := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
 
-.PHONY: all help setup hooks build test adapter-test lint vuln secrets generate check-generate ci clean
+.PHONY: all help setup hooks build test adapter-test lint vuln secrets generate check-generate ci npm-pack npm-publish clean
 
 all: build
 
@@ -63,6 +64,18 @@ check-generate: generate
 
 ## ci: generated-code check, tests, lint, govulncheck and secret scan
 ci: check-generate test lint vuln secrets
+
+## npm-pack: build the npm packages for V=<version> into packaging/npm/.pack (publishes nothing)
+npm-pack:
+	@test -n "$(V)" || { echo "usage: make npm-pack V=0.1.0"; exit 2; }
+	packaging/npm/scripts/pack-local.sh $(V)
+
+## npm-publish: publish packaging/npm/.pack to npm for V=<version>, binaries first
+npm-publish:
+	@test -n "$(V)" || { echo "usage: make npm-publish V=0.1.0"; exit 2; }
+	cd packaging/npm/.pack && for p in muretto-darwin-arm64 muretto-darwin-x64 muretto-linux-arm64 muretto-linux-x64 muretto; do \
+		$(NPM) publish ./$$p-$(V).tgz || exit 1; \
+	done
 
 clean:
 	rm -rf bin dist
