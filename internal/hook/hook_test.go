@@ -18,7 +18,7 @@ import (
 	"github.com/tolgayayci/muretto/schema"
 )
 
-const fixtures = "../../docs/research/fixtures/claude-code/"
+const fixtures = "testdata/claude-code/"
 
 var now = time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
 

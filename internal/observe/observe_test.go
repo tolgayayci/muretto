@@ -20,7 +20,7 @@ import (
 const (
 	dev        = "dev-fake-0001"
 	salt       = "path-salt-fake-0001"
-	researchFx = "../../docs/research/fixtures/claude-code/"
+	researchFx = "../hook/testdata/claude-code/"
 	sessA      = "aaaaaaaa-1111-4111-8111-000000000001"
 	sessB      = "bbbbbbbb-2222-4222-8222-000000000002"
 	sessDoc    = "0b6e3c1a-7f2d-4c55-9a10-3e8d2f4b6a01"

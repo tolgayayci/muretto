@@ -670,7 +670,7 @@ func TestHookFastPath(t *testing.T) {
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
-	fixture, err := os.ReadFile("../../docs/research/fixtures/claude-code/hook-posttooluse-bash.json")
+	fixture, err := os.ReadFile("../../internal/hook/testdata/claude-code/hook-posttooluse-bash.json")
 	if err != nil {
 		t.Fatal(err)
 	}

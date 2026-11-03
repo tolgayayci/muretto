@@ -6,7 +6,7 @@
 export type Rev = string;
 
 /**
- * What `muretto sync` uploads: a projection of the Answer. Never tokens, raw transcripts, full prompts, local paths or secret values. Documented field by field in docs/SYNC_PAYLOAD.md. Idempotent: the server upserts each entity by its key and ignores a record whose rev it already has.
+ * What `muretto sync` uploads: a projection of the Answer. Never tokens, raw transcripts, full prompts, local paths or secret values. Documented field by field in internal/syncclient/SYNC_PAYLOAD.md. Idempotent: the server upserts each entity by its key and ignores a record whose rev it already has.
  */
 export interface SyncBatch {
   schema_version: 1;

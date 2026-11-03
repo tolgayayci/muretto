@@ -103,7 +103,7 @@ func diff(a, b []string) []string {
 }
 
 const (
-	docPath    = "../../docs/SYNC_PAYLOAD.md"
+	docPath    = "SYNC_PAYLOAD.md"
 	beginTable = "<!-- payload:begin (generated from syncclient.Payload(); run MURETTO_UPDATE_SYNC_PAYLOAD=1 go test ./internal/syncclient) -->"
 	endTable   = "<!-- payload:end -->"
 )
@@ -138,5 +138,5 @@ func TestPayloadDocInSync(t *testing.T) {
 		}
 		return
 	}
-	t.Fatalf("docs/SYNC_PAYLOAD.md is out of date with Payload(); run MURETTO_UPDATE_SYNC_PAYLOAD=1 go test ./internal/syncclient")
+	t.Fatalf("internal/syncclient/SYNC_PAYLOAD.md is out of date with Payload(); run MURETTO_UPDATE_SYNC_PAYLOAD=1 go test ./internal/syncclient")
 }

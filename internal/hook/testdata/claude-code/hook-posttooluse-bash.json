@@ -1,0 +1,25 @@
+{
+  "session_id": "0b6e3c1a-7f2d-4c55-9a10-3e8d2f4b6a01",
+  "transcript_path": "/home/dev/.claude/projects/-home-dev-acme-app/0b6e3c1a-7f2d-4c55-9a10-3e8d2f4b6a01.jsonl",
+  "cwd": "/home/dev/acme-app",
+  "prompt_id": "5d1f7e2a-0c3b-4e8f-b1a2-9c7d6e5f4a30",
+  "permission_mode": "dontAsk",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo muretto-test-ref abcdefghijklmnopqrst",
+    "description": "Echo test reference string"
+  },
+  "tool_response": {
+    "stdout": "muretto-test-ref abcdefghijklmnopqrst",
+    "stderr": "",
+    "interrupted": false,
+    "isImage": false,
+    "noOutputExpected": false
+  },
+  "tool_use_id": "toolu_01FAKEbashAAAAAAAAAAAAAAA",
+  "duration_ms": 700
+}

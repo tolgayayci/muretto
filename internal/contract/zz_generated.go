@@ -745,8 +745,8 @@ type SyncAttribution struct {
 
 // What `muretto sync` uploads: a projection of the Answer. Never tokens, raw
 // transcripts, full prompts, local paths or secret values. Documented field by
-// field in docs/SYNC_PAYLOAD.md. Idempotent: the server upserts each entity by its
-// key and ignores a record whose rev it already has.
+// field in internal/syncclient/SYNC_PAYLOAD.md. Idempotent: the server upserts
+// each entity by its key and ignores a record whose rev it already has.
 type SyncBatch struct {
 	// Attributions corresponds to the JSON schema field "attributions".
 	Attributions []SyncAttribution `json:"attributions"`

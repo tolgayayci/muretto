@@ -13,7 +13,7 @@ import { machineViews, type MachineView } from "./_components/machines";
 
 export const metadata: Metadata = { title: "Settings" };
 
-// The short version. The full field list is docs/SYNC_PAYLOAD.md.
+// The short version. The full field list is internal/syncclient/SYNC_PAYLOAD.md.
 const SENT = ["Session titles, redacted", "Repo name and branch", "What was created, and what's open"];
 const NEVER = ["Tokens, keys and env values", "Prompts, transcripts and code", "Local paths (only a hash is sent)"];
 

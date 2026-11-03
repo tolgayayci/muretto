@@ -1,6 +1,6 @@
 package syncclient
 
-// Payload lists exactly what sync sends; it must match docs/SYNC_PAYLOAD.md.
+// Payload lists exactly what sync sends; it must match internal/syncclient/SYNC_PAYLOAD.md.
 // A test checks it against the SyncBatch Go type field by field and against
 // the document.
 func Payload() []FieldDoc {

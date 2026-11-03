@@ -58,7 +58,7 @@ muretto_as bob sync status | sed 's/^/      /'
 # A stand-in for the presenter's ~/.claude: bob's own project dir holds one
 # transcript (the research fixture); another project holds a decoy that bob's
 # muretto must never see.
-FIXTURE=$REPO_ROOT/docs/research/fixtures/claude-code/transcript-sample.jsonl
+FIXTURE=$REPO_ROOT/internal/hook/testdata/claude-code/transcript-sample.jsonl
 FIXTURE_SID=0b6e3c1a-7f2d-4c55-9a10-3e8d2f4b6a01
 DECOY_SID=11111111-1111-4111-8111-111111111111
 bob_proj=$CLAUDE_SRC_DIR/projects/$(claude_project_name "$(cd "$(dev_workdir bob)" && pwd -P)")
