@@ -1,0 +1,199 @@
+---
+title: "Examples"
+description: "Short recipes for the questions you ask most, with the real output of each command."
+icon: "list-checks"
+---
+
+Every example uses the same fictional setup: alice ran agent session `8f2a` in `acme/web`, and it created a table, a bucket, a function, a branch and a Vercel preview in project `acme-dev`. Session and resource arguments accept unique prefixes and names, so `8f2a` and `customers` are enough.
+
+## See what one agent session created
+
+Pass the session id, or its first few characters.
+
+```bash
+muretto session 8f2a
+```
+
+```text
+Session 8f2a · alice · Claude Code · Oct 19 14:02–14:31
+Task: "add customer import with file uploads"
+Repo: acme/web (feat/import)
+
+  SUPABASE  project acme-dev
+  ✓ table      customers        exact   ⚠ RLS off: publicly readable
+  ✓ bucket     customer-files   exact   ⚠ public
+  ✓ branch     import-test      exact   7 days old · review due
+
+  VERCEL  project acme-web
+  ✓ deployment preview-a81f     exact   ⚠ public preview
+
+  3 exposed · 1 needs review · checked 3 min ago
+  → muretto why customers
+```
+
+## List recent sessions
+
+```bash
+muretto sessions
+```
+
+```text
+3 sessions · checked 3 min ago
+
+  e7e0  today 11:00         alice     look around the projects                    0 created
+  b0b5  today 09:15         bob       prototype orders table                      0 created
+  8f2a  Oct 19 14:02        alice     add customer import with file uploads       5 created · 3 exposed · 1 review due
+
+  → muretto session <id>
+```
+
+Run `muretto` with no command for the same list plus totals.
+
+## Find everything open to anyone
+
+`exposed` lists exposure findings, worst first, with the session that created each resource.
+
+```bash
+muretto exposed
+```
+
+```text
+3 exposed · checked 3 min ago
+
+  critical table      customers        ⚠ RLS off: publicly readable
+    Table public.customers is in an API-exposed schema and row level security is off, so anyone with the public key can read it. · session 8f2a (alice)
+    → muretto show customers
+
+  medium   deployment preview-a81f     ⚠ public preview
+    Deployment protection is off for this project, so the preview URL is reachable by anyone. · session 8f2a (alice)
+    Caveat: Protection exceptions are not visible to the API.
+    → muretto show preview-a81f
+```
+
+## See why a resource is linked to a session
+
+`why` prints the evidence: the tool call, its input and its result.
+
+```bash
+muretto why customers
+```
+
+```text
+table customers: exact
+Created by session 8f2a (alice) (rule name_in_container)
+Reason: session 8f2a1c3e created it: a creating call named this table in its container, and no other session did
+
+Evidence
+  1. Oct 19 14:06 · session 8f2a (alice) · mcp__supabase__apply_migration
+     matched projaaaaaaaaaaaaaaaa/public.customers (supabase.mcp.apply_migration, toolu_01FAKEaaaaaaaaaaaaaaaaa1)
+```
+
+When no session's own tool call shows that it created a resource, the label is "creator unknown". Muretto never guesses from timing.
+
+```bash
+muretto why acme-prod
+```
+
+```text
+project acme-prod: unknown
+Reason: creator unknown: session e7e00000 only read or referenced it
+
+No agent evidence mentions this resource as created. Muretto never guesses from timing.
+```
+
+## Look at one resource
+
+`show` gives the timeline, creator, exposure, cost and your review decision.
+
+```bash
+muretto show customers
+```
+
+```text
+table customers  supabase.table:projaaaaaaaaaaaaaaaa/public.customers
+Provider: supabase · account org-fake-acme · in acme-dev
+Status: exists (seen via advisor, last seen 3 min ago)
+Creator: session 8f2a (alice) · exact
+
+Timeline
+  Oct 19 14:02        session 8f2a started: "add customer import with file uploads"
+  Oct 19 14:06        mcp__supabase__apply_migration  projaaaaaaaaaaaaaaaa/public.customers
+
+Exposure
+  ⚠ RLS off: publicly readable  checked 3 min ago
+```
+
+## Review what you still need
+
+`review` lists agent-created resources that are due for a decision.
+
+```bash
+muretto review
+```
+
+```text
+Still need these?  (Muretto only records your answer; it never deletes anything)
+
+  branch     import-test 7 days old · review due · owner alice
+    → muretto review import-test keep   → muretto review import-test not-needed
+
+  Decided: 4 keep, 0 not needed.
+```
+
+Record your answer with `keep` or `not-needed`. Add `--note "..."` to store a reason.
+
+```bash
+muretto review import-test not-needed
+```
+
+```text
+Recorded: branch import-test → not-needed. Muretto only records this; it never deletes anything.
+```
+
+<Note>
+Muretto only stores your decision. It never changes or deletes anything in your provider account.
+</Note>
+
+## Filter resources
+
+`resources` lists everything Muretto can see, grouped by provider and project. Combine the filters as you like.
+
+```bash
+muretto resources                      # everything
+muretto resources --provider vercel    # one provider
+muretto resources --exposed            # only exposed resources
+muretto resources --unknown            # only resources with creator unknown
+```
+
+The first part of `muretto resources`:
+
+```text
+9 resources · checked 3 min ago
+
+  SUPABASE  project acme-dev
+  · project    acme-dev         unknown  creator unknown
+  ✓ table      customers        exact    session 8f2a (alice) · ⚠ RLS off: publicly readable
+  ? table      orders           unknown  seen in session b0b5 (bob) only · not confirmed
+  ✓ bucket     customer-files   exact    session 8f2a (alice) · ⚠ public
+```
+
+`✓` is an exact link to a session, `·` is creator unknown, and `?` is a resource seen only in an agent session's output that no provider check has confirmed.
+
+## Use JSON in scripts
+
+Add `--json` to any read command. The output is always a valid Answer, defined in `schema/answer.schema.json` in the repository, so you can pipe it to `jq`.
+
+```bash
+muretto --json | jq '.summary.exposed'
+# 3
+
+muretto exposed --json | jq -c '.findings[] | {severity, rule_id, title}'
+```
+
+```json
+{"severity":"critical","rule_id":"rls_disabled","title":"RLS off: publicly readable"}
+{"severity":"high","rule_id":"public_bucket","title":"public"}
+{"severity":"medium","rule_id":"public_preview","title":"public preview"}
+```
+
+An Answer has these top-level fields: `schema_version`, `generated_at`, `developer`, `summary`, `sessions`, `resources`, `attributions`, `findings`, `costs`, `reviews`, `checks` and `warnings`. See [CLI commands](/cli) for every flag.

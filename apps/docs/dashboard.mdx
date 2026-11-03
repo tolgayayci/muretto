@@ -1,0 +1,118 @@
+---
+title: "Dashboard"
+description: "See your synced agent sessions and resources in the browser at app.muretto.ai."
+icon: "layout-dashboard"
+---
+
+The dashboard is optional. The CLI does everything on its own, with no account. If you want the same answers in a browser, sign the CLI in and turn on sync. The dashboard at [app.muretto.ai](https://app.muretto.ai) then shows what your machines sent.
+
+The dashboard is personal today. You see only your own data. Team features show as "soon" and don't work yet.
+
+## Connect a machine
+
+Login and sync are both off by default. Run these on each machine you code on.
+
+<Steps>
+  <Step title="Sign the CLI in">
+    ```bash
+    muretto login
+    ```
+    The CLI prints a link and a short code. Open the link, sign in with GitHub, check that the page shows the same code, and approve it. Codes last 15 minutes and work once. The CLI stores its token in your OS keychain.
+  </Step>
+  <Step title="Turn on sync">
+    ```bash
+    muretto sync on
+    ```
+    Before it asks you to confirm, it prints every field it will send. Nothing is sent until you say yes. Use `muretto sync on --yes` to confirm without a prompt, for example in CI.
+  </Step>
+</Steps>
+
+After that, every `muretto` command pushes what changed. There is no background process.
+
+```bash
+muretto sync status   # on or off, the server, and the last push
+muretto sync now      # push right away
+```
+
+For the exact field list, see [Privacy and security](/privacy) and [`docs/SYNC_PAYLOAD.md`](https://github.com/tolgayayci/muretto/blob/main/docs/SYNC_PAYLOAD.md).
+
+## A tour of the pages
+
+The sidebar has **Overview**, **My resources**, **Providers** and **Settings**. Under **My sessions** it lists your recent agent sessions. A red dot marks a session that left something open to anyone.
+
+### Overview
+
+The overview starts with four counts:
+
+- **Open to anyone**: things anyone on the internet can reach, like a table anyone can read (RLS off) or a public bucket.
+- **Waiting on you**: things your agents made over 7 days ago that you haven't marked yet.
+- **Made by your agents**: things an agent session created that still exist.
+- **Origin unknown**: things no recorded session made. Muretto still checks them.
+
+Below the counts, each thing that is open to anyone gets a card that says who can reach it and why. **Your recent sessions** lists your latest sessions.
+
+<Frame caption="The overview with sample data: three things open to anyone, all made by session 8f2a.">
+  <img src="/images/dashboard-overview.png" alt="Dashboard overview showing counts for Open to anyone, Waiting on you, Made by your agents and Origin unknown, and cards for customers, customer-files and preview-a81f." />
+</Frame>
+
+### A session
+
+Open a session from the sidebar or the overview. The page shows the session's task title, agent, repo, branch and time. It lists what is open to anyone, then **What it created**. Each resource is tied to the tool call that made it.
+
+<Frame caption="Session 8f2a in acme/web: what it left open to anyone and what it created.">
+  <img src="/images/dashboard-session.png" alt="Session page for 'add customer import with file uploads' showing three things open to anyone and the resources the session created in Supabase and Vercel." />
+</Frame>
+
+### My resources
+
+**My resources** lists everything Muretto has seen, from agent sessions and from before Muretto. Search by name, or filter by provider, project and status: open to anyone, waiting on you, made by your agents, or origin unknown.
+
+### A resource
+
+A resource page shows:
+
+- whether it is open to anyone, who can reach it, why, and how Muretto knows;
+- **Who made it**: the agent session and the tool call that created it, or "Origin unknown";
+- its details: provider, account, name, and when it was created and first and last seen.
+
+**Still need it?** lets you mark a resource **Keep** or **Not needed**. This only records your answer in Muretto. Muretto never changes or deletes anything in your accounts.
+
+<Frame caption="The customers table: anyone can read every row, and session 8f2a made it.">
+  <img src="/images/dashboard-resource.png" alt="Resource page for the customers table showing that anyone can read every row, the session that made it, the agent's own SQL call, and the Keep and Not needed buttons." />
+</Frame>
+
+### Providers
+
+**Providers** shows which providers your machines check and whether each check worked. To connect a provider, run `muretto init` on your machine. See [Providers](/providers).
+
+### Settings
+
+**Settings** shows your account, your machines and when each last synced, and a short list of what is sent and what is never sent. From here you can sign a machine out, or sign out of the dashboard.
+
+## Stop syncing
+
+<Tabs>
+  <Tab title="Turn sync off">
+    ```bash
+    muretto sync off
+    ```
+    Nothing more is sent from this machine. You stay signed in, so `muretto sync on` turns it back on.
+  </Tab>
+  <Tab title="Log out">
+    ```bash
+    muretto logout
+    ```
+    The CLI revokes its token on the server, removes it from your keychain, and turns sync off.
+  </Tab>
+  <Tab title="Sign a machine out">
+    In **Settings**, choose **Sign out** next to a machine. Its CLI token stops working, so it stops syncing. Nothing changes on the machine or in your provider accounts.
+  </Tab>
+</Tabs>
+
+<Note>
+  Data you already sent stays on the server. Turning sync off, logging out or signing a machine out doesn't remove it. Your sessions and decisions stay in the dashboard.
+</Note>
+
+## Self-hosting
+
+The sync API and the dashboard are both in the repository. You can run your own and point the CLI at it with `sync.server` in `~/.muretto/config.json` (the default is `https://api.muretto.ai`). See [`server/README.md`](https://github.com/tolgayayci/muretto/blob/main/server/README.md) for the API and [`apps/dashboard/README.md`](https://github.com/tolgayayci/muretto/blob/main/apps/dashboard/README.md) for the dashboard.
