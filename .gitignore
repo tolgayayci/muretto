@@ -23,8 +23,16 @@ spool/
 .dev.vars*
 .mint/
 .yk/
+# Agent instructions and notes are local only; never commit them.
 .claude/
-apps/*/AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.windsurfrules
+.github/copilot-instructions.md
 
 # Build output
 /bin/
