@@ -202,6 +202,7 @@ code, .mono { font-family: var(--mono); }
 .t-b { color: var(--t-bold); font-weight: 600; }
 .t-d { color: var(--t-dim); }
 .t-r { color: var(--exp); }
+.t-g { color: var(--acc); }
 .t-rb { color: var(--exp-ink); background: var(--exp-wash); box-shadow: 0 0 0 1px var(--exp-line); border-radius: 3px; }
 .t-p { color: var(--acc); }
 .t-k { color: var(--acc); }
@@ -1334,13 +1335,13 @@ footer { border-top: 1px solid var(--line); }
       'Repo: acme/web (feat/import)',
       '',
       '  «b|SUPABASE»  project acme-dev',
-      '  ✓ table      customers        exact   «r|⚠ RLS off: publicly readable»',
-      '  ✓ bucket     customer-files   exact   «r|⚠ public»',
-      '  ✓ function   process-import   exact',
-      '  ✓ branch     import-test      exact   7 days old · review due',
+      '  «g|✓» table      customers        exact   «r|⚠ RLS off: publicly readable»',
+      '  «g|✓» bucket     customer-files   exact   «r|⚠ public»',
+      '  «g|✓» function   process-import   exact',
+      '  «g|✓» branch     import-test      exact   7 days old · review due',
       '',
       '  «b|VERCEL»  project acme-web',
-      '  ✓ deployment preview-a81f     exact   «r|⚠ public preview»',
+      '  «g|✓» deployment preview-a81f     exact   «r|⚠ public preview»',
       '',
       '  «r|3 exposed» · 1 needs review · «d|checked 3 min ago»',
       '  → muretto why customers'
