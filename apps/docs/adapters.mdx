@@ -1,0 +1,177 @@
+---
+title: "Write an adapter"
+description: "Add a provider to Muretto with one folder of YAML, research notes and test fixtures."
+icon: "puzzle"
+sidebarTitle: "Write an adapter"
+---
+
+An adapter teaches Muretto one provider: which read endpoints it may call, which fields it keeps, how to recognize an agent creating something, and what counts as exposed.
+
+A community adapter is one folder with no Go:
+
+```text
+adapters/example/
+  adapter.yaml   the adapter: endpoints, resources, exposure rules
+  research.md    what you found in the provider's docs, with links and dates
+  coverage.md    every resource type the provider has: full, partial or planned
+  testdata/      fake API responses and agent tool calls for the offline tests
+```
+
+An official adapter adds a few small Go changes outside the folder: the provider's secret-returning endpoints go in the broker's deny list (`internal/broker/pinned.go`), and its token formats go in `internal/redact`. Maintainers can make those for you.
+
+## The adapter file
+
+Start from [`adapters/_template/adapter.yaml`](https://github.com/tolgayayci/muretto/blob/main/adapters/_template/adapter.yaml). Here is a minimal one for a provider called `example` that lists projects and their buckets, and flags public buckets:
+
+```yaml
+format: 1
+provider: example                # folder name; resource kinds become example.<kind>
+display_name: Example Cloud
+
+api:
+  base_url: https://api.example.com
+  auth: { header: Authorization, scheme: Bearer }
+
+mcp_servers: [example]           # MCP server names, as in mcp__example__tool
+
+token_help: |                    # printed by `muretto init`
+  Create a read-only API token in Example Cloud: Settings > Tokens > New,
+  with "Projects: read" and "Buckets: read".
+
+endpoints:                       # the only requests Muretto may ever send
+  orgs:
+    path: /v1/orgs
+  projects:
+    path: /v1/projects
+    query: { org: "{account}", per_page: "100" }
+    pagination: { next: meta.next_cursor, param: cursor }
+  buckets:
+    path: /v1/projects/{project}/buckets
+    params: { project: "{parent.id}" }
+    strip: ["buckets[].access_key"]   # dropped before anything sees the body
+
+accounts:
+  endpoint: orgs
+  items: orgs
+  id: "{id}"
+  name: "{name}"
+
+kinds:
+  - kind: project
+    sources:
+      - endpoint: projects
+        items: projects
+        id: "{id}"
+        name: "{name}"
+        created_at: { value: "{created_at}", format: rfc3339 }
+        attributes: [region]       # an allowlist: nothing else is kept
+    match: { value: "{provider_id}" }
+
+  - kind: bucket
+    for_each: project              # one call per project
+    sources:
+      - endpoint: buckets
+        items: buckets
+        id: "{parent.id}/{name}"
+        name: "{name}"
+        attributes:
+          - { name: public, field: public_access }
+    match: { value: "{provider_id}" }
+
+rules:
+  - id: public_bucket
+    kind: bucket
+    severity: high
+    signal: api_field
+    exposed: { field: public, equals: "true" }
+    title: "Public bucket: {name}"
+    explanation: Anyone with a file's URL can download it from bucket {name}.
+    caveat: Signed URLs handed out by the app are not visible to the API.
+
+signatures:                      # how an agent's tool call shows it created a bucket
+  - id: example.cli.buckets_create
+    kind: bucket
+    role: created
+    when: { tool: ^Bash$, command: ['\bexample\s+buckets\s+create\b'] }
+    extract:
+      - from: output
+        pattern: 'Created bucket (?P<name>[a-z0-9-]+) in (?P<project>prj_[a-z0-9]+)'
+        value: "{project}/{name}"
+        container: "{project}"
+
+coverage:
+  - { kind: project, status: full, note: "GET /v1/projects" }
+  - { kind: bucket, status: full, note: "GET /v1/projects/{id}/buckets" }
+```
+
+The decoder is strict: an unknown key fails to load. A few things to know:
+
+- **Pagination** has four styles: `cursor` (the default, shown above), `link` (a `Link` header, like GitHub), `page` and `last_item` (like Stripe's `starting_after`).
+- **Rules are three-valued.** If `exposed` is true the result is exposed; if `not_exposed` is true (by default, "exposed is false") it is not exposed; if a field is missing it is unknown.
+- **Rules only flag.** The `caveat` says what the API can't see. A rule never suggests a change.
+
+[WRITING.md](https://github.com/tolgayayci/muretto/blob/main/adapters/WRITING.md) documents every key, filter and predicate.
+
+## Draft one from an OpenAPI file
+
+If the provider publishes an OpenAPI or Swagger file, download it and let Muretto draft the adapter. It reads the file from disk only.
+
+```bash
+muretto adapter new openapi.json --list       # show candidate resource kinds, write nothing
+mkdir -p adapters/example
+muretto adapter new openapi.json --provider example \
+  -o adapters/example/adapter.yaml --fixtures adapters/example/testdata
+```
+
+The draft comes from the spec alone, so review every line marked `REVIEW`. A spec can't say what the provider's CLI prints or what really makes something exposed, so add CLI signatures and check the suggested rules yourself. Other flags: `--name`, `--base-url`, `--kinds`, `--max-depth`, `--accounts`, `--mcp-server`, `--no-rules`, `--include-deprecated`, `--install`, `--force` and `--json`.
+
+Working from a clone, use `go run ./cmd/muretto` in place of `muretto`.
+
+## Test it offline
+
+Fixtures live in `testdata/`: scan scenarios (`scan/<scenario>/` with `routes.yaml`, `expect.yaml` and JSON bodies) and extract cases (`extract/cases.yaml`). Use obvious fakes such as `example-org` and `prj_EXAMPLE1`. [FIXTURES.md](https://github.com/tolgayayci/muretto/blob/main/adapters/FIXTURES.md) lists the values to use.
+
+<Steps>
+  <Step title="Validate the file">
+    ```bash
+    muretto adapter check adapters/example/adapter.yaml
+    ```
+
+    It prints every request the adapter may send. The broker refuses anything else.
+  </Step>
+  <Step title="Run the fixtures">
+    ```bash
+    make adapter-test P=example
+    ```
+
+    This runs the gate CI runs (`go test ./adapters/`) and `muretto adapter test adapters/example/adapter.yaml --strict`. Tests never touch the network: requests are answered locally. Add `--openapi openapi.json` to `adapter test` for a dry run against the spec.
+  </Step>
+</Steps>
+
+The strict check needs at least one scan scenario and one failure scenario (an endpoint answering 403 or 500), an extract case for every signature, and one case that proves nothing. If an endpoint uses `strip`, a fixture must put `MURETTO_FAKE_SECRET` in those fields.
+
+## Use it on your machine
+
+```bash
+muretto adapter install adapters/example/adapter.yaml   # copies it to ~/.muretto/adapters
+muretto adapter list                                    # built-in and installed adapters
+muretto init                                            # connect a token
+muretto adapter remove example
+```
+
+Installed adapters load after the built-in ones. They can't reuse a built-in provider's name, and they may only use GET.
+
+## Rules that matter
+
+From [STANDARDS.md](https://github.com/tolgayayci/muretto/blob/main/adapters/STANDARDS.md):
+
+- **Read endpoints only.** GET only. List every endpoint that returns secrets or writes under "Never call" in `research.md`, and `strip` every response field that can hold a secret.
+- **Cite the provider's docs.** Every endpoint, field, token permission and CLI or MCP output string in `research.md` has a source link and a date. Nothing invented.
+- **Narrowest token.** `token_help` names the least-privilege token. If the provider has no read-only token, say plainly what the token can do.
+- **No secrets in fixtures.** Fake values only: no real ids, URLs or tokens. CI scans every file for secrets.
+
+## Open a pull request
+
+Use the adapter template: add `?template=adapter.md` to the compare page URL, or copy the checklist from [`.github/PULL_REQUEST_TEMPLATE/adapter.md`](https://github.com/tolgayayci/muretto/blob/main/.github/PULL_REQUEST_TEMPLATE/adapter.md). A pull request with only a YAML file fails CI.
+
+For the full reference, read the [adapter guide](https://github.com/tolgayayci/muretto/blob/main/adapters/README.md) and [WRITING.md](https://github.com/tolgayayci/muretto/blob/main/adapters/WRITING.md).

@@ -1,42 +1,147 @@
 ---
 title: "Providers"
-description: "Which providers Muretto reads, and what it checks for exposure."
+description: "The eight providers Muretto reads, the token each one needs, and what it flags as open to anyone."
+icon: "plug"
 ---
 
-Each provider is a declarative, read-only adapter: one YAML file that lists the GET endpoints Muretto may call, the fields it keeps, how to recognise an agent creating something, and the exposure rules. Adapters live in [`adapters/`](https://github.com/tolgayayci/muretto/tree/main/adapters) in the repository.
+Muretto reads eight providers. For each one it lists what exists, traces each resource to the agent session that created it, and checks what is open to anyone on the internet.
 
-## What Muretto lists
+| Provider | What Muretto lists | Status |
+|---|---|---|
+| **Supabase** | Projects, branches, edge functions, storage buckets, tables | Checked against live accounts |
+| **Vercel** | Projects, deployments, domains, env var names | Checked against live accounts |
+| **GitHub** | Repos, Pages sites, webhooks, deploy keys, environments, Actions variable names, app installations | Built from the documented API, tested offline |
+| **Cloudflare** | R2 buckets, Workers, Pages, D1, KV, zones, DNS records, tunnels | Built from the documented API, tested offline |
+| **Neon** | Projects, branches, computes, databases, roles | Built from the documented API, tested offline |
+| **Stripe** | Webhook endpoints, products, prices, payment links, customer portal settings | Built from the documented API, tested offline |
+| **Render** | Services, Postgres, Key Value, custom domains, Blueprints | Built from the documented API, tested offline |
+| **PlanetScale** | Databases, branches, passwords, Postgres roles, deploy requests | Built from the documented API, tested offline |
 
-| Provider | Resources |
-|---|---|
-| **Supabase** | Projects, branches, edge functions, storage buckets; tables (agent-created and advisor-flagged, or all of them with an opt-in) |
-| **Vercel** | Projects, deployments (preview URLs), domains, env var names |
-| **GitHub** ¹ | Repos, Pages sites, repo and org webhooks, deploy keys, environments, Actions variable names, org app installations |
-| **Cloudflare** ¹ | R2 buckets and custom domains, Workers, Pages projects and deployments, D1, KV, zones, DNS records, tunnels and their routes |
-| **Neon** ¹ | Projects, branches, computes, databases (with Data API state), roles |
-| **Stripe** ¹ | Webhook endpoints, products, prices, payment links, billing portal configurations; live and test as separate accounts |
-| **Render** ¹ | Services, Postgres, Key Value, custom domains, Blueprints, env groups (opt-in) |
-| **PlanetScale** ¹ | Databases, branches, passwords, Postgres roles, deploy requests |
+Supabase and Vercel were checked against real accounts. The other six were built from each provider's documented API and pass their tests offline, but nobody has run them against a live account yet.
 
-¹ Built against each provider's documented API and tested offline. Not yet checked against a live account.
+## How tokens and checks work
 
-## Exposure checks
+- `muretto init` asks for one token per provider and prints the steps below. It stores each token in your OS keychain. You can set `MURETTO_<PROVIDER>_TOKEN` instead, for example `MURETTO_NEON_TOKEN`; then nothing is stored.
+- Create the narrowest token the steps describe. Some providers have no read-only token, and the steps say so. Either way, Muretto only sends the read requests listed in the adapter.
+- Most exposure checks flag something open to anyone on the internet. A few flag weaker protection, such as a password that never expires.
+- Every exposure check has three results: **exposed**, **not exposed** or **unknown**. If a check could not run, for example because the token lacks a permission, the result is unknown. Muretto never reports "not exposed" for a check that didn't run.
 
-- **Supabase:** tables readable with the public key (through Supabase's own security advisor), public buckets.
-- **Vercel:** public preview deployments, client-exposed env vars that look secret.
-- **GitHub:** public repos, public Pages on private repos, webhooks without SSL verification, writable deploy keys.
-- **Cloudflare:** public r2.dev buckets, Workers on workers.dev, tunnels routed to localhost or admin ports.
-- **Neon:** databases exposed through the Data API.
-- **Stripe:** live webhooks pointed at temporary preview or tunnel hosts.
-- **Render:** Postgres and Key Value open to `0.0.0.0/0`.
-- **PlanetScale:** admin passwords that never expire, production branches without safe migrations.
+To see every resource type a provider has, including the ones Muretto doesn't list yet, run:
 
-Each check gives `exposed`, `not exposed` or `unknown`. If a check could not run, the result is `unknown`, never `not exposed`.
+```bash
+muretto providers --coverage
+```
 
-Run `muretto providers --coverage` for the full matrix, including what is planned.
+## Provider details
 
-## Your own API
+<AccordionGroup>
+  <Accordion title="Supabase" icon="database">
+    **Token.** Create a scoped personal access token: **Account > Access tokens > Generate new token**, scoped to your organization. Give it **Read** access only, to Projects, Organizations, Organization Projects, Project Settings, Development Branches, Production Branches, Edge Functions, Storage and Advisors. Don't grant Database, Data API JWT Secret, API Key Secrets, Edge Function Secrets, Auth Config, or any read-write permission. A legacy full-access token also works, but it can change everything.
 
-Have an OpenAPI file for another service? `muretto adapter new <openapi-file>` drafts an adapter from it. Check it with `muretto adapter check`, and use it locally with `muretto adapter install`. Installed adapters can only add GET endpoints for their own host.
+    **Lists.** Projects, branches (paid plans), edge functions, storage buckets, and tables that agent sessions created or that Supabase's security advisor flags.
 
-To contribute an official adapter, read the [adapter guide](https://github.com/tolgayayci/muretto/blob/main/adapters/README.md).
+    **Exposure checks.**
+    - A table anyone with the project's public key can read (RLS off), as reported by Supabase's security advisor.
+    - A public storage bucket, such as `customer-files`, whose files anyone can download with a path.
+
+    **Opt-in.** `muretto init` offers to list every table and its RLS state with one fixed, read-only catalog query. That needs the **Database (Read)** and **Data API Config (Read)** permissions, and Database (Read) can read every row of every table. It is off by default. Analytics and vector buckets are not listed.
+  </Accordion>
+
+  <Accordion title="Vercel" icon="triangle">
+    **Token.** Create a team-scoped token at **vercel.com/account/tokens > Create**, scope: your team (all projects), with a short expiration. Vercel has no read-only token: this token can read and write everything in that team. A project-scoped token is narrower but hides team-level domains.
+
+    **Lists.** Projects, deployments with their preview URLs, team and project domains, and env var names. Muretto never reads env var values.
+
+    **Exposure checks.**
+    - A preview deployment, such as `preview-a81f`, whose project has Vercel Authentication, Password Protection and Trusted IPs all off for previews.
+    - An env var with a public framework prefix (`NEXT_PUBLIC_`, `VITE_` and similar) whose name looks like a secret, or that Vercel flags as a readable secret. Its value ends up in code anyone can read.
+
+    **Can't see.** Protection exceptions, shareable links and bypass secrets are not visible to the API.
+  </Accordion>
+
+  <Accordion title="GitHub" icon="github">
+    **Token.** Create a fine-grained personal access token: **Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token**. Pick one resource owner (your account or one organization), all repositories or the ones to scan, and 30 days or less. Set these repository permissions to **Read-only**: Metadata, Administration, Pages, Webhooks, Variables and Actions. Organization owners can also add Webhooks and Administration as organization permissions. Don't use a classic token: the `repo` scope it needs can write to every repository you can access.
+
+    **Lists.** Repos, Pages sites, repo and organization webhooks, deploy keys, environments, Actions variable names, and organization app installations.
+
+    **Exposure checks.**
+    - A public repo.
+    - A public Pages site on a private or internal repo.
+    - A Pages site without enforced HTTPS.
+    - A webhook that delivers without checking TLS certificates (`insecure_ssl`).
+    - A deploy key that can push.
+    - An Actions variable whose name looks like a secret. Variables are stored in plain text.
+
+    **Can't see.** Organization webhooks and installations need an organization owner's token. Webhook URLs and secrets are dropped, so Muretto can't say where a hook delivers.
+  </Accordion>
+
+  <Accordion title="Cloudflare" icon="cloud">
+    **Token.** Create an Account API token: **Manage Account > Account API Tokens > Create Token > Custom token**, with a short TTL. Add these **Read** permissions: Account Settings, Workers R2 Storage, Workers Scripts, Workers KV Storage, D1, Cloudflare Pages, Cloudflare Tunnel, Zone, and DNS. Include only the account to scan, and all zones in it. These permissions are read-only, but they can still read R2 objects, KV values, Worker source and Pages env vars. Muretto never calls those endpoints.
+
+    **Lists.** R2 buckets and their custom domains, Workers, Pages projects and deployments, D1 databases, KV namespaces, zones, DNS records, tunnels and their routes.
+
+    **Exposure checks.**
+    - An R2 bucket public on its `r2.dev` address, or still on `r2.dev` beside a custom domain.
+    - A Worker, or its preview URLs, on `workers.dev`.
+    - A tunnel route that publishes a localhost service, or an admin or database port, without Cloudflare Access in the tunnel configuration.
+
+    **Can't see.** Buckets in the `eu` or `fedramp` jurisdictions, locally managed tunnels (`config.yml` on the host), and Cloudflare Access applications.
+  </Accordion>
+
+  <Accordion title="Neon" icon="database-zap">
+    **Token.** Neon has no read-only API key. The narrowest setup: invite a separate user to your organization with the **Viewer** role (**Organization > People > Invite**). As that user, create a personal key in **Account settings > API keys**. A Viewer can read metadata but can't see connection strings or run SQL. It can still create new projects of its own. Organization keys and project-scoped keys also work, but they can change your projects.
+
+    **Lists.** Projects, branches, computes, databases with their Data API state, and roles.
+
+    **Exposure checks.**
+    - A database with the Data API turned on, reachable over HTTPS.
+    - A project with no IP allow list that accepts connections from any IP. This check runs only on plans that offer IP Allow.
+    - A compute still running on a branch older than seven days with no expiry.
+
+    **Can't see.** Table grants and RLS: Neon's API has no SQL endpoint.
+  </Accordion>
+
+  <Accordion title="Stripe" icon="credit-card">
+    **Token.** Create a restricted key at **dashboard.stripe.com/apikeys > Create restricted key**, starting from no permissions. Set **Read** on Webhook Endpoints, Products, Prices, Payment Links and Customer portal, plus the account read Stripe asks for. Leave everything else at None. Test and live mode have separate keys and data, so connect each one as its own account.
+
+    **Lists.** Webhook endpoints, products, prices, payment links and customer portal settings.
+
+    **Exposure checks.**
+    - A live webhook pointed at a temporary host, such as a tunnel or a preview deployment.
+    - A live webhook subscribed to every event.
+    - An active live payment link, which takes real payments from anyone who has the URL.
+    - Live-mode products and active prices, as inventory.
+
+    **Can't see.** Whether a webhook host still answers or checks signatures, and where a payment link was shared.
+  </Accordion>
+
+  <Accordion title="Render" icon="server">
+    **Token.** Create a scoped API key (early access) in **Account Settings > API Keys > Create API key**, for one workspace. Grant **Read** on exactly: Services ("Web and private services, static sites, background workers, and cron jobs"), Postgres ("Postgres"), Key Value ("Key Value") and Blueprints. Don't grant the env var, connection details, credentials or backup rows. Without scoped keys, a classic key can read and write everything in every workspace you belong to.
+
+    **Lists.** Services of every type, Postgres, Key Value, custom domains and Blueprints.
+
+    **Exposure checks.**
+    - Postgres or Key Value whose IP allow list covers every address (`0.0.0.0/0`).
+    - A free Postgres database that expires within seven days.
+
+    **Opt-in.** Environment group names (`env_groups`), off by default. The Render permission it needs can also read the groups' secret values.
+  </Accordion>
+
+  <Accordion title="PlanetScale" icon="database">
+    **Token.** Create a service token: **Settings > Service tokens > New service token**. Copy the ID and the token, then **Edit token permissions**. Grant only `read_organization` and `read_databases` for the organization, and `read_database`, `read_branch` and `read_deploy_request` for each database (or all databases). Paste it into `muretto init` as `<SERVICE_TOKEN_ID>:<SERVICE_TOKEN>`. With these grants the token can't change anything or read password values.
+
+    **Lists.** Databases, branches, passwords (names and roles, never values), Postgres roles, and deploy requests.
+
+    **Exposure checks.**
+    - A password usable from any IP (no IP restrictions).
+    - An admin password or admin Postgres role that never expires.
+    - A password older than 30 days with no expiry.
+    - A production branch without safe migrations.
+
+    **Can't see.** Where a password is stored or who holds it.
+  </Accordion>
+</AccordionGroup>
+
+## Another provider
+
+Any API with an OpenAPI file can get an adapter. See [Write an adapter](/adapters).
